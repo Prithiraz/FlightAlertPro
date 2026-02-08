@@ -21,7 +21,7 @@ async def system_check() -> Dict[str, Any]:
 
     # Check 1: Airports metadata
     try:
-        from backend.routes.metadata import AIRPORTS_ALL
+        from metadata import AIRPORTS_ALL
         airport_count = len(AIRPORTS_ALL)
         if airport_count > 0:
             checks['airports'] = {
@@ -46,7 +46,7 @@ async def system_check() -> Dict[str, Any]:
 
     # Check 2: Airlines metadata
     try:
-        from backend.routes.metadata import AIRLINES
+        from metadata import AIRLINES
         airline_count = len(AIRLINES)
         if airline_count > 0:
             checks['airlines'] = {
