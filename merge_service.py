@@ -1,8 +1,8 @@
 import asyncio
 import logging
 from typing import List, Dict, Any
-from backend.services.duffel_service import duffel_service
-from backend.services.rapidapi_adapters import aerodatabox_adapter, airscraper_adapter, flightapi_adapter
+from duffel_service import duffel_service
+from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter, flightapi_adapter
 
 logger = logging.getLogger(__name__)
 

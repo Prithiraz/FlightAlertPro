@@ -4,7 +4,7 @@ import secrets
 import hashlib
 from typing import Optional
 from supabase import create_client
-from backend.config import config
+from config import config
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])

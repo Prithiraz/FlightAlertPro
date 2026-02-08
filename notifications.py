@@ -1,9 +1,9 @@
 import logging
 from typing import List, Optional
 from datetime import datetime
-from backend.services.ycloud_whatsapp import ycloud_whatsapp_service
-from backend.services.email_service import email_service
-from backend.services.telegram_service import telegram_service
+from ycloud_whatsapp import ycloud_whatsapp_service
+from email_service import email_service
+from telegram_service import telegram_service
 
 logger = logging.getLogger(__name__)
 

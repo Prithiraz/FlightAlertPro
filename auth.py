@@ -4,8 +4,8 @@ import secrets
 import time
 from jose import jwt
 from datetime import datetime, timedelta
-from backend.config import config
-from backend.services.email_service import email_service
+from config import config
+from email_service import email_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])

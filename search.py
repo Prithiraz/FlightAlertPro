@@ -8,8 +8,8 @@ import logging
 import hashlib
 import time
 
-from backend.services.rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
-from backend.services.duffel_service import duffel_service
+from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
+from duffel_service import duffel_service
 
 logger = logging.getLogger(__name__)
 

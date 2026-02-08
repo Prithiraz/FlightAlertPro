@@ -3,7 +3,7 @@ from typing import Dict, List
 import logging
 from datetime import datetime, timedelta
 from supabase import create_client
-from backend.config import config
+from config import config
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])

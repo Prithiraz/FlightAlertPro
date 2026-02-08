@@ -71,7 +71,7 @@ async def system_check() -> Dict[str, Any]:
 
     # Check 3: Currency conversion
     try:
-        from backend.services.currency_service import currency_service
+        from currency_service import currency_service
         result = currency_service.convert(100, 'USD', 'EUR')
         if result and result != 100:
             checks['currency'] = {
@@ -96,9 +96,9 @@ async def system_check() -> Dict[str, Any]:
 
     # Check 4: Search endpoint (test with sample data)
     try:
-        from backend.services.duffel_service import duffel_service
-        from backend.services.aerodatabox_service import aerodatabox_service
-        from backend.services.airscraper_service import airscraper_service
+        from duffel_service import duffel_service
+        from aerodatabox_service import aerodatabox_service
+        from airscraper_service import airscraper_service
 
         enabled_providers = []
         if duffel_service.enabled:
@@ -191,7 +191,7 @@ async def system_check() -> Dict[str, Any]:
 
     # Check 6: Alerts (database check)
     try:
-        from backend.config import config
+        from config import config
         test_user = os.getenv('SYSTEMCHECK_TEST_USER')
 
         if config.SUPABASE_URL and config.SUPABASE_KEY:

@@ -1,7 +1,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import os
-from backend.config import config
+from config import config
 
 def setup_logging():
     log_level = getattr(logging, config.LOG_LEVEL.upper(), logging.INFO)

@@ -1,6 +1,6 @@
 import logging
-from backend.services.payments import payments_service
-from backend.utils.logging_config import setup_logging
+from payments import payments_service
+from logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
