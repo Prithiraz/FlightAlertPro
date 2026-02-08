@@ -113,6 +113,7 @@ class AlertWorker:
         try:
             # Import search functionality
             import asyncio
+            from datetime import timezone
             from backend.search import search_flights, SearchRequest, FlightSegment, PassengerCount
             
             # Build search request
@@ -145,7 +146,7 @@ class AlertWorker:
                 logger.info(f"No offers found for alert {alert_id}")
                 return
             
-            # Find lowest price
+            # Find lowest price (offers list is guaranteed non-empty here)
             lowest_price = min(offer['price'] for offer in offers)
             logger.info(f"Alert {alert_id}: Lowest price found: {lowest_price} {currency}")
             
@@ -188,29 +189,11 @@ class AlertWorker:
             
             # Update triggered_at and last_triggered_price
             update_data = {
-                'triggered_at': datetime.utcnow().isoformat(),
+                'triggered_at': datetime.now(timezone.utc).isoformat(),
                 'last_triggered_price': lowest_price
             }
             
             supabase.table('price_alerts').update(update_data).eq('id', alert_id).execute()
-            
-            # Log notification to notification_log table
-            if notification_result.get('sent'):
-                for sent in notification_result['sent']:
-                    try:
-                        log_entry = {
-                            'channel': sent.get('channel'),
-                            'provider': sent.get('provider', 'unknown'),
-                            'provider_message_id': sent.get('message_id'),
-                            'status': 'sent',
-                            'message_content': f"Price alert: {route} - {lowest_price} {currency}",
-                            'sent_at': notification_result.get('timestamp')
-                        }
-                        # Note: notification_log requires user_id, but we only have user_email
-                        # Skip logging to notification_log for now, or we'd need to look up user_id
-                        # supabase.table('notification_log').insert(log_entry).execute()
-                    except Exception as log_error:
-                        logger.error(f"Failed to log notification: {str(log_error)}")
             
             logger.info(f"Alert {alert_id}: Processing completed successfully")
             

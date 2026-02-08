@@ -18,6 +18,6 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'price_alerts' AND column_name = 'last_triggered_price'
   ) THEN
-    ALTER TABLE price_alerts ADD COLUMN last_triggered_price numeric;
+    ALTER TABLE price_alerts ADD COLUMN last_triggered_price numeric(10,2);
   END IF;
 END $$;
