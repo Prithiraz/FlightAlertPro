@@ -43,3 +43,4 @@ logs/
 # Symlinks created for module structure
 backend
 services
+FlightAlertPro
