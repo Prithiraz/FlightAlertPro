@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from backend.config import config
-from backend.services.cache import cache_service
-from backend.services.notifications import notification_service
+from backend.cache import cache_service
+from backend.notifications import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class AlertWorker:
         try:
             # Import search functionality
             import asyncio
-            from backend.routes.search import search_flights, SearchRequest, FlightSegment, PassengerCount
+            from backend.search import search_flights, SearchRequest, FlightSegment, PassengerCount
             
             # Build search request
             if not departure_date:
@@ -232,7 +232,7 @@ class AlertWorker:
         self.scheduler.start()
 
 if __name__ == "__main__":
-    from backend.utils.logging_config import setup_logging
+    from backend.logging_config import setup_logging
     setup_logging()
 
     worker = AlertWorker()
