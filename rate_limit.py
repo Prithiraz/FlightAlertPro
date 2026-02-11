@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
-from backend.services.rate_limiter import rate_limiter
+from rate_limiter import rate_limiter
 
 logger = logging.getLogger(__name__)
 

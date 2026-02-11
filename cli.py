@@ -1,10 +1,10 @@
 import asyncio
 import logging
 from datetime import datetime
-from backend.services.merge_service import merge_service
-from backend.services.exchange_rates import exchange_rate_service
-from backend.ai.price_prediction import create_predictor
-from backend.utils.logging_config import setup_logging
+from merge_service import merge_service
+from exchange_rates import exchange_rate_service
+from price_prediction import create_predictor
+from logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)

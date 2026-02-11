@@ -1,7 +1,7 @@
 import logging
 import statistics
 from typing import List, Dict, Optional, Tuple
-from backend.config import config
+from config import config
 
 logger = logging.getLogger(__name__)
 

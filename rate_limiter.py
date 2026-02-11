@@ -1,8 +1,8 @@
 import time
 import logging
 from typing import Optional
-from backend.config import config
-from backend.services.cache import cache_service
+from config import config
+from cache import cache_service
 
 logger = logging.getLogger(__name__)
 

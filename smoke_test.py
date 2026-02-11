@@ -1,13 +1,13 @@
 import asyncio
 import logging
 from datetime import datetime
-from backend.services.merge_service import merge_service
-from backend.services.exchange_rates import exchange_rate_service
-from backend.ai.price_prediction import create_predictor
-from backend.services.ycloud_whatsapp import ycloud_whatsapp_service
-from backend.services.email_service import email_service
-from backend.utils.logging_config import setup_logging
-from backend.config import config
+from merge_service import merge_service
+from exchange_rates import exchange_rate_service
+from price_prediction import create_predictor
+from ycloud_whatsapp import ycloud_whatsapp_service
+from email_service import email_service
+from logging_config import setup_logging
+from config import config
 
 setup_logging()
 logger = logging.getLogger(__name__)

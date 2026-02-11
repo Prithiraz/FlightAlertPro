@@ -2,7 +2,7 @@ import logging
 import time
 from typing import Optional, Any
 from collections import OrderedDict
-from backend.config import config
+from config import config
 
 logger = logging.getLogger(__name__)
 

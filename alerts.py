@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from supabase import create_client, Client
-from backend.config import config
+from config import config
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 
 # Initialize Supabase client
-supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
+supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
 
 class CreateAlertRequest(BaseModel):
     user_email: EmailStr

@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException
 import logging
 import json
 from supabase import create_client
-from backend.config import config
-from backend.services.email_service import email_service
+from config import config
+from email_service import email_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/data", tags=["gdpr"])

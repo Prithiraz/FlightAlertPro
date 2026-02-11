@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, Header
 from typing import Optional
 import logging
-from backend.services.payments import payments_service
+from payments import payments_service
 
 logger = logging.getLogger(__name__)
 

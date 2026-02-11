@@ -6,18 +6,22 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
 
-from backend.config import config
-from backend.utils.secrets import secrets_manager
-from backend.services.duffel_service import duffel_service
-from backend.services.aerodatabox_service import aerodatabox_service
-from backend.services.airscraper_service import airscraper_service
-from backend.services.currency_service import currency_service
-from backend.services.prediction_service import prediction_service
-from backend.services.notifications import notification_service
-from backend.services.stripe_service import stripe_service
+from config import config
+from secrets import secrets_manager
+from duffel_service import duffel_service
+from aerodatabox_service import aerodatabox_service
+from airscraper_service import airscraper_service
+from currency_service import currency_service
+from prediction_service import prediction_service
+from notifications import notification_service
+from stripe_service import stripe_service
 
 # Import new routes
-from backend.routes import metadata, search, currency as currency_routes, alerts, payments, systemcheck
+from metadata import router as metadata_router
+from search import router as search_router
+from currency import router as currency_router
+from alerts import router as alerts_router
+from systemcheck import router as systemcheck_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -43,12 +47,11 @@ app.add_middleware(
 )
 
 # Include new routers
-app.include_router(metadata.router)
-app.include_router(search.router)
-app.include_router(currency_routes.router)
-app.include_router(alerts.router)
-app.include_router(payments.router)
-app.include_router(systemcheck.router)
+app.include_router(metadata_router)
+app.include_router(search_router)
+app.include_router(currency_router)
+app.include_router(alerts_router)
+app.include_router(systemcheck_router)
 
 class SearchRequest(BaseModel):
     from_iata: str
@@ -91,8 +94,8 @@ async def health_check():
 
 @app.get("/health/integrations")
 async def integrations_health():
-    from backend.services.payments import payments_service
-    from backend.services.ycloud_whatsapp import ycloud_whatsapp_service
+    from payments import payments_service
+    from ycloud_whatsapp import ycloud_whatsapp_service
 
     integrations = {
         "duffel": {"enabled": duffel_service.enabled, "status": "ok" if duffel_service.enabled else "disabled"},

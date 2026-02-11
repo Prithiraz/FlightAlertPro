@@ -3,9 +3,9 @@ import time
 from datetime import datetime, timedelta
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from backend.config import config
-from backend.cache import cache_service
-from backend.notifications import notification_service
+from config import config
+from cache import cache_service
+from notifications import notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class AlertWorker:
             # Import search functionality
             import asyncio
             from datetime import timezone
-            from backend.search import search_flights, SearchRequest, FlightSegment, PassengerCount
+            from search import search_flights, SearchRequest, FlightSegment, PassengerCount
             
             # Build search request
             if not departure_date:
@@ -215,7 +215,7 @@ class AlertWorker:
         self.scheduler.start()
 
 if __name__ == "__main__":
-    from backend.logging_config import setup_logging
+    from logging_config import setup_logging
     setup_logging()
 
     worker = AlertWorker()

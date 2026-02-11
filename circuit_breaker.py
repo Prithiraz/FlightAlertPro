@@ -1,7 +1,7 @@
 import time
 import logging
 from typing import Dict
-from backend.services.cache import cache_service
+from cache import cache_service
 
 logger = logging.getLogger(__name__)
 

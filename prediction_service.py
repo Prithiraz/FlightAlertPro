@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import statistics
-from backend.config import config
+from config import config
 
 logger = logging.getLogger(__name__)
 

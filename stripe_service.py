@@ -1,15 +1,15 @@
 import stripe
 import logging
 from typing import Optional, Dict
-from backend.config import config
+from config import config
 
 logger = logging.getLogger(__name__)
 
 class StripeService:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or config.STRIPE_SECRET_KEY
-        self.webhook_secret = config.STRIPE_WEBHOOK_SECRET
-        self.price_id = config.STRIPE_PRICE_PRO
+        self.webhook_secret = config.STRIPE_WEBHOOK_KEY
+        self.price_id = config.PRO_PLAN_PRICE_ID
         self.enabled = self.api_key is not None
 
         if self.enabled:

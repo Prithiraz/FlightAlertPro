@@ -9,7 +9,7 @@ sys.path.insert(0, '/home/runner/work/FlightAlertPro')
 
 import logging
 from datetime import datetime
-from backend.worker import AlertWorker
+from worker import AlertWorker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
