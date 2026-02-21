@@ -4,6 +4,8 @@ import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
+import Dashboard from './pages/Dashboard';
 import Search from './pages/Search';
 import Alerts from './pages/Alerts';
 
@@ -37,7 +39,16 @@ function App() {
         <Routes>
           <Route
             path="/"
-            element={user ? <Navigate to="/search" replace /> : <Login />}
+            element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+          />
+          <Route path="/reset" element={<ResetPassword />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/search"

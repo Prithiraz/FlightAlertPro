@@ -1,4 +1,26 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// Default to the same host but on port 8000 (Codespaces-friendly fallback)
+const _defaultBase = (() => {
+  const url = new URL(window.location.href);
+  url.port = '8000';
+  return url.origin;
+})();
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || _defaultBase;
+
+export async function apiFetch(path, options = {}) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
 
 async function request(method, path, body) {
   const options = {
