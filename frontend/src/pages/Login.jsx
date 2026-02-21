@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -15,18 +17,37 @@ export default function Login() {
     setError('');
     setMessage('');
 
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin + '/search',
-      },
-    });
-
-    setLoading(false);
-    if (err) {
-      setError(err.message);
+    if (isSignUp) {
+      const { error: err } = await supabase.auth.signUp({ email, password });
+      setLoading(false);
+      if (err) {
+        setError(err.message);
+      } else {
+        setMessage('Account created! Check your email to confirm, then log in.');
+      }
     } else {
-      setMessage('Check your email for the magic link!');
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
+      if (err) {
+        setError(err.message);
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      alert('Please enter your email address first.');
+      return;
+    }
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset',
+    });
+    if (err) {
+      alert(err.message);
+    } else {
+      alert('Reset email sent. Check your inbox.');
     }
   };
 
@@ -34,7 +55,9 @@ export default function Login() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>✈️ FlightAlertPro</h1>
-        <p style={styles.subtitle}>Sign in to search flights and manage alerts</p>
+        <p style={styles.subtitle}>
+          {isSignUp ? 'Create an account' : 'Sign in to search flights and manage alerts'}
+        </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <label style={styles.label} htmlFor="email">Email address</label>
@@ -48,15 +71,36 @@ export default function Login() {
             style={styles.input}
           />
 
+          <label style={styles.label} htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Your password"
+            required
+            minLength={6}
+            style={styles.input}
+          />
+
           {error && <p style={styles.error}>{error}</p>}
           {message && <p style={styles.success}>{message}</p>}
 
           <button type="submit" disabled={loading} style={styles.button}>
-            {loading ? 'Sending...' : 'Send Magic Link'}
+            {loading ? 'Please wait...' : isSignUp ? 'Sign Up' : 'Log In'}
           </button>
         </form>
 
-        <p style={styles.hint}>No password needed — we'll email you a sign-in link.</p>
+        <div style={styles.links}>
+          <button onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }} style={styles.linkBtn}>
+            {isSignUp ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
+          </button>
+          {!isSignUp && (
+            <button onClick={handleForgotPassword} style={styles.linkBtn}>
+              Forgot password?
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -128,9 +172,20 @@ const styles = {
     fontSize: '0.875rem',
     margin: 0,
   },
-  hint: {
-    marginTop: '1.5rem',
-    color: '#9ca3af',
-    fontSize: '0.8rem',
+  links: {
+    marginTop: '1.25rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+    alignItems: 'center',
+  },
+  linkBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#1d4ed8',
+    cursor: 'pointer',
+    fontSize: '0.875rem',
+    textDecoration: 'underline',
+    padding: 0,
   },
 };
