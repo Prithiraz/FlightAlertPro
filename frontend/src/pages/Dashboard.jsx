@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
@@ -9,6 +9,20 @@ const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user: u } }) => {
+      if (!u) navigate('/');
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) navigate('/');
+    });
+
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
+  }, [navigate]);
 
   const [form, setForm] = useState({
     from_iata: '',
