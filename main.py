@@ -53,7 +53,7 @@ app.include_router(currency_router)
 app.include_router(alerts_router)
 app.include_router(systemcheck_router)
 
-class SearchRequest(BaseModel):
+class SimpleSearchRequest(BaseModel):
     from_iata: str
     to_iata: str
     departure_date: str
@@ -113,8 +113,8 @@ async def integrations_health():
 
     return JSONResponse(content=integrations, status_code=status_code)
 
-@app.post("/api/search")
-async def search_flights(request: SearchRequest):
+@app.post("/api/search/simple")
+async def search_flights_simple(request: SimpleSearchRequest):
     logger.info(f"Flight search: {request.from_iata} -> {request.to_iata}")
 
     all_offers = []
@@ -209,11 +209,14 @@ async def send_notification(user_email: str, message: str, channels: List[str],
     return result
 
 @app.post("/api/payments/checkout")
-async def create_checkout(user_email: str, success_url: str, cancel_url: str):
+async def create_checkout(user_email: str, success_url: str, cancel_url: str, plan: str = "pro"):
     if not stripe_service.enabled:
         raise HTTPException(status_code=503, detail="Payment service unavailable")
 
-    session = stripe_service.create_checkout_session(user_email, success_url, cancel_url)
+    if plan not in {"pro", "elite", "business"}:
+        raise HTTPException(status_code=400, detail="Invalid plan. Must be one of: pro, elite, business")
+
+    session = stripe_service.create_checkout_session(user_email, plan, success_url, cancel_url)
 
     if not session:
         raise HTTPException(status_code=500, detail="Failed to create checkout session")

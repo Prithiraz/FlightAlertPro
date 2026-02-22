@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
-import { apiFetch } from '../lib/api';
+import { searchFlights } from '../lib/api';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -61,12 +61,9 @@ export default function Dashboard() {
         payload.return_date = form.return_date;
       }
 
-      const data = await apiFetch('/api/search', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+      const data = await searchFlights(payload);
 
-      const offers = Array.isArray(data) ? data : data.results ?? [];
+      const offers = Array.isArray(data) ? data : (data.offers ?? data.results ?? []);
       setResults([...offers].sort((a, b) => (a.price ?? 0) - (b.price ?? 0)));
     } catch (err) {
       setError(err.message || 'Search failed');
@@ -201,8 +198,8 @@ export default function Dashboard() {
                     <span style={styles.arrow}> → </span>
                     <span style={styles.iata}>{offer.to_iata}</span>
                   </div>
-                  {offer.provider && (
-                    <div style={styles.meta}>Provider: {offer.provider}</div>
+                  {(offer.source || offer.provider) && (
+                    <div style={styles.meta}>Provider: {offer.source || offer.provider}</div>
                   )}
                   <div style={styles.price}>
                     {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}

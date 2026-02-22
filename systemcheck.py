@@ -194,18 +194,20 @@ async def system_check() -> Dict[str, Any]:
         from config import config
         test_user = os.getenv('SYSTEMCHECK_TEST_USER')
 
-        if config.SUPABASE_URL and config.SUPABASE_KEY:
+        if config.SUPABASE_URL and config.SUPABASE_ANON_KEY:
             if test_user:
                 # Attempt to create a test alert
                 from supabase import create_client
-                supabase = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
+                supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
 
                 test_alert = {
                     'user_email': test_user,
                     'from_iata': 'LAX',
                     'to_iata': 'JFK',
                     'max_price': 999.99,
-                    'channels': ['email']
+                    'currency': 'USD',
+                    'notification_channels': ['email'],
+                    'active': True
                 }
 
                 result = supabase.table('price_alerts').insert(test_alert).execute()
@@ -237,7 +239,7 @@ async def system_check() -> Dict[str, Any]:
             checks['alerts'] = {
                 'status': 'fail',
                 'message': 'Database not configured',
-                'details': 'Supabase URL or key missing'
+                'details': 'Supabase URL or anon key missing'
             }
             overall_ok = False
     except Exception as e:
