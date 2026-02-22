@@ -1,6 +1,7 @@
 """Price alerts management with Supabase"""
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field, EmailStr
+from pydantic.functional_validators import model_validator
 from typing import List, Optional
 from supabase import create_client, Client
 from config import config
@@ -22,6 +23,16 @@ class CreateAlertRequest(BaseModel):
     departure_date: Optional[str] = None
     notification_channels: List[str] = Field(default=["email"])
     phone: Optional[str] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def coerce_channels(cls, data):
+        # Accept legacy "channels" field as an alias for notification_channels
+        if isinstance(data, dict):
+            if 'channels' in data and 'notification_channels' not in data:
+                data = dict(data)
+                data['notification_channels'] = data.pop('channels')
+        return data
 
 @router.post("/create", status_code=201)
 async def create_alert(alert: CreateAlertRequest):
@@ -58,6 +69,8 @@ async def create_alert(alert: CreateAlertRequest):
         else:
             raise HTTPException(status_code=500, detail="Failed to create alert")
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to create alert: {e}")
         raise HTTPException(status_code=500, detail=f"Alert creation failed: {str(e)}")

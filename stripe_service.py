@@ -15,24 +15,34 @@ class StripeService:
         if self.enabled:
             stripe.api_key = self.api_key
 
-    def create_checkout_session(self, user_email: str, success_url: str,
+    def create_checkout_session(self, user_email: str, plan: str, success_url: str,
                                cancel_url: str) -> Optional[Dict]:
         if not self.enabled:
             logger.warning("Stripe not configured")
             return None
+
+        plan_price_map = {
+            'pro': config.PRO_PLAN_PRICE_ID,
+            'elite': config.ELITE_PLAN_PRICE_ID,
+            'business': config.BUSINESS_PLAN_PRICE_ID,
+        }
+        if plan not in plan_price_map:
+            logger.error(f"Unknown plan: {plan}")
+            return None
+        price_id = plan_price_map[plan]
 
         try:
             session = stripe.checkout.Session.create(
                 customer_email=user_email,
                 payment_method_types=['card'],
                 line_items=[{
-                    'price': self.price_id,
+                    'price': price_id,
                     'quantity': 1,
                 }],
                 mode='subscription',
                 success_url=success_url,
                 cancel_url=cancel_url,
-                metadata={'user_email': user_email}
+                metadata={'user_email': user_email, 'plan': plan}
             )
 
             logger.info(f"Checkout session created for {user_email}: {session.id}")

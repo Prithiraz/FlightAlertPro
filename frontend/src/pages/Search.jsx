@@ -43,8 +43,8 @@ export default function Search() {
 
       const data = await searchFlights(payload);
 
-      // Support both { results: [...] } and a plain array
-      const offers = Array.isArray(data) ? data : data.results ?? [];
+      // Support { offers: [...] }, { results: [...] }, or a plain array
+      const offers = Array.isArray(data) ? data : (data.offers ?? data.results ?? []);
       const sorted = [...offers].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
       setResults(sorted);
     } catch (err) {

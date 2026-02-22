@@ -11,7 +11,7 @@ const emptyForm = {
   max_price: '',
   currency: 'USD',
   departure_date: '',
-  channels: ['email'],
+  notification_channels: ['email'],
 };
 
 export default function Alerts() {
@@ -49,9 +49,9 @@ export default function Alerts() {
   const toggleChannel = (channel) => {
     setForm((prev) => ({
       ...prev,
-      channels: prev.channels.includes(channel)
-        ? prev.channels.filter((c) => c !== channel)
-        : [...prev.channels, channel],
+      notification_channels: prev.notification_channels.includes(channel)
+        ? prev.notification_channels.filter((c) => c !== channel)
+        : [...prev.notification_channels, channel],
     }));
   };
 
@@ -68,7 +68,7 @@ export default function Alerts() {
         to_iata: form.to_iata.toUpperCase(),
         max_price: Number(form.max_price),
         currency: form.currency,
-        channels: form.channels,
+        notification_channels: form.notification_channels,
       };
       if (form.departure_date) {
         payload.departure_date = form.departure_date;
@@ -180,7 +180,7 @@ export default function Alerts() {
                 <label key={ch} style={styles.checkLabel}>
                   <input
                     type="checkbox"
-                    checked={form.channels.includes(ch)}
+                    checked={form.notification_channels.includes(ch)}
                     onChange={() => toggleChannel(ch)}
                   />
                   {' '}{ch.charAt(0).toUpperCase() + ch.slice(1)}
@@ -220,7 +220,7 @@ export default function Alerts() {
                   {alert.departure_date && ` · Dep: ${alert.departure_date}`}
                 </div>
                 <div style={styles.alertMeta}>
-                  Channels: {(alert.channels || []).join(', ') || '—'}
+                  Channels: {(alert.notification_channels || alert.channels || []).join(', ') || '—'}
                 </div>
                 {alert.created_at && (
                   <div style={styles.alertMeta}>

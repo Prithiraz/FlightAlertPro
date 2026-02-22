@@ -8,7 +8,8 @@ from pathlib import Path
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 
 # Load data at module level (singleton)
-DATA_DIR = Path(__file__).parent.parent / "data"
+_data_candidate = Path(__file__).parent / "data"
+DATA_DIR = _data_candidate if _data_candidate.exists() else Path(__file__).parent
 
 AIRPORTS_ALL = []
 AIRPORTS_COMMERCIAL = []

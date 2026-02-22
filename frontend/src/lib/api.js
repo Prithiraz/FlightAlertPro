@@ -39,11 +39,38 @@ async function request(method, path, body) {
 }
 
 export function searchFlights(params) {
-  return request('POST', '/api/search', params);
+  // If already segments-based, POST as-is; otherwise convert flat params to segments contract
+  if (params.segments) {
+    return request('POST', '/api/search', params);
+  }
+  const segmentsBody = {
+    segments: [{
+      from_iata: params.from_iata,
+      to_iata: params.to_iata,
+      departure_date: params.departure_date,
+    }],
+    passengers: { adults: params.passengers || 1 },
+    cabin_class: params.cabin_class || 'economy',
+    currency: params.currency || 'USD',
+  };
+  if (params.return_date) {
+    segmentsBody.segments.push({
+      from_iata: params.to_iata,
+      to_iata: params.from_iata,
+      departure_date: params.return_date,
+    });
+  }
+  return request('POST', '/api/search', segmentsBody);
 }
 
 export function createAlert(params) {
-  return request('POST', '/api/alerts/create', params);
+  // Always map legacy channels -> notification_channels when channels is provided
+  const payload = { ...params };
+  if (payload.channels !== undefined) {
+    payload.notification_channels = payload.channels;
+    delete payload.channels;
+  }
+  return request('POST', '/api/alerts/create', payload);
 }
 
 export function listAlerts(userEmail) {
