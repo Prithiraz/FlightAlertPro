@@ -2,8 +2,11 @@
 from fastapi import APIRouter, Query
 from typing import List, Dict, Optional
 import json
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 
@@ -30,7 +33,7 @@ def load_metadata():
     commercial_file = DATA_DIR / "airports_commercial.json"
     airlines_file = DATA_DIR / "airlines_openflights.json"
 
-    if airports_file.exists():
+    try:
         with open(airports_file, 'r', encoding='utf-8') as f:
             AIRPORTS_ALL = json.load(f)
 
@@ -48,13 +51,19 @@ def load_metadata():
                     AIRPORTS_BY_CITY[city].append(airport)
 
         print(f"✓ Loaded {len(AIRPORTS_ALL)} airports, indexed {len(AIRPORTS_BY_IATA)} by IATA")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.warning(f"Failed to load airports_openflights.json: {e}")
+        AIRPORTS_ALL = []
 
-    if commercial_file.exists():
+    try:
         with open(commercial_file, 'r', encoding='utf-8') as f:
             AIRPORTS_COMMERCIAL = json.load(f)
         print(f"✓ Loaded {len(AIRPORTS_COMMERCIAL)} commercial airports")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.warning(f"Failed to load airports_commercial.json: {e}")
+        AIRPORTS_COMMERCIAL = []
 
-    if airlines_file.exists():
+    try:
         with open(airlines_file, 'r', encoding='utf-8') as f:
             AIRLINES = json.load(f)
 
@@ -65,6 +74,9 @@ def load_metadata():
                 AIRLINES_BY_IATA[iata.upper()] = airline
 
         print(f"✓ Loaded {len(AIRLINES)} airlines, indexed {len(AIRLINES_BY_IATA)} by IATA")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.warning(f"Failed to load airlines_openflights.json: {e}")
+        AIRLINES = []
 
 # Load on startup
 load_metadata()
