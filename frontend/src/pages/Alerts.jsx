@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { createAlert, listAlerts, deleteAlert } from '../lib/api';
 import { useAuth } from '../App';
 
@@ -16,12 +17,31 @@ const emptyForm = {
 
 export default function Alerts() {
   const { user } = useAuth();
+  const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [prefillApplied, setPrefillApplied] = useState(false);
+
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (prefill && !prefillApplied) {
+      setForm((prev) => ({
+        ...prev,
+        from_iata: prefill.from_iata ?? prev.from_iata,
+        to_iata: prefill.to_iata ?? prev.to_iata,
+        departure_date: prefill.departure_date ?? prev.departure_date,
+        currency: prefill.currency ?? prev.currency,
+        max_price: prefill.max_price ?? prev.max_price,
+      }));
+      setSuccess('Prefilled alert details from your search.');
+      setPrefillApplied(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.prefill]);
 
   useEffect(() => {
     if (user?.email) {
