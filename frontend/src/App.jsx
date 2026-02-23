@@ -8,6 +8,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Search from './pages/Search';
 import Alerts from './pages/Alerts';
+import Settings from './pages/Settings';
 
 const AuthContext = createContext(null);
 
@@ -63,6 +64,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Alerts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             }
           />

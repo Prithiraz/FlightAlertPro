@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { searchFlights } from '../lib/api';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
 export default function Search() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     from_iata: '',
     to_iata: '',
@@ -53,6 +55,20 @@ export default function Search() {
       setLoading(false);
       setSearched(true);
     }
+  };
+
+  const handleCreateAlert = (offer) => {
+    navigate('/alerts', {
+      state: {
+        prefill: {
+          from_iata: offer.from_iata ?? form.from_iata.toUpperCase(),
+          to_iata: offer.to_iata ?? form.to_iata.toUpperCase(),
+          departure_date: form.departure_date,
+          currency: offer.currency ?? 'USD',
+          max_price: offer.price ? String(Math.ceil(offer.price)) : '',
+        },
+      },
+    });
   };
 
   return (
@@ -189,6 +205,9 @@ export default function Search() {
               ) : (
                 <span style={styles.noBook}>Contact airline</span>
               )}
+              <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
+                Create alert
+              </button>
             </div>
           ))}
         </div>
@@ -218,4 +237,5 @@ const styles = {
   price: { fontSize: '1.5rem', fontWeight: '700', color: '#16a34a', marginTop: '0.25rem' },
   bookLink: { alignSelf: 'flex-start', marginTop: '0.5rem', background: '#1d4ed8', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontWeight: '600', fontSize: '0.875rem' },
   noBook: { fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' },
+  createAlertBtn: { alignSelf: 'flex-start', marginTop: '0.5rem', padding: '0.375rem 0.875rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
 };

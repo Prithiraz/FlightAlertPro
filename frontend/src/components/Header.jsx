@@ -1,20 +1,30 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../App';
 
 export default function Header() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/');
   };
 
+  const navLinkStyle = ({ isActive }) => ({
+    ...styles.link,
+    ...(isActive ? styles.activeLink : {}),
+  });
+
   return (
     <header style={styles.header}>
       <div style={styles.logo}>✈️ FlightAlertPro</div>
       <nav style={styles.nav}>
-        <Link to="/search" style={styles.link}>Search</Link>
-        <Link to="/alerts" style={styles.link}>Alerts</Link>
+        <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
+        <NavLink to="/search" style={navLinkStyle}>Search</NavLink>
+        <NavLink to="/alerts" style={navLinkStyle}>Alerts</NavLink>
+        <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
+        {user?.email && <span style={styles.userEmail}>{user.email}</span>}
         <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
       </nav>
     </header>
@@ -43,6 +53,15 @@ const styles = {
     color: '#fff',
     textDecoration: 'none',
     fontWeight: '500',
+  },
+  activeLink: {
+    textDecoration: 'underline',
+    opacity: 1,
+    fontWeight: '700',
+  },
+  userEmail: {
+    fontSize: '0.875rem',
+    opacity: 0.85,
   },
   logoutBtn: {
     background: 'transparent',

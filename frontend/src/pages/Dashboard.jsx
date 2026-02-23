@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
-import { searchFlights } from '../lib/api';
+import { searchFlights, listAlerts } from '../lib/api';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -36,6 +36,20 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
+
+  const [myAlerts, setMyAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError] = useState('');
+
+  useEffect(() => {
+    if (user?.email) {
+      setAlertsLoading(true);
+      listAlerts(user.email)
+        .then((data) => setMyAlerts(Array.isArray(data) ? data : data.alerts ?? []))
+        .catch((err) => setAlertsError(err.message || 'Failed to load alerts'))
+        .finally(() => setAlertsLoading(false));
+    }
+  }, [user?.email]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -73,22 +87,22 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
+  const handleCreateAlert = (offer) => {
+    navigate('/alerts', {
+      state: {
+        prefill: {
+          from_iata: offer.from_iata ?? form.from_iata.toUpperCase(),
+          to_iata: offer.to_iata ?? form.to_iata.toUpperCase(),
+          departure_date: form.departure_date,
+          currency: offer.currency ?? 'USD',
+          max_price: offer.price ? String(Math.ceil(offer.price)) : '',
+        },
+      },
+    });
   };
 
   return (
     <div style={styles.page}>
-      {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.logo}>✈️ FlightAlertPro</div>
-        <div style={styles.headerRight}>
-          <span style={styles.userEmail}>{user?.email}</span>
-          <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
-        </div>
-      </header>
-
       <div style={styles.content}>
         {/* Flight Search */}
         <section style={styles.section}>
@@ -204,16 +218,42 @@ export default function Dashboard() {
                   <div style={styles.price}>
                     {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
                   </div>
+                  <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
+                    Create alert
+                  </button>
                 </div>
               ))}
             </div>
           )}
         </section>
 
-        {/* My Alerts Placeholder */}
+        {/* My Alerts Summary */}
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>My Alerts</h2>
-          <p style={styles.placeholder}>Price alerts coming soon. Stay tuned!</p>
+          <div style={styles.alertsHeader}>
+            <h2 style={styles.sectionTitle}>My Alerts</h2>
+            <Link to="/alerts" style={styles.manageLink}>Manage alerts →</Link>
+          </div>
+          {alertsLoading ? (
+            <p style={styles.empty}>Loading alerts...</p>
+          ) : alertsError ? (
+            <p style={styles.error}>{alertsError}</p>
+          ) : myAlerts.length === 0 ? (
+            <p style={styles.empty}>No alerts yet. <Link to="/alerts" style={styles.inlineLink}>Create one</Link>.</p>
+          ) : (
+            <div style={styles.alertList}>
+              {myAlerts.slice(0, 5).map((alert) => (
+                <div key={alert.id} style={styles.alertCard}>
+                  <span style={styles.iata}>{alert.from_iata}</span>
+                  <span style={styles.arrow}> → </span>
+                  <span style={styles.iata}>{alert.to_iata}</span>
+                  <span style={styles.alertMeta}>
+                    &nbsp;· Max: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
+                    {alert.departure_date && ` · Dep: ${alert.departure_date}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -222,26 +262,6 @@ export default function Dashboard() {
 
 const styles = {
   page: { minHeight: '100vh', background: '#f3f4f6' },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '1rem 2rem',
-    background: '#1d4ed8',
-    color: '#fff',
-  },
-  logo: { fontWeight: 'bold', fontSize: '1.25rem' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '1rem' },
-  userEmail: { fontSize: '0.875rem', opacity: 0.85 },
-  logoutBtn: {
-    background: 'transparent',
-    border: '1px solid #fff',
-    color: '#fff',
-    padding: '0.375rem 0.75rem',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: '500',
-  },
   content: { maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' },
   section: {
     background: '#fff',
@@ -251,6 +271,9 @@ const styles = {
     marginBottom: '2rem',
   },
   sectionTitle: { fontSize: '1.25rem', fontWeight: '700', color: '#1d4ed8', marginBottom: '1.25rem', marginTop: 0 },
+  alertsHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' },
+  manageLink: { fontSize: '0.9rem', color: '#1d4ed8', textDecoration: 'none', fontWeight: '600' },
+  inlineLink: { color: '#1d4ed8', textDecoration: 'none', fontWeight: '600' },
   form: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
   row: { display: 'flex', gap: '1rem', flexWrap: 'wrap' },
   field: { flex: '1', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '0.25rem' },
@@ -268,6 +291,18 @@ const styles = {
     fontWeight: '600',
     cursor: 'pointer',
   },
+  createAlertBtn: {
+    alignSelf: 'flex-start',
+    marginTop: '0.5rem',
+    padding: '0.375rem 0.875rem',
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '0.875rem',
+  },
   error: { color: '#dc2626', fontSize: '0.875rem', margin: 0 },
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '1.5rem' },
   results: { marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' },
@@ -281,9 +316,17 @@ const styles = {
     gap: '0.25rem',
   },
   route: { fontSize: '1.125rem', fontWeight: '700' },
-  iata: { color: '#1d4ed8' },
+  iata: { color: '#1d4ed8', fontWeight: '700' },
   arrow: { color: '#6b7280' },
   meta: { fontSize: '0.875rem', color: '#6b7280' },
   price: { fontSize: '1.25rem', fontWeight: '700', color: '#16a34a' },
-  placeholder: { color: '#9ca3af', fontStyle: 'italic' },
+  alertList: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  alertCard: {
+    padding: '0.625rem 0.875rem',
+    border: '1px solid #e5e7eb',
+    borderRadius: '6px',
+    fontSize: '0.9rem',
+    color: '#374151',
+  },
+  alertMeta: { color: '#6b7280', fontSize: '0.875rem' },
 };
