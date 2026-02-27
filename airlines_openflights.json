@@ -1,25 +1,5 @@
 [
   {
-    "id": "-1",
-    "name": "Unknown",
-    "alias": null,
-    "iata": "-",
-    "icao": "N/A",
-    "callsign": null,
-    "country": "\\N",
-    "active": true
-  },
-  {
-    "id": "1",
-    "name": "Private flight",
-    "alias": null,
-    "iata": "-",
-    "icao": "N/A",
-    "callsign": "",
-    "country": "",
-    "active": true
-  },
-  {
     "id": "3",
     "name": "1Time Airline",
     "alias": null,
@@ -58,16 +38,6 @@
     "callsign": "",
     "country": "Singapore",
     "active": true
-  },
-  {
-    "id": "15",
-    "name": "Abelag Aviation",
-    "alias": null,
-    "iata": "W9",
-    "icao": "AAB",
-    "callsign": "ABG",
-    "country": "Belgium",
-    "active": false
   },
   {
     "id": "21",
@@ -130,16 +100,6 @@
     "active": true
   },
   {
-    "id": "33",
-    "name": "Afrinat International Airlines",
-    "alias": null,
-    "iata": "Q9",
-    "icao": "AFU",
-    "callsign": "",
-    "country": "Gambia",
-    "active": false
-  },
-  {
     "id": "35",
     "name": "Allegiant Air",
     "alias": null,
@@ -148,16 +108,6 @@
     "callsign": "ALLEGIANT",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "39",
-    "name": "Aban Air",
-    "alias": null,
-    "iata": "K5",
-    "icao": "ABE",
-    "callsign": "ABAN",
-    "country": "Iran",
-    "active": false
   },
   {
     "id": "42",
@@ -170,36 +120,6 @@
     "active": true
   },
   {
-    "id": "48",
-    "name": "Antrak Air",
-    "alias": null,
-    "iata": "04",
-    "icao": "ABV",
-    "callsign": "ANTRAK",
-    "country": "Ghana",
-    "active": false
-  },
-  {
-    "id": "49",
-    "name": "Airborne Express",
-    "alias": null,
-    "iata": "GB",
-    "icao": "ABX",
-    "callsign": "ABEX",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "50",
-    "name": "ABX Air",
-    "alias": null,
-    "iata": "GB",
-    "icao": "ABX",
-    "callsign": "ABEX",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "55",
     "name": "Astral Aviation",
     "alias": null,
@@ -208,46 +128,6 @@
     "callsign": "ASTRAL CARGO",
     "country": "Kenya",
     "active": true
-  },
-  {
-    "id": "60",
-    "name": "Aero Asia International",
-    "alias": null,
-    "iata": "E4",
-    "icao": "RSO",
-    "callsign": "AERO ASIA",
-    "country": "Pakistan",
-    "active": false
-  },
-  {
-    "id": "62",
-    "name": "Air Togo",
-    "alias": null,
-    "iata": "YT",
-    "icao": "TGA",
-    "callsign": "AIR TOGO",
-    "country": "Togo",
-    "active": false
-  },
-  {
-    "id": "66",
-    "name": "Advance Leasing Company",
-    "alias": null,
-    "iata": "4G",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "67",
-    "name": "Aztec Worldwide Airlines",
-    "alias": null,
-    "iata": "7A",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "68",
@@ -268,16 +148,6 @@
     "callsign": "ADA AIR",
     "country": "Albania",
     "active": true
-  },
-  {
-    "id": "76",
-    "name": "ADC Airlines",
-    "alias": null,
-    "iata": "Z7",
-    "icao": "ADK",
-    "callsign": "ADCO",
-    "country": "Nigeria",
-    "active": false
   },
   {
     "id": "83",
@@ -318,16 +188,6 @@
     "callsign": "AEGEAN",
     "country": "Greece",
     "active": true
-  },
-  {
-    "id": "105",
-    "name": "Air Atlantique",
-    "alias": null,
-    "iata": "KI",
-    "icao": "AAG",
-    "callsign": "ATLANTIC",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "106",
@@ -378,16 +238,6 @@
     "callsign": "AIR ITALY",
     "country": "Italy",
     "active": true
-  },
-  {
-    "id": "119",
-    "name": "American Falcon",
-    "alias": null,
-    "iata": "WK",
-    "icao": "AFB",
-    "callsign": "AMERICAN FALCON",
-    "country": "Argentina",
-    "active": false
   },
   {
     "id": "120",
@@ -450,16 +300,6 @@
     "active": true
   },
   {
-    "id": "142",
-    "name": "Air Gabon",
-    "alias": null,
-    "iata": "GN",
-    "icao": "AGN",
-    "callsign": "GOLF NOVEMBER",
-    "country": "Gabon",
-    "active": false
-  },
-  {
     "id": "146",
     "name": "Air Salone",
     "alias": null,
@@ -480,16 +320,6 @@
     "active": true
   },
   {
-    "id": "151",
-    "name": "Air Senegal International",
-    "alias": null,
-    "iata": "V7",
-    "icao": "SNG",
-    "callsign": "AIR SENEGAL",
-    "country": "Senegal",
-    "active": false
-  },
-  {
     "id": "153",
     "name": "Air Namibia",
     "alias": null,
@@ -500,16 +330,6 @@
     "active": true
   },
   {
-    "id": "162",
-    "name": "Air Service Gabon",
-    "alias": null,
-    "iata": "G8",
-    "icao": "AGB",
-    "callsign": "",
-    "country": "Gabon",
-    "active": false
-  },
-  {
     "id": "165",
     "name": "Aerolitoral",
     "alias": null,
@@ -518,16 +338,6 @@
     "callsign": "COSTERA",
     "country": "Mexico",
     "active": true
-  },
-  {
-    "id": "172",
-    "name": "Amadeus Global Travel Distribution",
-    "alias": null,
-    "iata": "1A",
-    "icao": "AGT",
-    "callsign": "AMADEUS",
-    "country": "Spain",
-    "active": false
   },
   {
     "id": "174",
@@ -560,36 +370,6 @@
     "active": true
   },
   {
-    "id": "184",
-    "name": "Air Alpha Greenland",
-    "alias": null,
-    "iata": "GD",
-    "icao": "AHA",
-    "callsign": "AIR ALPHA",
-    "country": "Denmark",
-    "active": false
-  },
-  {
-    "id": "191",
-    "name": "Air Hong Kong",
-    "alias": null,
-    "iata": "LD",
-    "icao": "AHK",
-    "callsign": "AIR HONG KONG",
-    "country": "Hong Kong",
-    "active": false
-  },
-  {
-    "id": "196",
-    "name": "Aeromist-Kharkiv",
-    "alias": null,
-    "iata": "HT",
-    "icao": "AHW",
-    "callsign": "AEROMIST",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
     "id": "197",
     "name": "Azerbaijan Airlines",
     "alias": null,
@@ -610,26 +390,6 @@
     "active": true
   },
   {
-    "id": "199",
-    "name": "Airbus Industrie",
-    "alias": null,
-    "iata": "AP",
-    "icao": "AIB",
-    "callsign": "AIRBUS INDUSTRIE",
-    "country": "France",
-    "active": false
-  },
-  {
-    "id": "205",
-    "name": "Alpine Air Express",
-    "alias": null,
-    "iata": "5A",
-    "icao": "AIP",
-    "callsign": "ALPINE AIR",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "208",
     "name": "Airblue",
     "alias": null,
@@ -648,16 +408,6 @@
     "callsign": "AIR BERLIN",
     "country": "Germany",
     "active": true
-  },
-  {
-    "id": "216",
-    "name": "Air Contractors",
-    "alias": null,
-    "iata": "AG",
-    "icao": "ABR",
-    "callsign": "CONTRACT",
-    "country": "Ireland",
-    "active": false
   },
   {
     "id": "218",
@@ -690,16 +440,6 @@
     "active": true
   },
   {
-    "id": "224",
-    "name": "Air Srpska",
-    "alias": null,
-    "iata": "RB",
-    "icao": "SBK",
-    "callsign": "Air Srpska",
-    "country": "Bosnia and Herzegovina",
-    "active": false
-  },
-  {
     "id": "225",
     "name": "Air Tahiti Nui",
     "alias": null,
@@ -708,16 +448,6 @@
     "callsign": "TAHITI AIRLINES",
     "country": "France",
     "active": true
-  },
-  {
-    "id": "227",
-    "name": "Aero Services Executive",
-    "alias": null,
-    "iata": "W4",
-    "icao": "BES",
-    "callsign": "BIRD EXPRESS",
-    "country": "France",
-    "active": false
   },
   {
     "id": "231",
@@ -770,16 +500,6 @@
     "active": true
   },
   {
-    "id": "246",
-    "name": "Amerijet International",
-    "alias": null,
-    "iata": "M6",
-    "icao": "AJT",
-    "callsign": "AMERIJET",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "250",
     "name": "Air Japan",
     "alias": null,
@@ -798,16 +518,6 @@
     "callsign": "",
     "country": "Kiribati",
     "active": true
-  },
-  {
-    "id": "266",
-    "name": "Air Nippon Network Co. Ltd.",
-    "alias": null,
-    "iata": "EH",
-    "icao": "AKX",
-    "callsign": "ALFA WING",
-    "country": "Japan",
-    "active": false
   },
   {
     "id": "281",
@@ -850,16 +560,6 @@
     "active": true
   },
   {
-    "id": "300",
-    "name": "Air Lithuania",
-    "alias": null,
-    "iata": "TT",
-    "icao": "KLA",
-    "callsign": "KAUNAS",
-    "country": "Lithuania",
-    "active": false
-  },
-  {
     "id": "306",
     "name": "Air Malawi",
     "alias": null,
@@ -888,16 +588,6 @@
     "callsign": "AIR MACAO",
     "country": "Macao",
     "active": true
-  },
-  {
-    "id": "318",
-    "name": "Air Midwest",
-    "alias": null,
-    "iata": "ZV",
-    "icao": "AMW",
-    "callsign": "AIR MIDWEST",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "319",
@@ -1010,16 +700,6 @@
     "active": true
   },
   {
-    "id": "343",
-    "name": "AOM French Airlines",
-    "alias": null,
-    "iata": "IW",
-    "icao": "AOM",
-    "callsign": "French Lines",
-    "country": "France",
-    "active": false
-  },
-  {
     "id": "345",
     "name": "Air New Zealand",
     "alias": null,
@@ -1030,36 +710,6 @@
     "active": true
   },
   {
-    "id": "349",
-    "name": "AVCOM",
-    "alias": null,
-    "iata": "J6",
-    "icao": "AOC",
-    "callsign": "AERO AVCOM",
-    "country": "Russia",
-    "active": false
-  },
-  {
-    "id": "353",
-    "name": "Aero VIP",
-    "alias": null,
-    "iata": "2D",
-    "icao": "AOG",
-    "callsign": "AVIP",
-    "country": "Argentina",
-    "active": false
-  },
-  {
-    "id": "368",
-    "name": "Air Vegas",
-    "alias": null,
-    "iata": "6V",
-    "icao": "VGA",
-    "callsign": "AIR VEGAS",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "371",
     "name": "Alitalia Express",
     "alias": null,
@@ -1068,16 +718,6 @@
     "callsign": "ALIEXPRESS",
     "country": "Italy",
     "active": true
-  },
-  {
-    "id": "372",
-    "name": "Asia Overnight Express",
-    "alias": null,
-    "iata": "OE",
-    "icao": "AOT",
-    "callsign": "ASIA OVERNIGHT",
-    "country": "Philippines",
-    "active": false
   },
   {
     "id": "386",
@@ -1098,16 +738,6 @@
     "callsign": "BIG A",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "407",
-    "name": "Arik Air",
-    "alias": null,
-    "iata": "W3",
-    "icao": "ARA",
-    "callsign": "ARIK AIR",
-    "country": "Nigeria",
-    "active": false
   },
   {
     "id": "410",
@@ -1140,16 +770,6 @@
     "active": true
   },
   {
-    "id": "426",
-    "name": "Air Armenia",
-    "alias": null,
-    "iata": "QN",
-    "icao": "ARR",
-    "callsign": "AIR ARMENIA",
-    "country": "Armenia",
-    "active": false
-  },
-  {
     "id": "439",
     "name": "Alaska Airlines",
     "alias": null,
@@ -1168,16 +788,6 @@
     "callsign": "AIR SINAI",
     "country": "Egypt",
     "active": true
-  },
-  {
-    "id": "443",
-    "name": "Airstars",
-    "alias": null,
-    "iata": "PL",
-    "icao": "ASE",
-    "callsign": "MOROZOV",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "452",
@@ -1220,16 +830,6 @@
     "active": true
   },
   {
-    "id": "472",
-    "name": "Aero-Tropics Air Services",
-    "alias": null,
-    "iata": "HC",
-    "icao": "ATI",
-    "callsign": "",
-    "country": "Australia",
-    "active": false
-  },
-  {
     "id": "476",
     "name": "Airlines Of Tasmania",
     "alias": null,
@@ -1250,16 +850,6 @@
     "active": true
   },
   {
-    "id": "478",
-    "name": "Air Transport International",
-    "alias": null,
-    "iata": "8C",
-    "icao": "ATN",
-    "callsign": "AIR TRANSPORT",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "491",
     "name": "Austrian Airlines",
     "alias": null,
@@ -1278,16 +868,6 @@
     "callsign": "AUGSBURG-AIR",
     "country": "Germany",
     "active": true
-  },
-  {
-    "id": "496",
-    "name": "AirBridge Cargo",
-    "alias": null,
-    "iata": "RU",
-    "icao": "ABW",
-    "callsign": "AIRBRIDGE CARGO",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "502",
@@ -1320,16 +900,6 @@
     "active": true
   },
   {
-    "id": "509",
-    "name": "Aus-Air",
-    "alias": null,
-    "iata": "NO",
-    "icao": "AUS",
-    "callsign": "",
-    "country": "Australia",
-    "active": false
-  },
-  {
     "id": "510",
     "name": "Austral Lineas Aereas",
     "alias": null,
@@ -1338,16 +908,6 @@
     "callsign": "AUSTRAL",
     "country": "Argentina",
     "active": true
-  },
-  {
-    "id": "514",
-    "name": "Australian Airlines",
-    "alias": null,
-    "iata": "AO",
-    "icao": "AUZ",
-    "callsign": "AUSTRALIAN",
-    "country": "Australia",
-    "active": false
   },
   {
     "id": "515",
@@ -1368,16 +928,6 @@
     "callsign": "AIR VAN",
     "country": "Vanuatu",
     "active": true
-  },
-  {
-    "id": "540",
-    "name": "Airlink Zambia",
-    "alias": null,
-    "iata": "K8",
-    "icao": "ZAK",
-    "callsign": "",
-    "country": "Zambia",
-    "active": false
   },
   {
     "id": "543",
@@ -1440,16 +990,6 @@
     "active": true
   },
   {
-    "id": "571",
-    "name": "Asian Express Airlines",
-    "alias": null,
-    "iata": "HJ",
-    "icao": "AXF",
-    "callsign": "FREIGHTEXPRESS",
-    "country": "Australia",
-    "active": false
-  },
-  {
     "id": "575",
     "name": "Air Exel",
     "alias": null,
@@ -1470,16 +1010,6 @@
     "active": true
   },
   {
-    "id": "588",
-    "name": "Axis Airways",
-    "alias": null,
-    "iata": "6V",
-    "icao": "AXY",
-    "callsign": "AXIS",
-    "country": "France",
-    "active": false
-  },
-  {
     "id": "595",
     "name": "Atlant-Soyuz Airlines",
     "alias": null,
@@ -1498,16 +1028,6 @@
     "callsign": "ALITALIA",
     "country": "Italy",
     "active": true
-  },
-  {
-    "id": "598",
-    "name": "Arcus-Air Logistic",
-    "alias": null,
-    "iata": "ZE",
-    "icao": "AZE",
-    "callsign": "ARCUS AIR",
-    "country": "Germany",
-    "active": false
   },
   {
     "id": "603",
@@ -1550,16 +1070,6 @@
     "active": true
   },
   {
-    "id": "644",
-    "name": "Aviaexpress",
-    "alias": null,
-    "iata": "RX",
-    "icao": "AEH",
-    "callsign": "Avex",
-    "country": "Hungary",
-    "active": false
-  },
-  {
     "id": "659",
     "name": "American Eagle Airlines",
     "alias": null,
@@ -1568,26 +1078,6 @@
     "callsign": "EAGLE FLIGHT",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "663",
-    "name": "Airshop",
-    "alias": null,
-    "iata": "FF",
-    "icao": "",
-    "callsign": "",
-    "country": "Netherlands",
-    "active": false
-  },
-  {
-    "id": "664",
-    "name": "African Transport Trading and Investment Company",
-    "alias": null,
-    "iata": "ML",
-    "icao": "",
-    "callsign": "",
-    "country": "Sudan",
-    "active": false
   },
   {
     "id": "682",
@@ -1630,16 +1120,6 @@
     "active": true
   },
   {
-    "id": "693",
-    "name": "Air Urga",
-    "alias": null,
-    "iata": "3N",
-    "icao": "URG",
-    "callsign": "URGA",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
     "id": "695",
     "name": "Air VIA",
     "alias": null,
@@ -1660,16 +1140,6 @@
     "active": true
   },
   {
-    "id": "719",
-    "name": "Avirex",
-    "alias": null,
-    "iata": "G2",
-    "icao": "VXG",
-    "callsign": "AVIREX-GABON",
-    "country": "Gabon",
-    "active": false
-  },
-  {
     "id": "724",
     "name": "ATRAN Cargo Airlines",
     "alias": null,
@@ -1678,26 +1148,6 @@
     "callsign": "ATRAN",
     "country": "Russian Federation",
     "active": true
-  },
-  {
-    "id": "732",
-    "name": "Avensa",
-    "alias": null,
-    "iata": "VE",
-    "icao": "AVE",
-    "callsign": "Avensa",
-    "country": "Venezuela",
-    "active": false
-  },
-  {
-    "id": "733",
-    "name": "Avolar Aerolineas",
-    "alias": null,
-    "iata": "V5",
-    "icao": "VLI",
-    "callsign": "AEROVOLAR",
-    "country": "Mexico",
-    "active": false
   },
   {
     "id": "751",
@@ -1718,36 +1168,6 @@
     "callsign": "CONDOR-PERU",
     "country": "Peru",
     "active": true
-  },
-  {
-    "id": "767",
-    "name": "Arctic Circle Air Service",
-    "alias": null,
-    "iata": "5F",
-    "icao": "CIR",
-    "callsign": "AIR ARCTIC",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "778",
-    "name": "Air Corridor",
-    "alias": null,
-    "iata": "QC",
-    "icao": "CRD",
-    "callsign": "AIR CORRIDOR",
-    "country": "Mozambique",
-    "active": false
-  },
-  {
-    "id": "779",
-    "name": "Air Central",
-    "alias": null,
-    "iata": "NV",
-    "icao": "CRF",
-    "callsign": "AIR CENTRAL",
-    "country": "Japan",
-    "active": false
   },
   {
     "id": "787",
@@ -1800,26 +1220,6 @@
     "active": true
   },
   {
-    "id": "801",
-    "name": "Astar Air Cargo",
-    "alias": null,
-    "iata": "ER",
-    "icao": "DHL",
-    "callsign": "DAHL",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "805",
-    "name": "Antinea Airlines",
-    "alias": null,
-    "iata": "HO",
-    "icao": "DJA",
-    "callsign": "ANTINEA",
-    "country": "Algeria",
-    "active": false
-  },
-  {
     "id": "807",
     "name": "Air Dolomiti",
     "alias": null,
@@ -1850,26 +1250,6 @@
     "active": true
   },
   {
-    "id": "828",
-    "name": "Aero Airlines",
-    "alias": null,
-    "iata": "EE",
-    "icao": "EAY",
-    "callsign": "REVAL",
-    "country": "Estonia",
-    "active": false
-  },
-  {
-    "id": "830",
-    "name": "Air City",
-    "alias": null,
-    "iata": "4F",
-    "icao": "ECE",
-    "callsign": "AIRCITY",
-    "country": "Germany",
-    "active": false
-  },
-  {
     "id": "837",
     "name": "Aer Lingus",
     "alias": null,
@@ -1878,36 +1258,6 @@
     "callsign": "SHAMROCK",
     "country": "Ireland",
     "active": true
-  },
-  {
-    "id": "839",
-    "name": "Alpi Eagles",
-    "alias": null,
-    "iata": "E8",
-    "icao": "ELG",
-    "callsign": "ALPI EAGLES",
-    "country": "Italy",
-    "active": false
-  },
-  {
-    "id": "849",
-    "name": "Air S",
-    "alias": null,
-    "iata": "KY",
-    "icao": "EQL",
-    "callsign": "EQUATORIAL",
-    "country": "Air S",
-    "active": false
-  },
-  {
-    "id": "866",
-    "name": "Air Fiji",
-    "alias": null,
-    "iata": "PC",
-    "icao": "FAJ",
-    "callsign": "FIJIAIR",
-    "country": "Fiji",
-    "active": false
   },
   {
     "id": "876",
@@ -1970,16 +1320,6 @@
     "active": true
   },
   {
-    "id": "905",
-    "name": "Air Georgian",
-    "alias": null,
-    "iata": "ZX",
-    "icao": "GGN",
-    "callsign": "GEORGIAN",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "909",
     "name": "Air Guinee Express",
     "alias": null,
@@ -1990,26 +1330,6 @@
     "active": true
   },
   {
-    "id": "916",
-    "name": "Amber Air",
-    "alias": null,
-    "iata": "0A",
-    "icao": "GNT",
-    "callsign": "GINTA",
-    "country": "Lithuania",
-    "active": false
-  },
-  {
-    "id": "919",
-    "name": "Air Georgia",
-    "alias": null,
-    "iata": "DA",
-    "icao": "GRG",
-    "callsign": "AIR GEORGIA",
-    "country": "Georgia",
-    "active": false
-  },
-  {
     "id": "921",
     "name": "Air Greenland",
     "alias": null,
@@ -2018,16 +1338,6 @@
     "callsign": "GREENLAND",
     "country": "Denmark",
     "active": true
-  },
-  {
-    "id": "922",
-    "name": "Allegro",
-    "alias": null,
-    "iata": "LL",
-    "icao": "GRO",
-    "callsign": "ALLEGRO",
-    "country": "Mexico",
-    "active": false
   },
   {
     "id": "928",
@@ -2050,36 +1360,6 @@
     "active": true
   },
   {
-    "id": "933",
-    "name": "Air D'Ayiti",
-    "alias": null,
-    "iata": "H9",
-    "icao": "HAD",
-    "callsign": "HAITI AVIA",
-    "country": "Haiti",
-    "active": false
-  },
-  {
-    "id": "934",
-    "name": "Air Comores International",
-    "alias": null,
-    "iata": "GG",
-    "icao": "HAH",
-    "callsign": "AIR COMORES",
-    "country": "Comoros",
-    "active": false
-  },
-  {
-    "id": "949",
-    "name": "Air Horizon",
-    "alias": null,
-    "iata": "8C",
-    "icao": "HZT",
-    "callsign": "HORIZON TOGO",
-    "country": "Togo",
-    "active": false
-  },
-  {
     "id": "970",
     "name": "Air Bagan",
     "alias": null,
@@ -2088,16 +1368,6 @@
     "callsign": "AIR BAGAN",
     "country": "Myanmar",
     "active": true
-  },
-  {
-    "id": "979",
-    "name": "Atyrau Air Ways",
-    "alias": null,
-    "iata": "IP",
-    "icao": "JOL",
-    "callsign": "EDIL",
-    "country": "Kazakhstan",
-    "active": false
   },
   {
     "id": "983",
@@ -2150,26 +1420,6 @@
     "active": true
   },
   {
-    "id": "1021",
-    "name": "Alidaunia",
-    "alias": null,
-    "iata": "D4",
-    "icao": "LID",
-    "callsign": "ALIDA",
-    "country": "Italy",
-    "active": false
-  },
-  {
-    "id": "1026",
-    "name": "Alliance Air",
-    "alias": null,
-    "iata": "CD",
-    "icao": "LLR",
-    "callsign": "ALLIED",
-    "country": "India",
-    "active": false
-  },
-  {
     "id": "1034",
     "name": "Aerolane",
     "alias": null,
@@ -2180,16 +1430,6 @@
     "active": true
   },
   {
-    "id": "1040",
-    "name": "Air Alps Aviation",
-    "alias": null,
-    "iata": "A6",
-    "icao": "LPV",
-    "callsign": "ALPAV",
-    "country": "Austria",
-    "active": false
-  },
-  {
     "id": "1048",
     "name": "Atlantis European Airways",
     "alias": null,
@@ -2198,16 +1438,6 @@
     "callsign": "",
     "country": "Armenia",
     "active": true
-  },
-  {
-    "id": "1051",
-    "name": "Air Luxor GB",
-    "alias": null,
-    "iata": "L8",
-    "icao": "LXG",
-    "callsign": "LUXOR GOLF",
-    "country": "Guinea-Bissau",
-    "active": false
   },
   {
     "id": "1052",
@@ -2250,16 +1480,6 @@
     "active": true
   },
   {
-    "id": "1083",
-    "name": "Aero Mongolia",
-    "alias": null,
-    "iata": "M0",
-    "icao": "MNG",
-    "callsign": "AERO MONGOLIA",
-    "country": "Mongolia",
-    "active": false
-  },
-  {
     "id": "1087",
     "name": "Air Plus Comet",
     "alias": null,
@@ -2268,36 +1488,6 @@
     "callsign": "RED COMET",
     "country": "Spain",
     "active": true
-  },
-  {
-    "id": "1088",
-    "name": "Aeromexpress",
-    "alias": null,
-    "iata": "QO",
-    "icao": "MPX",
-    "callsign": "AEROMEXPRESS",
-    "country": "Mexico",
-    "active": false
-  },
-  {
-    "id": "1093",
-    "name": "Air Mauritanie",
-    "alias": null,
-    "iata": "MR",
-    "icao": "MRT",
-    "callsign": "MIKE ROMEO",
-    "country": "Mauritania",
-    "active": false
-  },
-  {
-    "id": "1107",
-    "name": "Aeroland Airways",
-    "alias": null,
-    "iata": "3S",
-    "icao": "",
-    "callsign": "",
-    "country": "Greece",
-    "active": false
   },
   {
     "id": "1109",
@@ -2310,16 +1500,6 @@
     "active": true
   },
   {
-    "id": "1110",
-    "name": "Albarka Air",
-    "alias": null,
-    "iata": "F4",
-    "icao": "NBK",
-    "callsign": "AL-AIR",
-    "country": "Nigeria",
-    "active": false
-  },
-  {
     "id": "1116",
     "name": "Aero Contractors",
     "alias": null,
@@ -2330,16 +1510,6 @@
     "active": true
   },
   {
-    "id": "1139",
-    "name": "Air Burundi",
-    "alias": null,
-    "iata": "8Y",
-    "icao": "PBU",
-    "callsign": "AIR-BURUNDI",
-    "country": "Burundi",
-    "active": false
-  },
-  {
     "id": "1143",
     "name": "Aeropelican Air Services",
     "alias": null,
@@ -2348,56 +1518,6 @@
     "callsign": "PELICAN",
     "country": "Australia",
     "active": true
-  },
-  {
-    "id": "1156",
-    "name": "Air Paradise International",
-    "alias": null,
-    "iata": "AD",
-    "icao": "PRZ",
-    "callsign": "RADISAIR",
-    "country": "Indonesia",
-    "active": false
-  },
-  {
-    "id": "1161",
-    "name": "Air Class Lineas Aereas",
-    "alias": null,
-    "iata": "QD",
-    "icao": "QCL",
-    "callsign": "ACLA",
-    "country": "Uruguay",
-    "active": false
-  },
-  {
-    "id": "1166",
-    "name": "African Safari Airways",
-    "alias": null,
-    "iata": "QS",
-    "icao": "QSC",
-    "callsign": "ZEBRA",
-    "country": "Kenya",
-    "active": false
-  },
-  {
-    "id": "1173",
-    "name": "Airbus France",
-    "alias": null,
-    "iata": "4Y",
-    "icao": "RBU",
-    "callsign": "AIRBUS FRANCE",
-    "country": "France",
-    "active": false
-  },
-  {
-    "id": "1179",
-    "name": "Air Mobility Command",
-    "alias": null,
-    "iata": "MC",
-    "icao": "RCH",
-    "callsign": "REACH",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "1188",
@@ -2460,16 +1580,6 @@
     "active": true
   },
   {
-    "id": "1210",
-    "name": "Armenian International Airways",
-    "alias": null,
-    "iata": "MV",
-    "icao": "RML",
-    "callsign": "",
-    "country": "Armenia",
-    "active": false
-  },
-  {
     "id": "1213",
     "name": "Air Salone",
     "alias": null,
@@ -2488,16 +1598,6 @@
     "callsign": "ARMAVIA",
     "country": "Armenia",
     "active": true
-  },
-  {
-    "id": "1221",
-    "name": "Aeromar",
-    "alias": null,
-    "iata": "BQ",
-    "icao": "ROM",
-    "callsign": "BRAVO QUEBEC",
-    "country": "Dominican Republic",
-    "active": false
   },
   {
     "id": "1224",
@@ -2530,26 +1630,6 @@
     "active": true
   },
   {
-    "id": "1254",
-    "name": "Air Santo Domingo",
-    "alias": null,
-    "iata": "EX",
-    "icao": "SDO",
-    "callsign": "AERO DOMINGO",
-    "country": "Dominican Republic",
-    "active": false
-  },
-  {
-    "id": "1257",
-    "name": "Aero California",
-    "alias": null,
-    "iata": "JR",
-    "icao": "SER",
-    "callsign": "AEROCALIFORNIA",
-    "country": "Mexico",
-    "active": false
-  },
-  {
     "id": "1266",
     "name": "Avient Aviation",
     "alias": null,
@@ -2558,26 +1638,6 @@
     "callsign": "AVAVIA",
     "country": "Zimbabwe",
     "active": true
-  },
-  {
-    "id": "1271",
-    "name": "Air Service",
-    "alias": null,
-    "iata": "M3",
-    "icao": "SPJ",
-    "callsign": "AIR SKOPJE",
-    "country": "Macedonia",
-    "active": false
-  },
-  {
-    "id": "1285",
-    "name": "Air Slovakia",
-    "alias": null,
-    "iata": "GM",
-    "icao": "SVK",
-    "callsign": "SLOVAKIA",
-    "country": "Slovakia",
-    "active": false
   },
   {
     "id": "1287",
@@ -2600,16 +1660,6 @@
     "active": true
   },
   {
-    "id": "1293",
-    "name": "Air Turks and Caicos",
-    "alias": null,
-    "iata": "JY",
-    "icao": "TCI",
-    "callsign": "KERRMONT",
-    "country": "Turks and Caicos Islands",
-    "active": false
-  },
-  {
     "id": "1299",
     "name": "Arkefly",
     "alias": null,
@@ -2628,16 +1678,6 @@
     "callsign": "BALUS",
     "country": "Papua New Guinea",
     "active": true
-  },
-  {
-    "id": "1311",
-    "name": "Air Cal",
-    "alias": null,
-    "iata": "TY",
-    "icao": "TPC",
-    "callsign": "AIRCAL",
-    "country": "France",
-    "active": false
   },
   {
     "id": "1316",
@@ -2680,26 +1720,6 @@
     "active": true
   },
   {
-    "id": "1332",
-    "name": "Aero-Charter Ukraine",
-    "alias": null,
-    "iata": "DW",
-    "icao": "UCR",
-    "callsign": "CHARTER UKRAINE",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
-    "id": "1334",
-    "name": "Air Ukraine",
-    "alias": null,
-    "iata": "6U",
-    "icao": "UKR",
-    "callsign": "AIR UKRAINE",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
     "id": "1338",
     "name": "Aerolineas Galapagos (Aerogal)",
     "alias": null,
@@ -2718,16 +1738,6 @@
     "callsign": "MIRNY",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "1347",
-    "name": "Baker Aviation",
-    "alias": null,
-    "iata": "8Q",
-    "icao": "BAJ",
-    "callsign": "BAKER AVIATION",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "1355",
@@ -2750,66 +1760,6 @@
     "active": true
   },
   {
-    "id": "1360",
-    "name": "Bluebird Cargo",
-    "alias": null,
-    "iata": "BF",
-    "icao": "BBD",
-    "callsign": "BLUE CARGO",
-    "country": "Iceland",
-    "active": false
-  },
-  {
-    "id": "1364",
-    "name": "BACH Flugbetriebsges",
-    "alias": null,
-    "iata": "B4",
-    "icao": "BCF",
-    "callsign": "BACH",
-    "country": "Austria",
-    "active": false
-  },
-  {
-    "id": "1370",
-    "name": "Blue Dart Aviation",
-    "alias": null,
-    "iata": "BZ",
-    "icao": "BDA",
-    "callsign": "BLUE DART",
-    "country": "India",
-    "active": false
-  },
-  {
-    "id": "1371",
-    "name": "B&H Airlines",
-    "alias": null,
-    "iata": "JA",
-    "icao": "BON",
-    "callsign": "Air Bosna",
-    "country": "Bosnia and Herzegovina",
-    "active": false
-  },
-  {
-    "id": "1384",
-    "name": "Buffalo Airways",
-    "alias": null,
-    "iata": "J4",
-    "icao": "BFL",
-    "callsign": "BUFFALO",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "1392",
-    "name": "Benin Golf Air",
-    "alias": null,
-    "iata": "A8",
-    "icao": "BGL",
-    "callsign": "BENIN GOLF",
-    "country": "Benin",
-    "active": false
-  },
-  {
     "id": "1401",
     "name": "Belair Airlines",
     "alias": null,
@@ -2830,16 +1780,6 @@
     "active": true
   },
   {
-    "id": "1405",
-    "name": "Bringer Air Cargo Taxi Aereo",
-    "alias": null,
-    "iata": "E6",
-    "icao": "",
-    "callsign": "",
-    "country": "Brazil",
-    "active": false
-  },
-  {
     "id": "1406",
     "name": "Balkan Bulgarian Airlines",
     "alias": null,
@@ -2850,16 +1790,6 @@
     "active": true
   },
   {
-    "id": "1407",
-    "name": "BA Connect",
-    "alias": null,
-    "iata": "TH",
-    "icao": "",
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
-  },
-  {
     "id": "1411",
     "name": "British International Helicopters",
     "alias": null,
@@ -2868,16 +1798,6 @@
     "callsign": "BRINTEL",
     "country": "United Kingdom",
     "active": true
-  },
-  {
-    "id": "1419",
-    "name": "Bankair",
-    "alias": null,
-    "iata": "B4",
-    "icao": "BKA",
-    "callsign": "BANKAIR",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "1422",
@@ -2950,26 +1870,6 @@
     "active": true
   },
   {
-    "id": "1443",
-    "name": "Bismillah Airlines",
-    "alias": null,
-    "iata": "5Z",
-    "icao": "BML",
-    "callsign": "BISMILLAH",
-    "country": "Bangladesh",
-    "active": false
-  },
-  {
-    "id": "1462",
-    "name": "Bouraq Indonesia Airlines",
-    "alias": null,
-    "iata": "BO",
-    "icao": "BOU",
-    "callsign": "BOURAQ",
-    "country": "Indonesia",
-    "active": false
-  },
-  {
     "id": "1463",
     "name": "Blue Panorama Airlines",
     "alias": null,
@@ -2978,16 +1878,6 @@
     "callsign": "BLUE PANOROMA",
     "country": "Italy",
     "active": true
-  },
-  {
-    "id": "1469",
-    "name": "BRA-Transportes Aereos",
-    "alias": null,
-    "iata": "7R",
-    "icao": "BRB",
-    "callsign": "BRA-TRANSPAEREOS",
-    "country": "Brazil",
-    "active": false
   },
   {
     "id": "1472",
@@ -3008,46 +1898,6 @@
     "callsign": "BELARUS AVIA",
     "country": "Belarus",
     "active": true
-  },
-  {
-    "id": "1479",
-    "name": "Bravo Air Congo",
-    "alias": null,
-    "iata": "K6",
-    "icao": "BRV",
-    "callsign": "BRAVO",
-    "country": "Democratic Republic of the Congo",
-    "active": false
-  },
-  {
-    "id": "1481",
-    "name": "Braniff International Airways",
-    "alias": null,
-    "iata": "BN",
-    "icao": "BNF",
-    "callsign": "Braniff",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1492",
-    "name": "Big Sky Airlines",
-    "alias": null,
-    "iata": "GQ",
-    "icao": "BSY",
-    "callsign": "BIG SKY",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1493",
-    "name": "BAL Bashkirian Airlines",
-    "alias": null,
-    "iata": "V9",
-    "icao": "BTC",
-    "callsign": "BASHKIRIAN",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "1500",
@@ -3080,26 +1930,6 @@
     "active": true
   },
   {
-    "id": "1516",
-    "name": "BAX Global",
-    "alias": null,
-    "iata": "8W",
-    "icao": "",
-    "callsign": "",
-    "country": "",
-    "active": false
-  },
-  {
-    "id": "1521",
-    "name": "Bayu Indonesia Air",
-    "alias": null,
-    "iata": "BM",
-    "icao": "BYE",
-    "callsign": "BAYU",
-    "country": "Indonesia",
-    "active": false
-  },
-  {
     "id": "1523",
     "name": "Brit Air",
     "alias": null,
@@ -3108,16 +1938,6 @@
     "callsign": "BRITAIR",
     "country": "France",
     "active": true
-  },
-  {
-    "id": "1530",
-    "name": "Boston-Maine Airways",
-    "alias": null,
-    "iata": "E9",
-    "icao": "CXS",
-    "callsign": "CLIPPER CONNECTION",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "1531",
@@ -3190,16 +2010,6 @@
     "active": true
   },
   {
-    "id": "1588",
-    "name": "CHC Airways",
-    "alias": null,
-    "iata": "AW",
-    "icao": "SCH",
-    "callsign": "",
-    "country": "Netherlands",
-    "active": false
-  },
-  {
     "id": "1607",
     "name": "Calima Aviacion",
     "alias": null,
@@ -3208,46 +2018,6 @@
     "callsign": "CALIMA",
     "country": "Spain",
     "active": true
-  },
-  {
-    "id": "1608",
-    "name": "Calm Air",
-    "alias": null,
-    "iata": "MO",
-    "icao": "CAV",
-    "callsign": "CALM AIR",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "1609",
-    "name": "Camai Air",
-    "alias": null,
-    "iata": "R9",
-    "icao": "CAM",
-    "callsign": "AIR CAMAI",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1611",
-    "name": "Cameroon Airlines",
-    "alias": null,
-    "iata": "UY",
-    "icao": "UYC",
-    "callsign": "CAM-AIR",
-    "country": "Cameroon",
-    "active": false
-  },
-  {
-    "id": "1613",
-    "name": "CanJet",
-    "alias": null,
-    "iata": "C6",
-    "icao": "CJA",
-    "callsign": "CANJET",
-    "country": "Canada",
-    "active": false
   },
   {
     "id": "1615",
@@ -3270,16 +2040,6 @@
     "active": true
   },
   {
-    "id": "1626",
-    "name": "Canadian Western Airlines",
-    "alias": null,
-    "iata": "W2",
-    "icao": "CWA",
-    "callsign": "CANADIAN WESTERN",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "1629",
     "name": "Cape Air",
     "alias": null,
@@ -3290,56 +2050,6 @@
     "active": true
   },
   {
-    "id": "1636",
-    "name": "Capital Cargo International Airlines",
-    "alias": null,
-    "iata": "PT",
-    "icao": "CCI",
-    "callsign": "CAPPY",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1649",
-    "name": "Cargo 360",
-    "alias": null,
-    "iata": "GG",
-    "icao": "GGC",
-    "callsign": "LONG-HAUL",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1654",
-    "name": "Cargoitalia",
-    "alias": null,
-    "iata": "2G",
-    "icao": "CRG",
-    "callsign": "WHITE PELICAN",
-    "country": "Italy",
-    "active": false
-  },
-  {
-    "id": "1655",
-    "name": "Cargojet Airways",
-    "alias": null,
-    "iata": "W8",
-    "icao": "CJT",
-    "callsign": "CARGOJET",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "1656",
-    "name": "Cargolux",
-    "alias": null,
-    "iata": "CV",
-    "icao": "CLX",
-    "callsign": "CARGOLUX",
-    "country": "Luxembourg",
-    "active": false
-  },
-  {
     "id": "1663",
     "name": "Caribbean Airlines",
     "alias": null,
@@ -3348,16 +2058,6 @@
     "callsign": "CARIBBEAN AIRLINES",
     "country": "Trinidad and Tobago",
     "active": true
-  },
-  {
-    "id": "1666",
-    "name": "Caribbean Star Airlines",
-    "alias": null,
-    "iata": "8B",
-    "icao": "GFI",
-    "callsign": "CARIB STAR",
-    "country": "Antigua and Barbuda",
-    "active": false
   },
   {
     "id": "1669",
@@ -3410,16 +2110,6 @@
     "active": true
   },
   {
-    "id": "1688",
-    "name": "Centavia",
-    "alias": null,
-    "iata": "7N",
-    "icao": "CNA",
-    "callsign": "",
-    "country": "Serbia",
-    "active": false
-  },
-  {
     "id": "1708",
     "name": "Centralwings",
     "alias": null,
@@ -3428,66 +2118,6 @@
     "callsign": "CENTRALWINGS",
     "country": "Poland",
     "active": true
-  },
-  {
-    "id": "1711",
-    "name": "Centre-Avia",
-    "alias": null,
-    "iata": "J7",
-    "icao": "CVC",
-    "callsign": "AVIACENTRE",
-    "country": "Russia",
-    "active": false
-  },
-  {
-    "id": "1714",
-    "name": "Centurion Air Cargo",
-    "alias": null,
-    "iata": "WE",
-    "icao": "CWC",
-    "callsign": "CHALLENGE CARGO",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1721",
-    "name": "Chalk's Ocean Airways",
-    "alias": null,
-    "iata": "OP",
-    "icao": "CHK",
-    "callsign": "CHALKS",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1727",
-    "name": "Champion Air",
-    "alias": null,
-    "iata": "MG",
-    "icao": "CCP",
-    "callsign": "CHAMPION AIR",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "1729",
-    "name": "Changan Airlines",
-    "alias": null,
-    "iata": "2Z",
-    "icao": "CGN",
-    "callsign": "CHANGAN",
-    "country": "China",
-    "active": false
-  },
-  {
-    "id": "1733",
-    "name": "Chari Aviation Services",
-    "alias": null,
-    "iata": "S8",
-    "icao": "CSU",
-    "callsign": "CHARI SERVICE",
-    "country": "Chad",
-    "active": false
   },
   {
     "id": "1739",
@@ -3500,16 +2130,6 @@
     "active": true
   },
   {
-    "id": "1750",
-    "name": "Chicago Express",
-    "alias": null,
-    "iata": "C8",
-    "icao": "WDY",
-    "callsign": "WINDY CITY",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "1756",
     "name": "China Airlines",
     "alias": null,
@@ -3520,16 +2140,6 @@
     "active": true
   },
   {
-    "id": "1757",
-    "name": "China Cargo Airlines",
-    "alias": null,
-    "iata": "CK",
-    "icao": "CKK",
-    "callsign": "CARGO KING",
-    "country": "China",
-    "active": false
-  },
-  {
     "id": "1758",
     "name": "China Eastern Airlines",
     "alias": null,
@@ -3538,36 +2148,6 @@
     "callsign": "CHINA EASTERN",
     "country": "China",
     "active": true
-  },
-  {
-    "id": "1763",
-    "name": "China Northern Airlines",
-    "alias": null,
-    "iata": "CJ",
-    "icao": "CBF",
-    "callsign": "CHINA NORTHERN",
-    "country": "China",
-    "active": false
-  },
-  {
-    "id": "1764",
-    "name": "China Northwest Airlines",
-    "alias": null,
-    "iata": "WH",
-    "icao": "CNW",
-    "callsign": "CHINA NORTHWEST",
-    "country": "China",
-    "active": false
-  },
-  {
-    "id": "1766",
-    "name": "China Postal Airlines",
-    "alias": null,
-    "iata": "8Y",
-    "icao": "CYZ",
-    "callsign": "CHINA POST",
-    "country": "China",
-    "active": false
   },
   {
     "id": "1767",
@@ -3590,16 +2170,6 @@
     "active": true
   },
   {
-    "id": "1770",
-    "name": "China Xinhua Airlines",
-    "alias": null,
-    "iata": "XO",
-    "icao": "CXH",
-    "callsign": "XINHUA",
-    "country": "China",
-    "active": false
-  },
-  {
     "id": "1771",
     "name": "Yunnan Airlines",
     "alias": null,
@@ -3608,26 +2178,6 @@
     "callsign": "YUNNAN",
     "country": "China",
     "active": true
-  },
-  {
-    "id": "1775",
-    "name": "Chitaavia",
-    "alias": null,
-    "iata": "X7",
-    "icao": "CHF",
-    "callsign": "CHITA",
-    "country": "Russia",
-    "active": false
-  },
-  {
-    "id": "1780",
-    "name": "Cielos Airlines",
-    "alias": null,
-    "iata": "A2",
-    "icao": "CIU",
-    "callsign": "CIELOS",
-    "country": "Peru",
-    "active": false
   },
   {
     "id": "1781",
@@ -3690,36 +2240,6 @@
     "active": true
   },
   {
-    "id": "1800",
-    "name": "Civil Air Transport",
-    "alias": null,
-    "iata": "CT",
-    "icao": "CAT",
-    "callsign": "Mandarin",
-    "country": "Taiwan",
-    "active": false
-  },
-  {
-    "id": "1812",
-    "name": "Club Air",
-    "alias": null,
-    "iata": "6P",
-    "icao": "ISG",
-    "callsign": "CLUBAIR",
-    "country": "Italy",
-    "active": false
-  },
-  {
-    "id": "1813",
-    "name": "Coast Air",
-    "alias": null,
-    "iata": "BX",
-    "icao": "CST",
-    "callsign": "COAST CENTER",
-    "country": "Norway",
-    "active": false
-  },
-  {
     "id": "1814",
     "name": "Coastal Air",
     "alias": null,
@@ -3780,16 +2300,6 @@
     "active": true
   },
   {
-    "id": "1856",
-    "name": "Compania Mexicargo",
-    "alias": null,
-    "iata": "GJ",
-    "icao": "MXC",
-    "callsign": "MEXICARGO",
-    "country": "Mexico",
-    "active": false
-  },
-  {
     "id": "1860",
     "name": "Compass Airlines",
     "alias": null,
@@ -3838,16 +2348,6 @@
     "callsign": "CONTINENTAL",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "1882",
-    "name": "Continental Airways",
-    "alias": null,
-    "iata": "PC",
-    "icao": "PVV",
-    "callsign": "CONTAIR",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "1883",
@@ -3910,16 +2410,6 @@
     "active": true
   },
   {
-    "id": "1910",
-    "name": "Cosmic Air",
-    "alias": null,
-    "iata": "F5",
-    "icao": "COZ",
-    "callsign": "COSMIC AIR",
-    "country": "Nepal",
-    "active": false
-  },
-  {
     "id": "1925",
     "name": "Croatia Airlines",
     "alias": null,
@@ -3928,16 +2418,6 @@
     "callsign": "CROATIA",
     "country": "Croatia",
     "active": true
-  },
-  {
-    "id": "1928",
-    "name": "Crossair Europe",
-    "alias": null,
-    "iata": "QE",
-    "icao": "ECC",
-    "callsign": "Cigogne",
-    "country": "Switzerland",
-    "active": false
   },
   {
     "id": "1936",
@@ -3980,16 +2460,6 @@
     "active": true
   },
   {
-    "id": "1952",
-    "name": "DAS Air Cargo",
-    "alias": null,
-    "iata": "WD",
-    "icao": "DSR",
-    "callsign": "DAIRAIR",
-    "country": "Uganda",
-    "active": false
-  },
-  {
     "id": "1954",
     "name": "DAT Danish Air Transport",
     "alias": null,
@@ -4000,26 +2470,6 @@
     "active": true
   },
   {
-    "id": "1963",
-    "name": "DHL International",
-    "alias": null,
-    "iata": "ES",
-    "icao": "DHX",
-    "callsign": "DILMUN",
-    "country": "Bahrain",
-    "active": false
-  },
-  {
-    "id": "1964",
-    "name": "DHL de Guatemala",
-    "alias": null,
-    "iata": "L3",
-    "icao": "JOS",
-    "callsign": "",
-    "country": "Guatemala",
-    "active": false
-  },
-  {
     "id": "1966",
     "name": "Daallo Airlines",
     "alias": null,
@@ -4028,16 +2478,6 @@
     "callsign": "DALO AIRLINES",
     "country": "Djibouti",
     "active": true
-  },
-  {
-    "id": "1967",
-    "name": "Dagestan Airlines",
-    "alias": null,
-    "iata": "N2",
-    "icao": "DAG",
-    "callsign": "DAGAL",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "1973",
@@ -4060,16 +2500,6 @@
     "active": true
   },
   {
-    "id": "1993",
-    "name": "Dauair",
-    "alias": null,
-    "iata": "D5",
-    "icao": "DAU",
-    "callsign": "DAUAIR",
-    "country": "Germany",
-    "active": false
-  },
-  {
     "id": "2009",
     "name": "Delta Air Lines",
     "alias": null,
@@ -4088,46 +2518,6 @@
     "callsign": "",
     "country": "Germany",
     "active": true
-  },
-  {
-    "id": "2022",
-    "name": "Deutsche Rettungsflugwacht",
-    "alias": null,
-    "iata": "1I",
-    "icao": "AMB",
-    "callsign": "CIVIL AIR AMBULANCE",
-    "country": "Germany",
-    "active": false
-  },
-  {
-    "id": "2028",
-    "name": "Dinar",
-    "alias": null,
-    "iata": "D7",
-    "icao": "RDN",
-    "callsign": "AERO DINAR",
-    "country": "Argentina",
-    "active": false
-  },
-  {
-    "id": "2035",
-    "name": "Dirgantara Air Service",
-    "alias": null,
-    "iata": "AW",
-    "icao": "DIR",
-    "callsign": "DIRGANTARA",
-    "country": "Indonesia",
-    "active": false
-  },
-  {
-    "id": "2037",
-    "name": "Discovery Airways",
-    "alias": null,
-    "iata": "DH",
-    "icao": "DVA",
-    "callsign": "DISCOVERY AIRWAYS",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "2041",
@@ -4200,26 +2590,6 @@
     "active": true
   },
   {
-    "id": "2079",
-    "name": "Electronic Data Systems",
-    "alias": null,
-    "iata": "1C",
-    "icao": "",
-    "callsign": "",
-    "country": "Switzerland",
-    "active": false
-  },
-  {
-    "id": "2090",
-    "name": "EUjet",
-    "alias": null,
-    "iata": "VE",
-    "icao": "EUJ",
-    "callsign": "UNION JET",
-    "country": "Ireland",
-    "active": false
-  },
-  {
     "id": "2091",
     "name": "EVA Air",
     "alias": null,
@@ -4250,16 +2620,6 @@
     "active": true
   },
   {
-    "id": "2105",
-    "name": "East African Safari Air",
-    "alias": null,
-    "iata": "S9",
-    "icao": "HSA",
-    "callsign": "DUMA",
-    "country": "Kenya",
-    "active": false
-  },
-  {
     "id": "2117",
     "name": "Eastern Airways",
     "alias": null,
@@ -4278,16 +2638,6 @@
     "callsign": "",
     "country": "Australia",
     "active": true
-  },
-  {
-    "id": "2126",
-    "name": "Eastwind Airlines",
-    "alias": null,
-    "iata": "W9",
-    "icao": "SGR",
-    "callsign": "STINGER",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "2138",
@@ -4340,16 +2690,6 @@
     "active": true
   },
   {
-    "id": "2186",
-    "name": "Empire Airlines",
-    "alias": null,
-    "iata": "EM",
-    "icao": "CFS",
-    "callsign": "EMPIRE AIR",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2193",
     "name": "Empresa Ecuatoriana De Aviacion",
     "alias": null,
@@ -4360,26 +2700,6 @@
     "active": true
   },
   {
-    "id": "2200",
-    "name": "Enkor JSC",
-    "alias": null,
-    "iata": "G8",
-    "icao": "ENK",
-    "callsign": "ENKOR",
-    "country": "Russia]]",
-    "active": false
-  },
-  {
-    "id": "2205",
-    "name": "Eos Airlines",
-    "alias": null,
-    "iata": "E0",
-    "icao": "ESS",
-    "callsign": "NEW DAWN",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2213",
     "name": "Eritrean Airlines",
     "alias": null,
@@ -4388,16 +2708,6 @@
     "callsign": "ERITREAN",
     "country": "Eritrea",
     "active": true
-  },
-  {
-    "id": "2217",
-    "name": "Estafeta Carga Aerea",
-    "alias": null,
-    "iata": "E7",
-    "icao": "ESF",
-    "callsign": "",
-    "country": "Mexico",
-    "active": false
   },
   {
     "id": "2218",
@@ -4470,16 +2780,6 @@
     "active": true
   },
   {
-    "id": "2246",
-    "name": "Euromanx Airways",
-    "alias": null,
-    "iata": "3W",
-    "icao": "EMX",
-    "callsign": "EUROMANX",
-    "country": "Austria",
-    "active": false
-  },
-  {
     "id": "2251",
     "name": "European Air Express",
     "alias": null,
@@ -4488,26 +2788,6 @@
     "callsign": "STAR WING",
     "country": "Germany",
     "active": true
-  },
-  {
-    "id": "2252",
-    "name": "European Air Transport",
-    "alias": null,
-    "iata": "QY",
-    "icao": "BCS",
-    "callsign": "EUROTRANS",
-    "country": "Belgium",
-    "active": false
-  },
-  {
-    "id": "2253",
-    "name": "European Aviation Air Charter",
-    "alias": null,
-    "iata": "E7",
-    "icao": "EAF",
-    "callsign": "EUROCHARTER",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "2260",
@@ -4540,36 +2820,6 @@
     "active": true
   },
   {
-    "id": "2267",
-    "name": "Execair Aviation",
-    "alias": null,
-    "iata": "MB",
-    "icao": "EXA",
-    "callsign": "CANADIAN EXECAIRE",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "2277",
-    "name": "Executive Airlines",
-    "alias": null,
-    "iata": "OW",
-    "icao": "EXK",
-    "callsign": "EXECUTIVE EAGLE",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "2288",
-    "name": "Expo Aviation",
-    "alias": null,
-    "iata": "8D",
-    "icao": "EXV",
-    "callsign": "EXPOAVIA",
-    "country": "Sri Lanka",
-    "active": false
-  },
-  {
     "id": "2293",
     "name": "Express One International",
     "alias": null,
@@ -4600,16 +2850,6 @@
     "active": true
   },
   {
-    "id": "2320",
-    "name": "Falcon Aviation",
-    "alias": null,
-    "iata": "IH",
-    "icao": "",
-    "callsign": "",
-    "country": "Sweden",
-    "active": false
-  },
-  {
     "id": "2324",
     "name": "Far Eastern Air Transport",
     "alias": null,
@@ -4618,56 +2858,6 @@
     "callsign": "Far Eastern",
     "country": "Taiwan",
     "active": true
-  },
-  {
-    "id": "2331",
-    "name": "Faroejet",
-    "alias": null,
-    "iata": "F6",
-    "icao": "RCK",
-    "callsign": "ROCKROSE",
-    "country": "Faroe Islands",
-    "active": false
-  },
-  {
-    "id": "2333",
-    "name": "Faso Airways",
-    "alias": null,
-    "iata": "F3",
-    "icao": "FSW",
-    "callsign": "FASO",
-    "country": "Burkina Faso",
-    "active": false
-  },
-  {
-    "id": "2342",
-    "name": "Federal Express",
-    "alias": null,
-    "iata": "FX",
-    "icao": "FDX",
-    "callsign": "FEDEX",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "2345",
-    "name": "Fika Salaama Airlines",
-    "alias": null,
-    "iata": "N8",
-    "icao": "HGK",
-    "callsign": "SALAAMA",
-    "country": "Uganda",
-    "active": false
-  },
-  {
-    "id": "2346",
-    "name": "Finalair Congo",
-    "alias": null,
-    "iata": "4S",
-    "icao": "FNC",
-    "callsign": "FINALAIR CONGO",
-    "country": "Republic of the Congo",
-    "active": false
   },
   {
     "id": "2350",
@@ -4720,16 +2910,6 @@
     "active": true
   },
   {
-    "id": "2362",
-    "name": "Fischer Air",
-    "alias": null,
-    "iata": "8F",
-    "icao": "FFR",
-    "callsign": "FISCHER",
-    "country": "Czech Republic",
-    "active": false
-  },
-  {
     "id": "2395",
     "name": "Flightline",
     "alias": null,
@@ -4740,16 +2920,6 @@
     "active": true
   },
   {
-    "id": "2401",
-    "name": "Florida Coastal Airlines",
-    "alias": null,
-    "iata": "PA",
-    "icao": "FCL",
-    "callsign": "FLORIDA COASTAL",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2404",
     "name": "Florida West International Airways",
     "alias": null,
@@ -4758,26 +2928,6 @@
     "callsign": "FLO WEST",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "2409",
-    "name": "Fly Air",
-    "alias": null,
-    "iata": "F2",
-    "icao": "FLM",
-    "callsign": "FLY WORLD",
-    "country": "Turkey",
-    "active": false
-  },
-  {
-    "id": "2415",
-    "name": "Fly Me Sweden",
-    "alias": null,
-    "iata": "SH",
-    "icao": "FLY",
-    "callsign": "FLYBIRD",
-    "country": "Sweden",
-    "active": false
   },
   {
     "id": "2417",
@@ -4850,26 +3000,6 @@
     "active": true
   },
   {
-    "id": "2443",
-    "name": "Forward Air International Airlines",
-    "alias": null,
-    "iata": "BN",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "2448",
-    "name": "Four Star Aviation / Four Star Cargo",
-    "alias": null,
-    "iata": "HK",
-    "icao": "FSC",
-    "callsign": "FOUR STAR",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2454",
     "name": "Freedom Air",
     "alias": null,
@@ -4900,16 +3030,6 @@
     "active": true
   },
   {
-    "id": "2480",
-    "name": "Futura International Airways",
-    "alias": null,
-    "iata": "FH",
-    "icao": "FUA",
-    "callsign": "FUTURA",
-    "country": "Spain",
-    "active": false
-  },
-  {
     "id": "2486",
     "name": "GB Airways",
     "alias": null,
@@ -4918,46 +3038,6 @@
     "callsign": "GEEBEE AIRWAYS",
     "country": "United Kingdom",
     "active": true
-  },
-  {
-    "id": "2508",
-    "name": "Galaxy Air",
-    "alias": null,
-    "iata": "7O",
-    "icao": "GAL",
-    "callsign": "GALAXY",
-    "country": "Kyrgyzstan",
-    "active": false
-  },
-  {
-    "id": "2511",
-    "name": "Galileo International",
-    "alias": null,
-    "iata": "1G",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "2513",
-    "name": "Gambia International Airlines",
-    "alias": null,
-    "iata": "GC",
-    "icao": "GNR",
-    "callsign": "GAMBIA INTERNATIONAL",
-    "country": "Gambia",
-    "active": false
-  },
-  {
-    "id": "2516",
-    "name": "Gandalf Airlines",
-    "alias": null,
-    "iata": "G7",
-    "icao": "GNF",
-    "callsign": "Gandalf",
-    "country": "Italy",
-    "active": false
   },
   {
     "id": "2520",
@@ -4978,16 +3058,6 @@
     "callsign": "GAZPROMAVIA",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "2526",
-    "name": "Gemini Air Cargo",
-    "alias": null,
-    "iata": "GR",
-    "icao": "GCO",
-    "callsign": "GEMINI",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "2538",
@@ -5030,16 +3100,6 @@
     "active": true
   },
   {
-    "id": "2551",
-    "name": "Gestair",
-    "alias": null,
-    "iata": "GP",
-    "icao": "GES",
-    "callsign": "GESTAIR",
-    "country": "Spain",
-    "active": false
-  },
-  {
     "id": "2556",
     "name": "Ghana International Airlines",
     "alias": null,
@@ -5058,16 +3118,6 @@
     "callsign": "GOAIR",
     "country": "India",
     "active": true
-  },
-  {
-    "id": "2576",
-    "name": "Go One Airways",
-    "alias": null,
-    "iata": "GK",
-    "icao": "",
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "2577",
@@ -5100,26 +3150,6 @@
     "active": true
   },
   {
-    "id": "2595",
-    "name": "Gorkha Airlines",
-    "alias": null,
-    "iata": "G1",
-    "icao": "IKA",
-    "callsign": "GORKHA AIRLINES",
-    "country": "Nepal",
-    "active": false
-  },
-  {
-    "id": "2604",
-    "name": "Grant Aviation",
-    "alias": null,
-    "iata": "GS",
-    "icao": "GUN",
-    "callsign": "HOOT",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2607",
     "name": "Great Lakes Airlines",
     "alias": null,
@@ -5128,16 +3158,6 @@
     "callsign": "LAKES AIR",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "2610",
-    "name": "Great Wall Airlines",
-    "alias": null,
-    "iata": "IJ",
-    "icao": "GWL",
-    "callsign": "GREAT WALL",
-    "country": "China",
-    "active": false
   },
   {
     "id": "2622",
@@ -5150,36 +3170,6 @@
     "active": true
   },
   {
-    "id": "2626",
-    "name": "Guine Bissaur Airlines",
-    "alias": null,
-    "iata": "G6",
-    "icao": "BSR",
-    "callsign": "BISSAU AIRLINES",
-    "country": "Guinea-Bissau",
-    "active": false
-  },
-  {
-    "id": "2629",
-    "name": "Guinee Airlines",
-    "alias": null,
-    "iata": "J9",
-    "icao": "GIF",
-    "callsign": "GUINEE AIRLINES",
-    "country": "Guinea",
-    "active": false
-  },
-  {
-    "id": "2634",
-    "name": "Gujarat Airways",
-    "alias": null,
-    "iata": "G8",
-    "icao": "GUJ",
-    "callsign": "GUJARATAIR",
-    "country": "India",
-    "active": false
-  },
-  {
     "id": "2638",
     "name": "Gulf Air Bahrain",
     "alias": null,
@@ -5188,16 +3178,6 @@
     "callsign": "GULF BAHRAIN",
     "country": "Bahrain",
     "active": true
-  },
-  {
-    "id": "2649",
-    "name": "Guyana Airways 2000",
-    "alias": null,
-    "iata": "GY",
-    "icao": "",
-    "callsign": "",
-    "country": "",
-    "active": false
   },
   {
     "id": "2657",
@@ -5210,16 +3190,6 @@
     "active": true
   },
   {
-    "id": "2659",
-    "name": "Hahn Air",
-    "alias": null,
-    "iata": "HR",
-    "icao": "HHN",
-    "callsign": "ROOSTER",
-    "country": "Germany",
-    "active": false
-  },
-  {
     "id": "2660",
     "name": "Hainan Airlines",
     "alias": null,
@@ -5228,16 +3198,6 @@
     "callsign": "HAINAN",
     "country": "China",
     "active": true
-  },
-  {
-    "id": "2661",
-    "name": "Hainan Phoenix Information Systems",
-    "alias": null,
-    "iata": "1R",
-    "icao": "",
-    "callsign": "",
-    "country": "China",
-    "active": false
   },
   {
     "id": "2663",
@@ -5280,26 +3240,6 @@
     "active": true
   },
   {
-    "id": "2683",
-    "name": "Harbor Airlines",
-    "alias": null,
-    "iata": "HB",
-    "icao": "HAR",
-    "callsign": "HARBOR",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "2684",
-    "name": "Harmony Airways",
-    "alias": null,
-    "iata": "HQ",
-    "icao": "HMY",
-    "callsign": "HARMONY",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "2688",
     "name": "Hawaiian Airlines",
     "alias": null,
@@ -5310,16 +3250,6 @@
     "active": true
   },
   {
-    "id": "2689",
-    "name": "Hawaiian Pacific Airlines",
-    "alias": null,
-    "iata": "HP",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2692",
     "name": "Hawkair",
     "alias": null,
@@ -5328,16 +3258,6 @@
     "callsign": "",
     "country": "Canada",
     "active": true
-  },
-  {
-    "id": "2695",
-    "name": "Heavylift Cargo Airlines",
-    "alias": null,
-    "iata": "HN",
-    "icao": "HVY",
-    "callsign": "HEAVY CARGO",
-    "country": "Australia",
-    "active": false
   },
   {
     "id": "2704",
@@ -5358,16 +3278,6 @@
     "callsign": "HELIJET",
     "country": "Canada",
     "active": true
-  },
-  {
-    "id": "2735",
-    "name": "Helios Airways",
-    "alias": null,
-    "iata": "ZU",
-    "icao": "HCY",
-    "callsign": "HELIOS",
-    "country": "Cyprus",
-    "active": false
   },
   {
     "id": "2747",
@@ -5400,26 +3310,6 @@
     "active": true
   },
   {
-    "id": "2751",
-    "name": "Hemus Air",
-    "alias": null,
-    "iata": "DU",
-    "icao": "HMS",
-    "callsign": "HEMUS AIR",
-    "country": "Bulgaria",
-    "active": false
-  },
-  {
-    "id": "2756",
-    "name": "Hewa Bora Airways",
-    "alias": null,
-    "iata": "EO",
-    "icao": "ALX",
-    "callsign": "ALLCONGO",
-    "country": "Democratic Republic of the Congo",
-    "active": false
-  },
-  {
     "id": "2757",
     "name": "Hex'Air",
     "alias": null,
@@ -5430,16 +3320,6 @@
     "active": true
   },
   {
-    "id": "2759",
-    "name": "Hi Fly",
-    "alias": null,
-    "iata": "5K",
-    "icao": "HFY",
-    "callsign": "SKY FLYER",
-    "country": "Portugal",
-    "active": false
-  },
-  {
     "id": "2765",
     "name": "Hokkaido International Airlines",
     "alias": null,
@@ -5448,16 +3328,6 @@
     "callsign": "AIR DO",
     "country": "Japan",
     "active": true
-  },
-  {
-    "id": "2767",
-    "name": "Hola Airlines",
-    "alias": null,
-    "iata": "H5",
-    "icao": "HOA",
-    "callsign": "HOLA",
-    "country": "Spain",
-    "active": false
   },
   {
     "id": "2773",
@@ -5480,16 +3350,6 @@
     "active": true
   },
   {
-    "id": "2777",
-    "name": "Hope Air",
-    "alias": null,
-    "iata": "HH",
-    "icao": "",
-    "callsign": "HOPE AIR",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "2778",
     "name": "Horizon Air",
     "alias": "Horizon Airlines",
@@ -5508,56 +3368,6 @@
     "callsign": "",
     "country": "Australia",
     "active": true
-  },
-  {
-    "id": "2799",
-    "name": "Héli Sécurité Helicopter Airlines",
-    "alias": null,
-    "iata": "H4",
-    "icao": "",
-    "callsign": "",
-    "country": "France",
-    "active": false
-  },
-  {
-    "id": "2801",
-    "name": "IBC Airways",
-    "alias": null,
-    "iata": "II",
-    "icao": "CSQ",
-    "callsign": "CHASQUI",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "2805",
-    "name": "ICAR Airlines",
-    "alias": null,
-    "iata": "C3",
-    "icao": "",
-    "callsign": "",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
-    "id": "2815",
-    "name": "INFINI Travel Information",
-    "alias": null,
-    "iata": "1F",
-    "icao": "",
-    "callsign": "",
-    "country": "Japan",
-    "active": false
-  },
-  {
-    "id": "2820",
-    "name": "ITA Software",
-    "alias": null,
-    "iata": "1U",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "2822",
@@ -5610,16 +3420,6 @@
     "active": true
   },
   {
-    "id": "2848",
-    "name": "Independence Air",
-    "alias": null,
-    "iata": "DH",
-    "icao": "IDE",
-    "callsign": "INDEPENDENCE AIR",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2850",
     "name": "IndiGo Airlines",
     "alias": null,
@@ -5670,26 +3470,6 @@
     "active": true
   },
   {
-    "id": "2869",
-    "name": "InteliJet Airways",
-    "alias": null,
-    "iata": "IJ",
-    "icao": "IJT",
-    "callsign": "INTELIJET",
-    "country": "Colombia",
-    "active": false
-  },
-  {
-    "id": "2873",
-    "name": "Inter Islands Airlines",
-    "alias": null,
-    "iata": "H4",
-    "icao": "IIN",
-    "callsign": "",
-    "country": "Cape Verde",
-    "active": false
-  },
-  {
     "id": "2881",
     "name": "Interair South Africa",
     "alias": null,
@@ -5710,16 +3490,6 @@
     "active": true
   },
   {
-    "id": "2885",
-    "name": "Intercontinental de Aviaci",
-    "alias": null,
-    "iata": "RS",
-    "icao": "ICT",
-    "callsign": "CONTAVIA",
-    "country": "Colombia",
-    "active": false
-  },
-  {
     "id": "2896",
     "name": "Interlink Airlines",
     "alias": null,
@@ -5730,16 +3500,6 @@
     "active": true
   },
   {
-    "id": "2901",
-    "name": "International Business Air",
-    "alias": null,
-    "iata": "6I",
-    "icao": "IBZ",
-    "callsign": "INTERBIZ",
-    "country": "Sweden",
-    "active": false
-  },
-  {
     "id": "2916",
     "name": "Intersky",
     "alias": null,
@@ -5748,16 +3508,6 @@
     "callsign": "INTERSKY",
     "country": "Austria",
     "active": true
-  },
-  {
-    "id": "2917",
-    "name": "Interstate Airline",
-    "alias": null,
-    "iata": "I4",
-    "icao": "FWA",
-    "callsign": "FREEWAYAIR",
-    "country": "Netherlands",
-    "active": false
   },
   {
     "id": "2922",
@@ -5800,16 +3550,6 @@
     "active": true
   },
   {
-    "id": "2941",
-    "name": "Island Express",
-    "alias": null,
-    "iata": "2S",
-    "icao": "SDY",
-    "callsign": "SANDY ISLE",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "2942",
     "name": "Cargo Plus Aviation",
     "alias": null,
@@ -5818,16 +3558,6 @@
     "callsign": "",
     "country": "United Arab Emirates",
     "active": true
-  },
-  {
-    "id": "2946",
-    "name": "Islands Nationair",
-    "alias": null,
-    "iata": "CN",
-    "icao": "",
-    "callsign": "",
-    "country": "Papua New Guinea",
-    "active": false
   },
   {
     "id": "2948",
@@ -5860,16 +3590,6 @@
     "active": true
   },
   {
-    "id": "2956",
-    "name": "Itali Airlines",
-    "alias": null,
-    "iata": "9X",
-    "icao": "ACL",
-    "callsign": "ITALI",
-    "country": "Italy",
-    "active": false
-  },
-  {
     "id": "2958",
     "name": "Itek Air",
     "alias": null,
@@ -5878,16 +3598,6 @@
     "callsign": "ITEK-AIR",
     "country": "Kyrgyzstan",
     "active": true
-  },
-  {
-    "id": "2964",
-    "name": "Izair",
-    "alias": null,
-    "iata": "H9",
-    "icao": "IZM",
-    "callsign": "IZMIR",
-    "country": "Turkey",
-    "active": false
   },
   {
     "id": "2969",
@@ -5908,16 +3618,6 @@
     "callsign": "JALWAYS",
     "country": "Japan",
     "active": true
-  },
-  {
-    "id": "2976",
-    "name": "JSC Transport Automated Information Systems",
-    "alias": null,
-    "iata": "1M",
-    "icao": "",
-    "callsign": "",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "2987",
@@ -5960,26 +3660,6 @@
     "active": true
   },
   {
-    "id": "2991",
-    "name": "Jat Airways",
-    "alias": null,
-    "iata": "JU",
-    "icao": "JAT",
-    "callsign": "JAT",
-    "country": "Serbia",
-    "active": false
-  },
-  {
-    "id": "2992",
-    "name": "Jatayu Airlines",
-    "alias": null,
-    "iata": "VJ",
-    "icao": "JTY",
-    "callsign": "JATAYU",
-    "country": "Indonesia",
-    "active": false
-  },
-  {
     "id": "2993",
     "name": "Jazeera Airways",
     "alias": null,
@@ -6018,16 +3698,6 @@
     "callsign": "",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "3007",
-    "name": "Jetclub",
-    "alias": null,
-    "iata": "0J",
-    "icao": "",
-    "callsign": "",
-    "country": "Switzerland",
-    "active": false
   },
   {
     "id": "3021",
@@ -6080,26 +3750,6 @@
     "active": true
   },
   {
-    "id": "3035",
-    "name": "Jetclub",
-    "alias": null,
-    "iata": "0J",
-    "icao": "JCS",
-    "callsign": "JETCLUB",
-    "country": "Switzerland",
-    "active": false
-  },
-  {
-    "id": "3051",
-    "name": "JetsGo",
-    "alias": null,
-    "iata": "SG",
-    "icao": "JGO",
-    "callsign": "JETSGO",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "3052",
     "name": "Jetstar Airways",
     "alias": null,
@@ -6108,36 +3758,6 @@
     "callsign": "JETSTAR",
     "country": "Australia",
     "active": true
-  },
-  {
-    "id": "3056",
-    "name": "Jett8 Airlines Cargo",
-    "alias": null,
-    "iata": "JX",
-    "icao": "JEC",
-    "callsign": "",
-    "country": "Singapore",
-    "active": false
-  },
-  {
-    "id": "3060",
-    "name": "Jetx Airlines",
-    "alias": null,
-    "iata": "GX",
-    "icao": "JXX",
-    "callsign": "JETBIRD",
-    "country": "Iceland",
-    "active": false
-  },
-  {
-    "id": "3073",
-    "name": "Jordan Aviation",
-    "alias": null,
-    "iata": "R5",
-    "icao": "JAV",
-    "callsign": "JORDAN AVIATION",
-    "country": "Jordan",
-    "active": false
   },
   {
     "id": "3081",
@@ -6180,26 +3800,6 @@
     "active": true
   },
   {
-    "id": "3091",
-    "name": "Kabo Air",
-    "alias": null,
-    "iata": "N2",
-    "icao": "QNK",
-    "callsign": "KABO",
-    "country": "Nigeria",
-    "active": false
-  },
-  {
-    "id": "3094",
-    "name": "Kalitta Air",
-    "alias": null,
-    "iata": "K4",
-    "icao": "CKS",
-    "callsign": "CONNIE",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "3097",
     "name": "Kam Air",
     "alias": null,
@@ -6208,26 +3808,6 @@
     "callsign": "KAMGAR",
     "country": "Afghanistan",
     "active": true
-  },
-  {
-    "id": "3098",
-    "name": "Kampuchea Airlines",
-    "alias": null,
-    "iata": "E2",
-    "icao": "KMP",
-    "callsign": "KAMPUCHEA",
-    "country": "Cambodia",
-    "active": false
-  },
-  {
-    "id": "3102",
-    "name": "Karat",
-    "alias": null,
-    "iata": "V2",
-    "icao": "AKT",
-    "callsign": "AVIAKARAT",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "3110",
@@ -6260,16 +3840,6 @@
     "active": true
   },
   {
-    "id": "3131",
-    "name": "Keystone Air Services",
-    "alias": null,
-    "iata": "BZ",
-    "icao": "KEE",
-    "callsign": "KEYSTONE",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "3142",
     "name": "Kingfisher Airlines",
     "alias": null,
@@ -6290,16 +3860,6 @@
     "active": true
   },
   {
-    "id": "3151",
-    "name": "Kiwi International Air Lines",
-    "alias": null,
-    "iata": "KP",
-    "icao": "KIA",
-    "callsign": "KIWI AIR",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "3157",
     "name": "Kogalymavia Air Company",
     "alias": null,
@@ -6308,16 +3868,6 @@
     "callsign": "KOGALYM",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "3160",
-    "name": "Komiinteravia",
-    "alias": "",
-    "iata": "8J",
-    "icao": "KMV",
-    "callsign": "KOMIINTER",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "3163",
@@ -6340,16 +3890,6 @@
     "active": true
   },
   {
-    "id": "3172",
-    "name": "Krylo Airlines",
-    "alias": null,
-    "iata": "K9",
-    "icao": "KRI",
-    "callsign": "Krylo",
-    "country": "Russia",
-    "active": false
-  },
-  {
     "id": "3175",
     "name": "Kuban Airlines",
     "alias": null,
@@ -6358,16 +3898,6 @@
     "callsign": "AIR KUBAN",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "3176",
-    "name": "Kunpeng Airlines",
-    "alias": null,
-    "iata": "VD",
-    "icao": "KPA",
-    "callsign": "KUNPENG",
-    "country": "China",
-    "active": false
   },
   {
     "id": "3179",
@@ -6390,56 +3920,6 @@
     "active": true
   },
   {
-    "id": "3183",
-    "name": "Kyrgyz Airlines",
-    "alias": null,
-    "iata": "N5",
-    "icao": "KGZ",
-    "callsign": "BERMET",
-    "country": "Kyrgyzstan",
-    "active": false
-  },
-  {
-    "id": "3185",
-    "name": "Kyrgyzstan",
-    "alias": null,
-    "iata": "QH",
-    "icao": "LYN",
-    "callsign": "ALTYN AVIA",
-    "country": "Kyrgyzstan",
-    "active": false
-  },
-  {
-    "id": "3186",
-    "name": "Kyrgyzstan Airlines",
-    "alias": null,
-    "iata": "R8",
-    "icao": "KGA",
-    "callsign": "KYRGYZ",
-    "country": "Kyrgyzstan",
-    "active": false
-  },
-  {
-    "id": "3189",
-    "name": "Kibris T",
-    "alias": null,
-    "iata": "KY",
-    "icao": "KYV",
-    "callsign": "AIRKIBRIS",
-    "country": "Turkey",
-    "active": false
-  },
-  {
-    "id": "3196",
-    "name": "L.A.B. Flying Service",
-    "alias": null,
-    "iata": "JF",
-    "icao": "LAB",
-    "callsign": "LAB",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "3197",
     "name": "LACSA",
     "alias": null,
@@ -6448,16 +3928,6 @@
     "callsign": "LACSA",
     "country": "Costa Rica",
     "active": true
-  },
-  {
-    "id": "3199",
-    "name": "LAI - Linea Aerea IAACA",
-    "alias": null,
-    "iata": "KG",
-    "icao": "BNX",
-    "callsign": "AIR BARINAS",
-    "country": "Venezuela",
-    "active": false
   },
   {
     "id": "3200",
@@ -6530,36 +4000,6 @@
     "active": true
   },
   {
-    "id": "3213",
-    "name": "LTU International",
-    "alias": null,
-    "iata": "LT",
-    "icao": "LTU",
-    "callsign": "LTU",
-    "country": "Germany",
-    "active": false
-  },
-  {
-    "id": "3220",
-    "name": "Lagun Air",
-    "alias": null,
-    "iata": "N6",
-    "icao": "JEV",
-    "callsign": "",
-    "country": "Spain",
-    "active": false
-  },
-  {
-    "id": "3229",
-    "name": "Lankair",
-    "alias": null,
-    "iata": "IK",
-    "icao": "LKN",
-    "callsign": "Lankair",
-    "country": "Sri Lanka",
-    "active": false
-  },
-  {
     "id": "3233",
     "name": "Lao Airlines",
     "alias": null,
@@ -6570,16 +4010,6 @@
     "active": true
   },
   {
-    "id": "3235",
-    "name": "Laoag International Airlines",
-    "alias": null,
-    "iata": "L7",
-    "icao": "LPN",
-    "callsign": "LAOAG AIR",
-    "country": "Philippines",
-    "active": false
-  },
-  {
     "id": "3239",
     "name": "Lauda Air",
     "alias": null,
@@ -6588,16 +4018,6 @@
     "callsign": "LAUDA AIR",
     "country": "Austria",
     "active": true
-  },
-  {
-    "id": "3246",
-    "name": "Lebanese Air Transport",
-    "alias": null,
-    "iata": "LQ",
-    "icao": "LAQ",
-    "callsign": "LAT",
-    "country": "Lebanon",
-    "active": false
   },
   {
     "id": "3251",
@@ -6620,46 +4040,6 @@
     "active": true
   },
   {
-    "id": "3270",
-    "name": "Linea Aerea SAPSA",
-    "alias": null,
-    "iata": "L7",
-    "icao": "LNP",
-    "callsign": "SAPSA",
-    "country": "Chile",
-    "active": false
-  },
-  {
-    "id": "3272",
-    "name": "Linea Aerea de Servicio Ejecutivo Regional",
-    "alias": null,
-    "iata": "8z",
-    "icao": "LER",
-    "callsign": "LASER",
-    "country": "Venezuela",
-    "active": false
-  },
-  {
-    "id": "3274",
-    "name": "Linea Turistica Aerotuy",
-    "alias": null,
-    "iata": "LD",
-    "icao": "TUY",
-    "callsign": "AEREOTUY",
-    "country": "Venezuela",
-    "active": false
-  },
-  {
-    "id": "3276",
-    "name": "Lineas Aereas Azteca",
-    "alias": null,
-    "iata": "ZE",
-    "icao": "LCD",
-    "callsign": "LINEAS AZTECA",
-    "country": "Mexico",
-    "active": false
-  },
-  {
     "id": "3287",
     "name": "Linhas A",
     "alias": null,
@@ -6678,26 +4058,6 @@
     "callsign": "LION INTER",
     "country": "Indonesia",
     "active": true
-  },
-  {
-    "id": "3294",
-    "name": "Livingston",
-    "alias": null,
-    "iata": "LM",
-    "icao": "LVG",
-    "callsign": "LIVINGSTON",
-    "country": "Italy",
-    "active": false
-  },
-  {
-    "id": "3295",
-    "name": "Lloyd Aereo Boliviano",
-    "alias": null,
-    "iata": "LB",
-    "icao": "LLB",
-    "callsign": "LLOYDAEREO",
-    "country": "Bolivia",
-    "active": false
   },
   {
     "id": "3319",
@@ -6740,26 +4100,6 @@
     "active": true
   },
   {
-    "id": "3323",
-    "name": "Lufthansa Systems",
-    "alias": null,
-    "iata": "L1",
-    "icao": "",
-    "callsign": "",
-    "country": "Germany",
-    "active": false
-  },
-  {
-    "id": "3325",
-    "name": "Lufttaxi Fluggesellschaft",
-    "alias": "",
-    "iata": "DV",
-    "icao": "LTF",
-    "callsign": "Garfield",
-    "country": "Germany",
-    "active": false
-  },
-  {
     "id": "3326",
     "name": "Lufttransport",
     "alias": null,
@@ -6778,26 +4118,6 @@
     "callsign": "LUXAIR",
     "country": "Luxembourg",
     "active": true
-  },
-  {
-    "id": "3335",
-    "name": "Lviv Airlines",
-    "alias": null,
-    "iata": "5V",
-    "icao": "UKW",
-    "callsign": "UKRAINE WEST",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
-    "id": "3338",
-    "name": "Lynden Air Cargo",
-    "alias": null,
-    "iata": "L2",
-    "icao": "LYC",
-    "callsign": "LYNDEN",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "3342",
@@ -6880,16 +4200,6 @@
     "active": true
   },
   {
-    "id": "3371",
-    "name": "Mahfooz Aviation",
-    "alias": null,
-    "iata": "M2",
-    "icao": "MZS",
-    "callsign": "MAHFOOZ",
-    "country": "Gambia",
-    "active": false
-  },
-  {
     "id": "3378",
     "name": "Malaysia Airlines",
     "alias": null,
@@ -6960,26 +4270,6 @@
     "active": true
   },
   {
-    "id": "3406",
-    "name": "Mars RK",
-    "alias": null,
-    "iata": "6V",
-    "icao": "MRW",
-    "callsign": "AVIAMARS",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
-    "id": "3408",
-    "name": "Marsland Aviation",
-    "alias": null,
-    "iata": "M7",
-    "icao": "MSL",
-    "callsign": "MARSLANDAIR",
-    "country": "Sudan",
-    "active": false
-  },
-  {
     "id": "3411",
     "name": "Martinair",
     "alias": null,
@@ -6988,26 +4278,6 @@
     "callsign": "MARTINAIR",
     "country": "Netherlands",
     "active": true
-  },
-  {
-    "id": "3421",
-    "name": "Mastertop Linhas Aereas",
-    "alias": null,
-    "iata": "Q4",
-    "icao": "",
-    "callsign": "",
-    "country": "Brazil",
-    "active": false
-  },
-  {
-    "id": "3428",
-    "name": "Mavial Magadan Airlines",
-    "alias": null,
-    "iata": "H5",
-    "icao": "MVL",
-    "callsign": "Mavial",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "3432",
@@ -7020,16 +4290,6 @@
     "active": true
   },
   {
-    "id": "3434",
-    "name": "Maxjet Airways",
-    "alias": null,
-    "iata": "MY",
-    "icao": "MXJ",
-    "callsign": "MAX-JET",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "3437",
     "name": "Maya Island Air",
     "alias": null,
@@ -7038,16 +4298,6 @@
     "callsign": "MYLAND",
     "country": "Belize",
     "active": true
-  },
-  {
-    "id": "3454",
-    "name": "Menajet",
-    "alias": null,
-    "iata": "IM",
-    "icao": "MNJ",
-    "callsign": "MENAJET",
-    "country": "Lebanon",
-    "active": false
   },
   {
     "id": "3463",
@@ -7098,16 +4348,6 @@
     "callsign": "MEXICANA",
     "country": "Mexico",
     "active": true
-  },
-  {
-    "id": "3482",
-    "name": "Miami Air International",
-    "alias": null,
-    "iata": "GL",
-    "icao": "BSK",
-    "callsign": "BISCAYNE",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "3490",
@@ -7210,26 +4450,6 @@
     "active": true
   },
   {
-    "id": "3548",
-    "name": "Mount Cook Airlines",
-    "alias": null,
-    "iata": "NM",
-    "icao": "NZM",
-    "callsign": "MOUNTCOOK",
-    "country": "New Zealand",
-    "active": false
-  },
-  {
-    "id": "3550",
-    "name": "Mountain Air Company",
-    "alias": null,
-    "iata": "N4",
-    "icao": "MTC",
-    "callsign": "MOUNTAIN LEONE",
-    "country": "Sierra Leone",
-    "active": false
-  },
-  {
     "id": "3568",
     "name": "MyTravel Airways",
     "alias": null,
@@ -7260,26 +4480,6 @@
     "active": true
   },
   {
-    "id": "3584",
-    "name": "Nantucket Airlines",
-    "alias": null,
-    "iata": "DV",
-    "icao": "ACK",
-    "callsign": "ACK AIR",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "3588",
-    "name": "Nas Air",
-    "alias": null,
-    "iata": "P9",
-    "icao": "",
-    "callsign": "",
-    "country": "Mali",
-    "active": false
-  },
-  {
     "id": "3589",
     "name": "Nasair",
     "alias": null,
@@ -7288,46 +4488,6 @@
     "callsign": "NASAIRWAYS",
     "country": "Eritrea",
     "active": true
-  },
-  {
-    "id": "3596",
-    "name": "National Airlines",
-    "alias": null,
-    "iata": "N4",
-    "icao": "NCN",
-    "callsign": "",
-    "country": "Chile",
-    "active": false
-  },
-  {
-    "id": "3597",
-    "name": "National Airlines",
-    "alias": null,
-    "iata": "N7",
-    "icao": "ROK",
-    "callsign": "RED ROCK",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "3598",
-    "name": "National Airlines",
-    "alias": null,
-    "iata": "NA",
-    "icao": "NAL",
-    "callsign": "NATIONAL",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "3600",
-    "name": "National Airways Cameroon",
-    "alias": null,
-    "iata": "9O",
-    "icao": "",
-    "callsign": "",
-    "country": "Cameroon",
-    "active": false
   },
   {
     "id": "3608",
@@ -7360,16 +4520,6 @@
     "active": true
   },
   {
-    "id": "3627",
-    "name": "Navitaire",
-    "alias": null,
-    "iata": "1N",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "3637",
     "name": "Nepal Airlines",
     "alias": null,
@@ -7378,16 +4528,6 @@
     "callsign": "ROYAL NEPAL",
     "country": "Nepal",
     "active": true
-  },
-  {
-    "id": "3638",
-    "name": "Neos",
-    "alias": null,
-    "iata": "NO",
-    "icao": "NOS",
-    "callsign": "MOONFLOWER",
-    "country": "Italy",
-    "active": false
   },
   {
     "id": "3641",
@@ -7430,16 +4570,6 @@
     "active": true
   },
   {
-    "id": "3667",
-    "name": "Nippon Cargo Airlines",
-    "alias": null,
-    "iata": "KZ",
-    "icao": "NCA",
-    "callsign": "NIPPON CARGO",
-    "country": "Japan",
-    "active": false
-  },
-  {
     "id": "3674",
     "name": "Nok Air",
     "alias": null,
@@ -7448,66 +4578,6 @@
     "callsign": "NOK AIR",
     "country": "Thailand",
     "active": true
-  },
-  {
-    "id": "3679",
-    "name": "Nordeste Linhas Aereas Regionais",
-    "alias": null,
-    "iata": "JH",
-    "icao": "NES",
-    "callsign": "NORDESTE",
-    "country": "Brazil",
-    "active": false
-  },
-  {
-    "id": "3680",
-    "name": "Nordic Regional",
-    "alias": null,
-    "iata": "6N",
-    "icao": "NRD",
-    "callsign": "NORTH RIDER",
-    "country": "Sweden",
-    "active": false
-  },
-  {
-    "id": "3701",
-    "name": "North Coast Aviation",
-    "alias": null,
-    "iata": "N9",
-    "icao": "",
-    "callsign": "",
-    "country": "Papua New Guinea",
-    "active": false
-  },
-  {
-    "id": "3702",
-    "name": "North Flying",
-    "alias": null,
-    "iata": "M3",
-    "icao": "NFA",
-    "callsign": "NORTH FLYING",
-    "country": "Denmark",
-    "active": false
-  },
-  {
-    "id": "3710",
-    "name": "North-Wright Airways",
-    "alias": null,
-    "iata": "HW",
-    "icao": "NWL",
-    "callsign": "NORTHWRIGHT",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "3717",
-    "name": "Northern Air Cargo",
-    "alias": null,
-    "iata": "NC",
-    "icao": "NAC",
-    "callsign": "YUKON",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "3721",
@@ -7528,16 +4598,6 @@
     "callsign": "NORTHWEST",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "3732",
-    "name": "Northwest Regional Airlines",
-    "alias": null,
-    "iata": "FY",
-    "icao": "NWR",
-    "callsign": "",
-    "country": "Australia",
-    "active": false
   },
   {
     "id": "3734",
@@ -7570,16 +4630,6 @@
     "active": true
   },
   {
-    "id": "3741",
-    "name": "Nova Airline",
-    "alias": null,
-    "iata": "M4",
-    "icao": "NOV",
-    "callsign": "NOVANILE",
-    "country": "Sudan",
-    "active": false
-  },
-  {
     "id": "3743",
     "name": "Novair",
     "alias": null,
@@ -7588,16 +4638,6 @@
     "callsign": "NAVIGATOR",
     "country": "Sweden",
     "active": true
-  },
-  {
-    "id": "3749",
-    "name": "Nuevo Continente",
-    "alias": null,
-    "iata": "N6",
-    "icao": "ACQ",
-    "callsign": "AERO CONTINENTE",
-    "country": "Peru",
-    "active": false
   },
   {
     "id": "3754",
@@ -7610,26 +4650,6 @@
     "active": true
   },
   {
-    "id": "3756",
-    "name": "O'Connor Airlines",
-    "alias": null,
-    "iata": "UQ",
-    "icao": "OCM",
-    "callsign": "OCONNOR",
-    "country": "Australia",
-    "active": false
-  },
-  {
-    "id": "3757",
-    "name": "OAG",
-    "alias": null,
-    "iata": "CR",
-    "icao": "",
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
-  },
-  {
     "id": "3759",
     "name": "Oasis Hong Kong Airlines",
     "alias": null,
@@ -7638,16 +4658,6 @@
     "callsign": "OASIS",
     "country": "Hong Kong",
     "active": true
-  },
-  {
-    "id": "3761",
-    "name": "Ocean Airlines",
-    "alias": null,
-    "iata": "VC",
-    "icao": "VCX",
-    "callsign": "OCEANCARGO",
-    "country": "Italy",
-    "active": false
   },
   {
     "id": "3764",
@@ -7700,16 +4710,6 @@
     "active": true
   },
   {
-    "id": "3783",
-    "name": "Omskavia Airline",
-    "alias": null,
-    "iata": "N3",
-    "icao": "OMS",
-    "callsign": "OMSK",
-    "country": "Russia",
-    "active": false
-  },
-  {
     "id": "3788",
     "name": "Onur Air",
     "alias": null,
@@ -7760,16 +4760,6 @@
     "active": true
   },
   {
-    "id": "3824",
-    "name": "Our Airline",
-    "alias": null,
-    "iata": "ON",
-    "icao": "RON",
-    "callsign": "OUR AIRLINE",
-    "country": "Nauru",
-    "active": false
-  },
-  {
     "id": "3826",
     "name": "Overland Airways",
     "alias": null,
@@ -7778,16 +4768,6 @@
     "callsign": "OVERLAND",
     "country": "Nigeria",
     "active": true
-  },
-  {
-    "id": "3830",
-    "name": "Ozark Air Lines",
-    "alias": null,
-    "iata": "OZ",
-    "icao": "OZR",
-    "callsign": "OZARK",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "3831",
@@ -7840,16 +4820,6 @@
     "active": true
   },
   {
-    "id": "3845",
-    "name": "Pace Airlines",
-    "alias": null,
-    "iata": "Y5",
-    "icao": "PCE",
-    "callsign": "PACE",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "3850",
     "name": "Jetstar Pacific",
     "alias": "Pacific Airlines",
@@ -7858,16 +4828,6 @@
     "callsign": "PACIFIC AIRLINES",
     "country": "Vietnam",
     "active": true
-  },
-  {
-    "id": "3854",
-    "name": "Pacific Blue",
-    "alias": null,
-    "iata": "DJ",
-    "icao": "PBN",
-    "callsign": "BLUEBIRD",
-    "country": "New Zealand",
-    "active": false
   },
   {
     "id": "3856",
@@ -7890,16 +4850,6 @@
     "active": true
   },
   {
-    "id": "3864",
-    "name": "Pacific Southwest Airlines",
-    "alias": null,
-    "iata": "PS",
-    "icao": "PSX",
-    "callsign": "SMILEY",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "3865",
     "name": "Pacific Wings",
     "alias": null,
@@ -7908,16 +4858,6 @@
     "callsign": "TSUNAMI",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "3866",
-    "name": "Pacificair",
-    "alias": null,
-    "iata": "GX",
-    "icao": "",
-    "callsign": "",
-    "country": "Philippines",
-    "active": false
   },
   {
     "id": "3871",
@@ -7930,76 +4870,6 @@
     "active": true
   },
   {
-    "id": "3875",
-    "name": "Palau Trans Pacific Airline",
-    "alias": null,
-    "iata": "GP",
-    "icao": "PTP",
-    "callsign": "TRANS PACIFIC",
-    "country": "Palau",
-    "active": false
-  },
-  {
-    "id": "3876",
-    "name": "Palestinian Airlines",
-    "alias": null,
-    "iata": "PF",
-    "icao": "PNW",
-    "callsign": "PALESTINIAN",
-    "country": "Egypt",
-    "active": false
-  },
-  {
-    "id": "3878",
-    "name": "Pamir Airways",
-    "alias": null,
-    "iata": "NR",
-    "icao": "PIR",
-    "callsign": "PAMIR",
-    "country": "Afghanistan",
-    "active": false
-  },
-  {
-    "id": "3885",
-    "name": "Pan American Airways",
-    "alias": null,
-    "iata": "PA",
-    "icao": "PAA",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "3886",
-    "name": "Pan American World Airways",
-    "alias": null,
-    "iata": "PA",
-    "icao": "PAA",
-    "callsign": "CLIPPER",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "3891",
-    "name": "Panafrican Airways",
-    "alias": null,
-    "iata": "PQ",
-    "icao": "PNF",
-    "callsign": "PANWAYS",
-    "country": "Ivory Coast",
-    "active": false
-  },
-  {
-    "id": "3900",
-    "name": "Pantanal Linhas Aéreas",
-    "alias": null,
-    "iata": "P8",
-    "icao": "PTN",
-    "callsign": "PANTANAL",
-    "country": "Brazil",
-    "active": false
-  },
-  {
     "id": "3907",
     "name": "Paramount Airways",
     "alias": null,
@@ -8008,16 +4878,6 @@
     "callsign": "PARAWAY",
     "country": "India",
     "active": true
-  },
-  {
-    "id": "3923",
-    "name": "Pearl Airways",
-    "alias": null,
-    "iata": "HP",
-    "icao": "HPA",
-    "callsign": "PEARL AIRWAYS",
-    "country": "Haiti",
-    "active": false
   },
   {
     "id": "3926",
@@ -8030,16 +4890,6 @@
     "active": true
   },
   {
-    "id": "3928",
-    "name": "Pegasus Hava Tasimaciligi",
-    "alias": null,
-    "iata": "1I",
-    "icao": "",
-    "callsign": "",
-    "country": "Turkey",
-    "active": false
-  },
-  {
     "id": "3935",
     "name": "Peninsula Airways",
     "alias": null,
@@ -8050,16 +4900,6 @@
     "active": true
   },
   {
-    "id": "3941",
-    "name": "Perm Airlines",
-    "alias": null,
-    "iata": "P9",
-    "icao": "PGP",
-    "callsign": "PERM AIR",
-    "country": "Russia",
-    "active": false
-  },
-  {
     "id": "3952",
     "name": "Philippine Airlines",
     "alias": null,
@@ -8068,26 +4908,6 @@
     "callsign": "PHILIPPINE",
     "country": "Philippines",
     "active": true
-  },
-  {
-    "id": "3964",
-    "name": "Phoenix Airways",
-    "alias": null,
-    "iata": "HP",
-    "icao": "",
-    "callsign": "",
-    "country": "Switzerland",
-    "active": false
-  },
-  {
-    "id": "3968",
-    "name": "Phuket Air",
-    "alias": null,
-    "iata": "9R",
-    "icao": "VAP",
-    "callsign": "PHUKET AIR",
-    "country": "Thailand",
-    "active": false
   },
   {
     "id": "3969",
@@ -8110,16 +4930,6 @@
     "active": true
   },
   {
-    "id": "3992",
-    "name": "Polar Air Cargo",
-    "alias": null,
-    "iata": "PO",
-    "icao": "PAC",
-    "callsign": "POLAR",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "4013",
     "name": "Polynesian Airlines",
     "alias": null,
@@ -8128,26 +4938,6 @@
     "callsign": "POLYNESIAN",
     "country": "Samoa",
     "active": true
-  },
-  {
-    "id": "4014",
-    "name": "Polynesian Blue",
-    "alias": null,
-    "iata": "DJ",
-    "icao": "PLB",
-    "callsign": "POLYBLUE",
-    "country": "New Zealand",
-    "active": false
-  },
-  {
-    "id": "4015",
-    "name": "Polyot Sirena",
-    "alias": null,
-    "iata": "1U",
-    "icao": "",
-    "callsign": "",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "4021",
@@ -8190,46 +4980,6 @@
     "active": true
   },
   {
-    "id": "4040",
-    "name": "President Airlines",
-    "alias": "null",
-    "iata": "TO",
-    "icao": "PSD",
-    "callsign": "",
-    "country": "Cambodia",
-    "active": false
-  },
-  {
-    "id": "4044",
-    "name": "Primaris Airlines",
-    "alias": null,
-    "iata": "FE",
-    "icao": "WCP",
-    "callsign": "WHITECAP",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4051",
-    "name": "Princess Air",
-    "alias": null,
-    "iata": "8Q",
-    "icao": "",
-    "callsign": "",
-    "country": "",
-    "active": false
-  },
-  {
-    "id": "4059",
-    "name": "Private Wings Flugcharter",
-    "alias": null,
-    "iata": "8W",
-    "icao": "PWF",
-    "callsign": "PRIVATE WINGS",
-    "country": "Germany",
-    "active": false
-  },
-  {
     "id": "4066",
     "name": "Proflight Commuter Services",
     "alias": null,
@@ -8270,36 +5020,6 @@
     "active": true
   },
   {
-    "id": "4134",
-    "name": "Radixx Solutions International",
-    "alias": null,
-    "iata": "1D",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4162",
-    "name": "Redhill Aviation",
-    "alias": null,
-    "iata": "8L",
-    "icao": "RHC",
-    "callsign": "REDAIR",
-    "country": "United Kingdom",
-    "active": false
-  },
-  {
-    "id": "4165",
-    "name": "Reem Air",
-    "alias": null,
-    "iata": "V4",
-    "icao": "REK",
-    "callsign": "REEM AIR",
-    "country": "Kyrgyzstan",
-    "active": false
-  },
-  {
     "id": "4177",
     "name": "Regional Airlines",
     "alias": null,
@@ -8318,26 +5038,6 @@
     "callsign": "REX",
     "country": "Australia",
     "active": true
-  },
-  {
-    "id": "4180",
-    "name": "RegionsAir",
-    "alias": null,
-    "iata": "3C",
-    "icao": "CEA",
-    "callsign": "CORP-X",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4185",
-    "name": "Reno Air",
-    "alias": null,
-    "iata": "QQ",
-    "icao": "ROA",
-    "callsign": "RENO AIR",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "4187",
@@ -8360,36 +5060,6 @@
     "active": true
   },
   {
-    "id": "4198",
-    "name": "Rico Linhas A",
-    "alias": null,
-    "iata": "C7",
-    "icao": "RLE",
-    "callsign": "RICO",
-    "country": "Brazil",
-    "active": false
-  },
-  {
-    "id": "4206",
-    "name": "Rio Grande Air",
-    "alias": null,
-    "iata": "E2",
-    "icao": "GRN",
-    "callsign": "GRANDE",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4207",
-    "name": "Rio Sul Servi",
-    "alias": null,
-    "iata": "SL",
-    "icao": "RSL",
-    "callsign": "RIO SUL",
-    "country": "Brazil",
-    "active": false
-  },
-  {
     "id": "4232",
     "name": "Rossiya",
     "alias": null,
@@ -8410,26 +5080,6 @@
     "active": true
   },
   {
-    "id": "4241",
-    "name": "Royal Air Force",
-    "alias": null,
-    "iata": "RR",
-    "icao": "RFR",
-    "callsign": "RAFAIR",
-    "country": "United Kingdom",
-    "active": false
-  },
-  {
-    "id": "4242",
-    "name": "Royal Air Force of Oman",
-    "alias": null,
-    "iata": "RS",
-    "icao": "MJN",
-    "callsign": "MAJAN",
-    "country": "Oman",
-    "active": false
-  },
-  {
     "id": "4248",
     "name": "Royal Air Maroc",
     "alias": null,
@@ -8438,26 +5088,6 @@
     "callsign": "ROYALAIR MAROC",
     "country": "Morocco",
     "active": true
-  },
-  {
-    "id": "4249",
-    "name": "Royal Airlines",
-    "alias": null,
-    "iata": "R0",
-    "icao": "RPK",
-    "callsign": "ROYAL PAKISTAN",
-    "country": "Pakistan",
-    "active": false
-  },
-  {
-    "id": "4251",
-    "name": "Royal Aruban Airline",
-    "alias": null,
-    "iata": "V5",
-    "icao": "RYL",
-    "callsign": "ROYAL ARUBAN",
-    "country": "Aruba",
-    "active": false
   },
   {
     "id": "4255",
@@ -8480,16 +5110,6 @@
     "active": true
   },
   {
-    "id": "4261",
-    "name": "Royal Khmer Airlines",
-    "alias": null,
-    "iata": "RK",
-    "icao": "RKH",
-    "callsign": "KHMER AIR",
-    "country": "Cambodia",
-    "active": false
-  },
-  {
     "id": "4264",
     "name": "Royal Nepal Airlines",
     "alias": null,
@@ -8498,26 +5118,6 @@
     "callsign": "ROYAL NEPAL",
     "country": "Nepal",
     "active": true
-  },
-  {
-    "id": "4275",
-    "name": "Royal Tongan Airlines",
-    "alias": null,
-    "iata": "WR",
-    "icao": "HRH",
-    "callsign": "TONGA ROYAL",
-    "country": "Tonga",
-    "active": false
-  },
-  {
-    "id": "4286",
-    "name": "Russian Sky Airlines",
-    "alias": null,
-    "iata": "P7",
-    "icao": "ESL",
-    "callsign": "RADUGA",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "4292",
@@ -8660,26 +5260,6 @@
     "active": true
   },
   {
-    "id": "4379",
-    "name": "Sky Eyes",
-    "alias": null,
-    "iata": "I6",
-    "icao": "SEQ",
-    "callsign": "SKY EYES",
-    "country": "Thailand",
-    "active": false
-  },
-  {
-    "id": "4381",
-    "name": "SAETA",
-    "alias": null,
-    "iata": "EH",
-    "icao": "SET",
-    "callsign": "SAETA",
-    "country": "Ecuador",
-    "active": false
-  },
-  {
     "id": "4388",
     "name": "Star Flyer",
     "alias": null,
@@ -8688,16 +5268,6 @@
     "callsign": "STARFLYER",
     "country": "Japan",
     "active": true
-  },
-  {
-    "id": "4392",
-    "name": "Safair",
-    "alias": null,
-    "iata": "FA",
-    "icao": "SFR",
-    "callsign": "CARGO",
-    "country": "South Africa",
-    "active": false
   },
   {
     "id": "4411",
@@ -8718,16 +5288,6 @@
     "callsign": "SATA",
     "country": "Portugal",
     "active": true
-  },
-  {
-    "id": "4430",
-    "name": "Scorpio Aviation",
-    "alias": null,
-    "iata": "8S",
-    "icao": "",
-    "callsign": "",
-    "country": "",
-    "active": false
   },
   {
     "id": "4435",
@@ -8758,16 +5318,6 @@
     "callsign": "BLUEJET",
     "country": "Ireland",
     "active": true
-  },
-  {
-    "id": "4445",
-    "name": "SITA",
-    "alias": null,
-    "iata": "XS",
-    "icao": "SIT",
-    "callsign": "",
-    "country": "Belgium",
-    "active": false
   },
   {
     "id": "4454",
@@ -8810,26 +5360,6 @@
     "active": true
   },
   {
-    "id": "4470",
-    "name": "Sky Work Airlines",
-    "alias": "SkyWork",
-    "iata": "SX",
-    "icao": "SRK",
-    "callsign": "SKYFOX",
-    "country": "Switzerland",
-    "active": false
-  },
-  {
-    "id": "4471",
-    "name": "Swedline Express",
-    "alias": null,
-    "iata": "SM",
-    "icao": "SRL",
-    "callsign": "Starline",
-    "country": "Sweden",
-    "active": false
-  },
-  {
     "id": "4475",
     "name": "South East Asian Airlines",
     "alias": null,
@@ -8838,16 +5368,6 @@
     "callsign": "SEAIR",
     "country": "Philippines",
     "active": true
-  },
-  {
-    "id": "4488",
-    "name": "SwedJet Airways",
-    "alias": null,
-    "iata": "VD",
-    "icao": "BBB",
-    "callsign": "BLACKBIRD",
-    "country": "Sweden",
-    "active": false
   },
   {
     "id": "4496",
@@ -8880,26 +5400,6 @@
     "active": true
   },
   {
-    "id": "4522",
-    "name": "Sun Air (Fiji)",
-    "alias": null,
-    "iata": "PI",
-    "icao": "SUF",
-    "callsign": "SUNFLOWER",
-    "country": "Fiji",
-    "active": false
-  },
-  {
-    "id": "4529",
-    "name": "Sun Air of Scandinavia",
-    "alias": null,
-    "iata": "EZ",
-    "icao": "SUS",
-    "callsign": "SUNSCAN",
-    "country": "Denmark",
-    "active": false
-  },
-  {
     "id": "4533",
     "name": "Saudi Arabian Airlines",
     "alias": null,
@@ -8928,16 +5428,6 @@
     "callsign": "SOUTHERN WINDS",
     "country": "Argentina",
     "active": true
-  },
-  {
-    "id": "4553",
-    "name": "Sunwing Airlines",
-    "alias": null,
-    "iata": "WG",
-    "icao": "SWG",
-    "callsign": "SUNWING",
-    "country": "Canada",
-    "active": false
   },
   {
     "id": "4559",
@@ -8970,16 +5460,6 @@
     "active": true
   },
   {
-    "id": "4565",
-    "name": "Shovkoviy Shlyah",
-    "alias": null,
-    "iata": "S8",
-    "icao": "SWW",
-    "callsign": "WAY AERO",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
     "id": "4573",
     "name": "SunExpress",
     "alias": null,
@@ -9008,26 +5488,6 @@
     "callsign": "SKYWAY-EX",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "4590",
-    "name": "Silk Way Airlines",
-    "alias": null,
-    "iata": "ZP",
-    "icao": "AZQ",
-    "callsign": "SILK LINE",
-    "country": "Azerbaijan",
-    "active": false
-  },
-  {
-    "id": "4596",
-    "name": "Samara Airlines",
-    "alias": null,
-    "iata": "E5",
-    "icao": "BRZ",
-    "callsign": "BERYOZA",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "4599",
@@ -9080,16 +5540,6 @@
     "active": true
   },
   {
-    "id": "4612",
-    "name": "Shanxi Airlines",
-    "alias": null,
-    "iata": "8C",
-    "icao": "CXI",
-    "callsign": "SHANXI",
-    "country": "China",
-    "active": false
-  },
-  {
     "id": "4619",
     "name": "Sun D'Or",
     "alias": null,
@@ -9110,26 +5560,6 @@
     "active": true
   },
   {
-    "id": "4621",
-    "name": "Sunshine Express Airlines",
-    "alias": null,
-    "iata": "CQ",
-    "icao": "EXL",
-    "callsign": "",
-    "country": "Australia",
-    "active": false
-  },
-  {
-    "id": "4637",
-    "name": "Superior Aviation",
-    "alias": null,
-    "iata": "SO",
-    "icao": "HKA",
-    "callsign": "SPEND AIR",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "4652",
     "name": "Spanair",
     "alias": null,
@@ -9138,116 +5568,6 @@
     "callsign": "SPANAIR",
     "country": "Spain",
     "active": true
-  },
-  {
-    "id": "4670",
-    "name": "San Juan Airlines",
-    "alias": null,
-    "iata": "2G",
-    "icao": "MRR",
-    "callsign": "MARINER",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4674",
-    "name": "Sabre Pacific",
-    "alias": null,
-    "iata": "1Z",
-    "icao": "",
-    "callsign": "",
-    "country": "Australia",
-    "active": false
-  },
-  {
-    "id": "4675",
-    "name": "Sabre",
-    "alias": null,
-    "iata": "1S",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4676",
-    "name": "Sierra Nevada Airlines",
-    "alias": null,
-    "iata": "1I",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4677",
-    "name": "Siren-Travel",
-    "alias": null,
-    "iata": "1H",
-    "icao": "",
-    "callsign": "",
-    "country": "Russia",
-    "active": false
-  },
-  {
-    "id": "4678",
-    "name": "Sirena",
-    "alias": null,
-    "iata": "1Q",
-    "icao": "",
-    "callsign": "",
-    "country": "Russia",
-    "active": false
-  },
-  {
-    "id": "4679",
-    "name": "Sky Trek International Airlines",
-    "alias": null,
-    "iata": "1I",
-    "icao": "",
-    "callsign": "",
-    "country": "",
-    "active": false
-  },
-  {
-    "id": "4680",
-    "name": "Southern Cross Distribution",
-    "alias": null,
-    "iata": "1K",
-    "icao": "",
-    "callsign": "",
-    "country": "Australia",
-    "active": false
-  },
-  {
-    "id": "4681",
-    "name": "Sutra",
-    "alias": null,
-    "iata": "1K",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4682",
-    "name": "SNCF",
-    "alias": null,
-    "iata": "2C",
-    "icao": "",
-    "callsign": "",
-    "country": "France",
-    "active": false
-  },
-  {
-    "id": "4683",
-    "name": "Star Equatorial Airlines",
-    "alias": null,
-    "iata": "2S",
-    "icao": "",
-    "callsign": "",
-    "country": "Guinea",
-    "active": false
   },
   {
     "id": "4687",
@@ -9268,56 +5588,6 @@
     "callsign": "SATENA",
     "country": "Colombia",
     "active": true
-  },
-  {
-    "id": "4694",
-    "name": "Slok Air Gambia",
-    "alias": null,
-    "iata": "S0",
-    "icao": "OKS",
-    "callsign": "SLOK GAMBIA",
-    "country": "Gambia",
-    "active": false
-  },
-  {
-    "id": "4699",
-    "name": "Sosoliso Airlines",
-    "alias": null,
-    "iata": "SO",
-    "icao": "OSL",
-    "callsign": "SOSOLISO",
-    "country": "Nigeria",
-    "active": false
-  },
-  {
-    "id": "4711",
-    "name": "Sky Trek International Airlines",
-    "alias": null,
-    "iata": "1I",
-    "icao": "PZR",
-    "callsign": "PHAZER",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4720",
-    "name": "Skybus Airlines",
-    "alias": null,
-    "iata": "SX",
-    "icao": "SKB",
-    "callsign": "SKYBUS",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "4728",
-    "name": "SkyKing Turks and Caicos Airways",
-    "alias": null,
-    "iata": "RU",
-    "icao": "SKI",
-    "callsign": "SKYKING",
-    "country": "Turks and Caicos Islands",
-    "active": false
   },
   {
     "id": "4735",
@@ -9370,16 +5640,6 @@
     "active": true
   },
   {
-    "id": "4742",
-    "name": "Sierra National Airlines",
-    "alias": null,
-    "iata": "LJ",
-    "icao": "SLA",
-    "callsign": "SELAIR",
-    "country": "Sierra Leone",
-    "active": false
-  },
-  {
     "id": "4750",
     "name": "SilkAir",
     "alias": null,
@@ -9390,16 +5650,6 @@
     "active": true
   },
   {
-    "id": "4751",
-    "name": "Slovak Airlines",
-    "alias": null,
-    "iata": "6Q",
-    "icao": "SLL",
-    "callsign": "SLOV LINE",
-    "country": "Slovakia",
-    "active": false
-  },
-  {
     "id": "4752",
     "name": "Surinam Airways",
     "alias": null,
@@ -9408,16 +5658,6 @@
     "callsign": "SURINAM",
     "country": "Suriname",
     "active": true
-  },
-  {
-    "id": "4764",
-    "name": "Servant Air",
-    "alias": null,
-    "iata": "8D",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "4776",
@@ -9490,26 +5730,6 @@
     "active": true
   },
   {
-    "id": "4854",
-    "name": "Sirin",
-    "alias": null,
-    "iata": "R1",
-    "icao": "",
-    "callsign": "",
-    "country": "",
-    "active": false
-  },
-  {
-    "id": "4855",
-    "name": "Star Air",
-    "alias": null,
-    "iata": "S6",
-    "icao": "",
-    "callsign": "",
-    "country": "Denmark",
-    "active": false
-  },
-  {
     "id": "4863",
     "name": "TAME",
     "alias": null,
@@ -9550,26 +5770,6 @@
     "active": true
   },
   {
-    "id": "4873",
-    "name": "TNT Airways",
-    "alias": null,
-    "iata": "3V",
-    "icao": "TAY",
-    "callsign": "QUALITY",
-    "country": "Belgium",
-    "active": false
-  },
-  {
-    "id": "4877",
-    "name": "Tropical Airways",
-    "alias": null,
-    "iata": "M7",
-    "icao": "TBG",
-    "callsign": "",
-    "country": "Haiti",
-    "active": false
-  },
-  {
     "id": "4889",
     "name": "Thai Air Cargo",
     "alias": null,
@@ -9598,46 +5798,6 @@
     "callsign": "KESTREL",
     "country": "United Kingdom",
     "active": true
-  },
-  {
-    "id": "4902",
-    "name": "Tandem Aero",
-    "alias": null,
-    "iata": "TQ",
-    "icao": "TDM",
-    "callsign": "TANDEM",
-    "country": "Moldova",
-    "active": false
-  },
-  {
-    "id": "4908",
-    "name": "Teamline Air",
-    "alias": null,
-    "iata": "L9",
-    "icao": "TLW",
-    "callsign": "Teamline",
-    "country": "Austria",
-    "active": false
-  },
-  {
-    "id": "4916",
-    "name": "Transeuropean Airlines",
-    "alias": null,
-    "iata": "UE",
-    "icao": "TEP",
-    "callsign": "TRANSEURLINE",
-    "country": "Russia",
-    "active": false
-  },
-  {
-    "id": "4934",
-    "name": "Titan Airways",
-    "alias": null,
-    "iata": "ZT",
-    "icao": "AWC",
-    "callsign": "ZAP",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "4936",
@@ -9700,26 +5860,6 @@
     "active": true
   },
   {
-    "id": "4969",
-    "name": "Thai Sky Airlines",
-    "alias": null,
-    "iata": "9I",
-    "icao": "TKY",
-    "callsign": "THAI SKY",
-    "country": "Thailand",
-    "active": false
-  },
-  {
-    "id": "4974",
-    "name": "Tulip Air",
-    "alias": null,
-    "iata": "TD",
-    "icao": "TLP",
-    "callsign": "TULIPAIR",
-    "country": "Netherland",
-    "active": false
-  },
-  {
     "id": "4981",
     "name": "Trans Mediterranean Airlines",
     "alias": null,
@@ -9730,16 +5870,6 @@
     "active": true
   },
   {
-    "id": "4983",
-    "name": "Tri-MG Intra Asia Airlines",
-    "alias": null,
-    "iata": "GY",
-    "icao": "TMG",
-    "callsign": "TRILINES",
-    "country": "Indonesia",
-    "active": false
-  },
-  {
     "id": "5002",
     "name": "Tiara Air",
     "alias": null,
@@ -9748,26 +5878,6 @@
     "callsign": "TIARA",
     "country": "Aruba",
     "active": true
-  },
-  {
-    "id": "5010",
-    "name": "Tobruk Air",
-    "alias": null,
-    "iata": "7T",
-    "icao": "TOB",
-    "callsign": "TOBRUK AIR",
-    "country": "Libya",
-    "active": false
-  },
-  {
-    "id": "5012",
-    "name": "Tol-Air Services",
-    "alias": null,
-    "iata": "TI",
-    "icao": "TOL",
-    "callsign": "TOL AIR",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "5013",
@@ -9788,16 +5898,6 @@
     "callsign": "TROPISER",
     "country": "Belize",
     "active": true
-  },
-  {
-    "id": "5018",
-    "name": "Tower Air",
-    "alias": null,
-    "iata": "FF",
-    "icao": "TOW",
-    "callsign": "TEE AIR",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "5020",
@@ -9840,36 +5940,6 @@
     "active": true
   },
   {
-    "id": "5054",
-    "name": "TransMeridian Airlines",
-    "alias": null,
-    "iata": "T9",
-    "icao": "TRZ",
-    "callsign": "TRANS-MERIDIAN",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "5057",
-    "name": "Transmile Air Services",
-    "alias": null,
-    "iata": "TH",
-    "icao": "TSE",
-    "callsign": "TRANSMILE",
-    "country": "Malaysia",
-    "active": false
-  },
-  {
-    "id": "5060",
-    "name": "Trast Aero",
-    "alias": null,
-    "iata": "S5",
-    "icao": "TSJ",
-    "callsign": "TRAST AERO",
-    "country": "Kyrgyzstan",
-    "active": false
-  },
-  {
     "id": "5064",
     "name": "Transwest Air",
     "alias": null,
@@ -9888,16 +5958,6 @@
     "callsign": "TRANSOVIET",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "5074",
-    "name": "Thai Star Airlines",
-    "alias": null,
-    "iata": "T9",
-    "icao": "TSX",
-    "callsign": "THAI STAR",
-    "country": "Thailand",
-    "active": false
   },
   {
     "id": "5083",
@@ -9920,16 +5980,6 @@
     "active": true
   },
   {
-    "id": "5096",
-    "name": "Tavrey Airlines",
-    "alias": null,
-    "iata": "T6",
-    "icao": "TVR",
-    "callsign": "TAVREY",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
     "id": "5097",
     "name": "Travel Service",
     "alias": null,
@@ -9938,26 +5988,6 @@
     "callsign": "SKYTRAVEL",
     "country": "Czech Republic",
     "active": true
-  },
-  {
-    "id": "5098",
-    "name": "Trans World Airlines",
-    "alias": "TWA",
-    "iata": "TW",
-    "icao": "TWA",
-    "callsign": "TWA",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "5106",
-    "name": "Transaviaexport",
-    "alias": null,
-    "iata": "AL",
-    "icao": "TXC",
-    "callsign": "TRANSEXPORT",
-    "country": "Belarus",
-    "active": false
   },
   {
     "id": "5122",
@@ -9980,16 +6010,6 @@
     "active": true
   },
   {
-    "id": "5134",
-    "name": "Tassili Airlines",
-    "alias": null,
-    "iata": "SF",
-    "icao": "DTH",
-    "callsign": "TASSILI AIR",
-    "country": "Algeria",
-    "active": false
-  },
-  {
     "id": "5156",
     "name": "TAM Mercosur",
     "alias": null,
@@ -10008,36 +6028,6 @@
     "callsign": "WATERSKI",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "5168",
-    "name": "Travelsky Technology",
-    "alias": null,
-    "iata": "1E",
-    "icao": "",
-    "callsign": "",
-    "country": "China",
-    "active": false
-  },
-  {
-    "id": "5169",
-    "name": "Thalys",
-    "alias": null,
-    "iata": "2H",
-    "icao": "",
-    "callsign": "",
-    "country": "Belgium",
-    "active": false
-  },
-  {
-    "id": "5172",
-    "name": "Open Skies Consultative Commission",
-    "alias": null,
-    "iata": "1L",
-    "icao": "OSY",
-    "callsign": "OPEN SKIES",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "5179",
@@ -10070,16 +6060,6 @@
     "active": true
   },
   {
-    "id": "5199",
-    "name": "Transports et Travaux A",
-    "alias": null,
-    "iata": "OF",
-    "icao": "",
-    "callsign": "",
-    "country": "",
-    "active": false
-  },
-  {
     "id": "5207",
     "name": "USA3000 Airlines",
     "alias": null,
@@ -10100,26 +6080,6 @@
     "active": true
   },
   {
-    "id": "5213",
-    "name": "United Feeder Service",
-    "alias": null,
-    "iata": "U2",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "5227",
-    "name": "USA Jet Airlines",
-    "alias": null,
-    "iata": "U7",
-    "icao": "JUS",
-    "callsign": "JET USA",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "5234",
     "name": "Ural Airlines",
     "alias": null,
@@ -10138,26 +6098,6 @@
     "callsign": "UKRAINE MEDITERRANEE",
     "country": "Ukraine",
     "active": true
-  },
-  {
-    "id": "5254",
-    "name": "Ukrainian Cargo Airways",
-    "alias": null,
-    "iata": "6Z",
-    "icao": "UKS",
-    "callsign": "CARGOTRANS",
-    "country": "Ukraine",
-    "active": false
-  },
-  {
-    "id": "5263",
-    "name": "United Parcel Service",
-    "alias": null,
-    "iata": "5X",
-    "icao": "UPS",
-    "callsign": "UPS",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "5265",
@@ -10210,16 +6150,6 @@
     "active": true
   },
   {
-    "id": "5288",
-    "name": "V Australia Airlines",
-    "alias": null,
-    "iata": "VA",
-    "icao": "VAU",
-    "callsign": "KANGA",
-    "country": "Australia",
-    "active": false
-  },
-  {
     "id": "5297",
     "name": "Valuair",
     "alias": null,
@@ -10228,16 +6158,6 @@
     "callsign": "VALUAIR",
     "country": "Singapore",
     "active": true
-  },
-  {
-    "id": "5307",
-    "name": "Voyageur Airways",
-    "alias": null,
-    "iata": "VC",
-    "icao": "VAL",
-    "callsign": "VOYAGEUR",
-    "country": "Canada",
-    "active": false
   },
   {
     "id": "5309",
@@ -10258,26 +6178,6 @@
     "callsign": "MOV AIR",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "5313",
-    "name": "VIA Rail Canada",
-    "alias": null,
-    "iata": "2R",
-    "icao": "",
-    "callsign": "",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "5322",
-    "name": "Viasa",
-    "alias": null,
-    "iata": "VA",
-    "icao": "",
-    "callsign": "",
-    "country": "Venezuela",
-    "active": false
   },
   {
     "id": "5325",
@@ -10390,16 +6290,6 @@
     "active": true
   },
   {
-    "id": "5358",
-    "name": "Viaggio Air",
-    "alias": null,
-    "iata": "VM",
-    "icao": "VOA",
-    "callsign": "VIAGGIO",
-    "country": "Bulgaria",
-    "active": false
-  },
-  {
     "id": "5360",
     "name": "Virgin Australia",
     "alias": null,
@@ -10408,16 +6298,6 @@
     "callsign": "VIRGIN",
     "country": "Australia",
     "active": true
-  },
-  {
-    "id": "5361",
-    "name": "Virgin Blue",
-    "alias": null,
-    "iata": "DJ",
-    "icao": "VBI",
-    "callsign": "BLUEY",
-    "country": "Australia",
-    "active": false
   },
   {
     "id": "5368",
@@ -10480,16 +6360,6 @@
     "active": true
   },
   {
-    "id": "5408",
-    "name": "West Air Sweden",
-    "alias": null,
-    "iata": "PT",
-    "icao": "SWN",
-    "callsign": "AIR SWEDEN",
-    "country": "Sweden",
-    "active": false
-  },
-  {
     "id": "5411",
     "name": "West Coast Air",
     "alias": null,
@@ -10518,16 +6388,6 @@
     "callsign": "WESTERN",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "5434",
-    "name": "Westward Airways",
-    "alias": null,
-    "iata": "CN",
-    "icao": "WWD",
-    "callsign": "WESTWARD",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "5439",
@@ -10560,16 +6420,6 @@
     "active": true
   },
   {
-    "id": "5456",
-    "name": "Wings of Alaska",
-    "alias": null,
-    "iata": "K5",
-    "icao": "WAK",
-    "callsign": "WINGS ALASKA",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "5461",
     "name": "Wizz Air",
     "alias": null,
@@ -10600,26 +6450,6 @@
     "active": true
   },
   {
-    "id": "5468",
-    "name": "Worldspan",
-    "alias": null,
-    "iata": "1P",
-    "icao": "",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "5473",
-    "name": "Wright Air Service",
-    "alias": null,
-    "iata": "8V",
-    "icao": "WRF",
-    "callsign": "WRIGHT FLYER",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "5479",
     "name": "XL Airways France",
     "alias": null,
@@ -10640,16 +6470,6 @@
     "active": true
   },
   {
-    "id": "5487",
-    "name": "Xtra Airways",
-    "alias": null,
-    "iata": "XP",
-    "icao": "CXP",
-    "callsign": "RUBY MOUNTAIN",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "5492",
     "name": "Yamal Airlines",
     "alias": null,
@@ -10658,16 +6478,6 @@
     "callsign": "YAMAL",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "5494",
-    "name": "Yangtze River Express",
-    "alias": null,
-    "iata": "Y8",
-    "icao": "YZR",
-    "callsign": "YANGTZE RIVER",
-    "country": "China",
-    "active": false
   },
   {
     "id": "5496",
@@ -10680,36 +6490,6 @@
     "active": true
   },
   {
-    "id": "5508",
-    "name": "Zambian Airways",
-    "alias": null,
-    "iata": "Q3",
-    "icao": "MBN",
-    "callsign": "ZAMBIANA",
-    "country": "Zambia",
-    "active": false
-  },
-  {
-    "id": "5521",
-    "name": "Zip",
-    "alias": null,
-    "iata": "3J",
-    "icao": "WZP",
-    "callsign": "ZIPPER",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "5522",
-    "name": "Zimex Aviation",
-    "alias": null,
-    "iata": "C4",
-    "icao": "IMX",
-    "callsign": "ZIMEX",
-    "country": "Switzerland",
-    "active": false
-  },
-  {
     "id": "5523",
     "name": "Zoom Airlines",
     "alias": null,
@@ -10718,16 +6498,6 @@
     "callsign": "ZOOM",
     "country": "Canada",
     "active": true
-  },
-  {
-    "id": "5556",
-    "name": "buzz",
-    "alias": null,
-    "iata": "UK",
-    "icao": "BUZ",
-    "callsign": null,
-    "country": "\\N",
-    "active": false
   },
   {
     "id": "5559",
@@ -10750,16 +6520,6 @@
     "active": true
   },
   {
-    "id": "5640",
-    "name": "Yellow Air Taxi",
-    "alias": "",
-    "iata": "Y0",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "5651",
     "name": "Royal Air Cambodge",
     "alias": "",
@@ -10780,16 +6540,6 @@
     "active": true
   },
   {
-    "id": "5905",
-    "name": "TAN-SAHSA",
-    "alias": "",
-    "iata": "SH",
-    "icao": null,
-    "callsign": "Sierra Hotel",
-    "country": "Honduras",
-    "active": false
-  },
-  {
     "id": "5982",
     "name": "Air Busan",
     "alias": null,
@@ -10798,26 +6548,6 @@
     "callsign": "Air Busan",
     "country": "Republic of Korea",
     "active": true
-  },
-  {
-    "id": "6002",
-    "name": "TUI Airlines Belgium",
-    "alias": "now Jetairlfy",
-    "iata": "TB",
-    "icao": "TUB",
-    "callsign": "BEAUTY",
-    "country": "Belgium",
-    "active": false
-  },
-  {
-    "id": "6183",
-    "name": "Braathens",
-    "alias": "Braathens SAFE",
-    "iata": "BU",
-    "icao": "BRA",
-    "callsign": "Braathens",
-    "country": "Norway",
-    "active": false
   },
   {
     "id": "6196",
@@ -10848,16 +6578,6 @@
     "callsign": "Air System",
     "country": "Japan",
     "active": true
-  },
-  {
-    "id": "6578",
-    "name": "Annsett New Zealand (NZA)",
-    "alias": "",
-    "iata": "ZQ",
-    "icao": null,
-    "callsign": "",
-    "country": "New Zealand",
-    "active": false
   },
   {
     "id": "6855",
@@ -10900,16 +6620,6 @@
     "active": true
   },
   {
-    "id": "8568",
-    "name": "Trans Maldivian Airways",
-    "alias": "",
-    "iata": "M8",
-    "icao": "TMW",
-    "callsign": "",
-    "country": "Maldives",
-    "active": false
-  },
-  {
     "id": "8576",
     "name": "Fly540",
     "alias": "",
@@ -10938,16 +6648,6 @@
     "callsign": "",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "9018",
-    "name": "1-2-go",
-    "alias": "fly 1-2-go",
-    "iata": "OG",
-    "icao": null,
-    "callsign": "",
-    "country": "Thailand",
-    "active": false
   },
   {
     "id": "9082",
@@ -11100,26 +6800,6 @@
     "active": true
   },
   {
-    "id": "9793",
-    "name": "Transport Aérien Transrégional",
-    "alias": "TAT",
-    "iata": "IJ",
-    "icao": null,
-    "callsign": "",
-    "country": "France",
-    "active": false
-  },
-  {
-    "id": "9808",
-    "name": "Minerva Airlines",
-    "alias": "",
-    "iata": "N4",
-    "icao": null,
-    "callsign": "",
-    "country": "Italy",
-    "active": false
-  },
-  {
     "id": "9809",
     "name": "Eastar Jet",
     "alias": "",
@@ -11138,16 +6818,6 @@
     "callsign": "Jin Air",
     "country": "South Korea",
     "active": true
-  },
-  {
-    "id": "9814",
-    "name": "Aéris (Priv)",
-    "alias": "",
-    "iata": "SH",
-    "icao": null,
-    "callsign": "",
-    "country": "France",
-    "active": false
   },
   {
     "id": "9818",
@@ -11210,26 +6880,6 @@
     "active": true
   },
   {
-    "id": "9853",
-    "name": "Nazca",
-    "alias": "",
-    "iata": "-.",
-    "icao": null,
-    "callsign": "",
-    "country": "Peru",
-    "active": false
-  },
-  {
-    "id": "10094",
-    "name": "Voronezhskie Airlanes",
-    "alias": "",
-    "iata": "DN",
-    "icao": null,
-    "callsign": "",
-    "country": "Russia",
-    "active": false
-  },
-  {
     "id": "10114",
     "name": "Line Blue",
     "alias": "",
@@ -11238,36 +6888,6 @@
     "callsign": "Bluebird",
     "country": "Germany",
     "active": true
-  },
-  {
-    "id": "10118",
-    "name": "Blue Sky America",
-    "alias": "",
-    "iata": "BU",
-    "icao": "BKY",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "10119",
-    "name": "Texas Spirit",
-    "alias": "",
-    "iata": "XS",
-    "icao": "TXP",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "10121",
-    "name": "Illinois Airways",
-    "alias": "",
-    "iata": "IL",
-    "icao": "ILW",
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "10122",
@@ -11288,16 +6908,6 @@
     "callsign": "TXW",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "10124",
-    "name": "California Western",
-    "alias": "",
-    "iata": "KT",
-    "icao": "CWS",
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "10128",
@@ -11330,36 +6940,6 @@
     "active": true
   },
   {
-    "id": "10318",
-    "name": "Air UK",
-    "alias": "",
-    "iata": "UK",
-    "icao": null,
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
-  },
-  {
-    "id": "10334",
-    "name": "Suckling Airways",
-    "alias": "",
-    "iata": "CB",
-    "icao": null,
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
-  },
-  {
-    "id": "10367",
-    "name": "Reno Sky",
-    "alias": "",
-    "iata": "RY",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "10372",
     "name": "Ciao Air",
     "alias": "",
@@ -11368,16 +6948,6 @@
     "callsign": "",
     "country": "Italy",
     "active": true
-  },
-  {
-    "id": "10646",
-    "name": "Birmingham European",
-    "alias": "",
-    "iata": "VB",
-    "icao": null,
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "10650",
@@ -11460,16 +7030,6 @@
     "active": true
   },
   {
-    "id": "10738",
-    "name": "AJT Air International",
-    "alias": "",
-    "iata": "E9",
-    "icao": null,
-    "callsign": "",
-    "country": "Russia",
-    "active": false
-  },
-  {
     "id": "10739",
     "name": "Air Choice One",
     "alias": "",
@@ -11530,16 +7090,6 @@
     "active": true
   },
   {
-    "id": "10796",
-    "name": "Fly Illi",
-    "alias": "",
-    "iata": "IL",
-    "icao": "ILY",
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "10798",
     "name": "Bobb Air Freight",
     "alias": "",
@@ -11570,16 +7120,6 @@
     "active": true
   },
   {
-    "id": "10902",
-    "name": "Alpi Eagles (E8)",
-    "alias": "",
-    "iata": "E8",
-    "icao": null,
-    "callsign": "",
-    "country": "Italy",
-    "active": false
-  },
-  {
     "id": "10912",
     "name": "Alaska Seaplane Service",
     "alias": "",
@@ -11588,16 +7128,6 @@
     "callsign": "",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "10929",
-    "name": "TAN",
-    "alias": "",
-    "iata": "T8",
-    "icao": null,
-    "callsign": "",
-    "country": "Argentina",
-    "active": false
   },
   {
     "id": "10955",
@@ -11890,16 +7420,6 @@
     "active": true
   },
   {
-    "id": "11922",
-    "name": "Worldways",
-    "alias": "",
-    "iata": "WG",
-    "icao": "WGC",
-    "callsign": "",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "11947",
     "name": "Athens Airways",
     "alias": "",
@@ -11928,16 +7448,6 @@
     "callsign": "ALUNK",
     "country": "Kazakhstan",
     "active": true
-  },
-  {
-    "id": "11995",
-    "name": "Euro Harmony",
-    "alias": "Euro Harmony ",
-    "iata": "EH",
-    "icao": "EHM",
-    "callsign": "",
-    "country": "Portugal",
-    "active": false
   },
   {
     "id": "12960",
@@ -11998,16 +7508,6 @@
     "callsign": "WEST CHINA",
     "country": "China",
     "active": true
-  },
-  {
-    "id": "12990",
-    "name": "Falcon Air (IH)",
-    "alias": "",
-    "iata": "IH",
-    "icao": null,
-    "callsign": "",
-    "country": "Sweden",
-    "active": false
   },
   {
     "id": "12997",
@@ -12190,36 +7690,6 @@
     "active": true
   },
   {
-    "id": "13388",
-    "name": "Court Line",
-    "alias": "",
-    "iata": "??",
-    "icao": "???",
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
-  },
-  {
-    "id": "13389",
-    "name": "South West Africa Territory Force",
-    "alias": "SWATF",
-    "iata": "??",
-    "icao": "***",
-    "callsign": "",
-    "country": "Namibia",
-    "active": false
-  },
-  {
-    "id": "13390",
-    "name": "Lombards Air",
-    "alias": "",
-    "iata": "++",
-    "icao": "---",
-    "callsign": "",
-    "country": "South Africa",
-    "active": false
-  },
-  {
     "id": "13391",
     "name": "U.S. Air",
     "alias": "",
@@ -12230,16 +7700,6 @@
     "active": true
   },
   {
-    "id": "13392",
-    "name": "Flitestar",
-    "alias": "",
-    "iata": "GM",
-    "icao": "===",
-    "callsign": "",
-    "country": "South Africa",
-    "active": false
-  },
-  {
     "id": "13394",
     "name": "Jayrow",
     "alias": "",
@@ -12248,16 +7708,6 @@
     "callsign": "",
     "country": "Australia",
     "active": true
-  },
-  {
-    "id": "13395",
-    "name": "Llloyd Helicopters",
-    "alias": "",
-    "iata": "::",
-    "icao": ":::",
-    "callsign": "",
-    "country": "Australia",
-    "active": false
   },
   {
     "id": "13397",
@@ -12360,16 +7810,6 @@
     "active": true
   },
   {
-    "id": "13838",
-    "name": "Aero Brazil",
-    "alias": "",
-    "iata": "BZ",
-    "icao": "BZL",
-    "callsign": "",
-    "country": "Brazil",
-    "active": false
-  },
-  {
     "id": "13899",
     "name": "Cambodia Angkor Air (K6)",
     "alias": "",
@@ -12378,26 +7818,6 @@
     "callsign": "",
     "country": "Cambodia",
     "active": true
-  },
-  {
-    "id": "13905",
-    "name": "Skyline nepc",
-    "alias": "",
-    "iata": "D5",
-    "icao": null,
-    "callsign": "",
-    "country": "India",
-    "active": false
-  },
-  {
-    "id": "13923",
-    "name": "THREE",
-    "alias": "",
-    "iata": "H3",
-    "icao": "T33",
-    "callsign": "",
-    "country": "China",
-    "active": false
   },
   {
     "id": "13936",
@@ -12450,16 +7870,6 @@
     "active": true
   },
   {
-    "id": "14109",
-    "name": "Nik Airways",
-    "alias": "",
-    "iata": "X1",
-    "icao": null,
-    "callsign": "",
-    "country": "Saudi Arabia",
-    "active": false
-  },
-  {
     "id": "14118",
     "name": "Genesis",
     "alias": "",
@@ -12500,26 +7910,6 @@
     "active": true
   },
   {
-    "id": "14725",
-    "name": "Air Atlantic",
-    "alias": "",
-    "iata": "9A",
-    "icao": null,
-    "callsign": "Atlantic",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "14728",
-    "name": "Air Ops",
-    "alias": "",
-    "iata": "CR",
-    "icao": null,
-    "callsign": "",
-    "country": "Sweden",
-    "active": false
-  },
-  {
     "id": "14849",
     "name": "Aereonautica militare",
     "alias": "",
@@ -12538,16 +7928,6 @@
     "callsign": "Moscow frog ",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "14921",
-    "name": "Aero Lloyd (YP)",
-    "alias": "",
-    "iata": "YP",
-    "icao": "AEF",
-    "callsign": "",
-    "country": "Germany",
-    "active": false
   },
   {
     "id": "15814",
@@ -12620,16 +8000,6 @@
     "active": true
   },
   {
-    "id": "15970",
-    "name": "Zuliana de Aviacion",
-    "alias": "Zuliana",
-    "iata": "OD",
-    "icao": "ULA",
-    "callsign": "",
-    "country": "Venezuela",
-    "active": false
-  },
-  {
     "id": "15975",
     "name": "Black Stallion Airways",
     "alias": "",
@@ -12678,26 +8048,6 @@
     "callsign": "",
     "country": "China",
     "active": true
-  },
-  {
-    "id": "16025",
-    "name": "Nihon.jet",
-    "alias": "",
-    "iata": "NJ",
-    "icao": null,
-    "callsign": "",
-    "country": "Japan",
-    "active": false
-  },
-  {
-    "id": "16093",
-    "name": "Transportes Aéreos Nacionales de Selva",
-    "alias": "",
-    "iata": "TJ",
-    "icao": null,
-    "callsign": "Aereos Selva",
-    "country": "Peru",
-    "active": false
   },
   {
     "id": "16103",
@@ -12820,16 +8170,6 @@
     "active": true
   },
   {
-    "id": "16197",
-    "name": "Air Charter International",
-    "alias": "",
-    "iata": "SF",
-    "icao": null,
-    "callsign": "",
-    "country": "France",
-    "active": false
-  },
-  {
     "id": "16234",
     "name": "Fly Brasil",
     "alias": "Fly Brasil",
@@ -12950,16 +8290,6 @@
     "active": true
   },
   {
-    "id": "16399",
-    "name": "AirLiberté",
-    "alias": "",
-    "iata": "IJ",
-    "icao": null,
-    "callsign": "",
-    "country": "France",
-    "active": false
-  },
-  {
     "id": "16415",
     "name": "Camair-co",
     "alias": "",
@@ -12970,16 +8300,6 @@
     "active": true
   },
   {
-    "id": "16437",
-    "name": "Aerocontinente (Priv)",
-    "alias": "",
-    "iata": "N6",
-    "icao": null,
-    "callsign": "",
-    "country": "Peru",
-    "active": false
-  },
-  {
     "id": "16459",
     "name": "Sky Regional",
     "alias": "Air Canada Express",
@@ -12988,16 +8308,6 @@
     "callsign": "Sky Regional",
     "country": "Canada",
     "active": true
-  },
-  {
-    "id": "16475",
-    "name": "TUR Avrupa Hava YollarÄ±",
-    "alias": "TUR European Airways",
-    "iata": "YI",
-    "icao": null,
-    "callsign": "TurAvrupa",
-    "country": "Turkey",
-    "active": false
   },
   {
     "id": "16507",
@@ -13030,16 +8340,6 @@
     "active": true
   },
   {
-    "id": "16570",
-    "name": "Zimbabwean Airlines",
-    "alias": "",
-    "iata": "Z7",
-    "icao": null,
-    "callsign": "",
-    "country": "Zimbabwe",
-    "active": false
-  },
-  {
     "id": "16585",
     "name": "Air Cargo Germany",
     "alias": "",
@@ -13058,16 +8358,6 @@
     "callsign": "Mongol_AIr ",
     "country": "Mongolia",
     "active": true
-  },
-  {
-    "id": "16616",
-    "name": "Alaniya Airlines",
-    "alias": "Алания",
-    "iata": "2D",
-    "icao": null,
-    "callsign": "",
-    "country": "Russia",
-    "active": false
   },
   {
     "id": "16624",
@@ -13120,26 +8410,6 @@
     "active": true
   },
   {
-    "id": "16671",
-    "name": "Cook Island Air",
-    "alias": "",
-    "iata": "KH",
-    "icao": null,
-    "callsign": "",
-    "country": "Cook Islands",
-    "active": false
-  },
-  {
-    "id": "16675",
-    "name": "US Africa Airways",
-    "alias": "",
-    "iata": "E8",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "16695",
     "name": "GNB Linhas Aereas",
     "alias": "",
@@ -13170,16 +8440,6 @@
     "active": true
   },
   {
-    "id": "16715",
-    "name": "Red Jet America",
-    "alias": "",
-    "iata": "RR",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "16717",
     "name": "REDjet",
     "alias": "",
@@ -13188,16 +8448,6 @@
     "callsign": "",
     "country": "Barbados",
     "active": true
-  },
-  {
-    "id": "16719",
-    "name": "Hellenic Airways",
-    "alias": "",
-    "iata": "1H",
-    "icao": "HEY",
-    "callsign": "Hellenic",
-    "country": "Greece",
-    "active": false
   },
   {
     "id": "16720",
@@ -13270,26 +8520,6 @@
     "active": true
   },
   {
-    "id": "16738",
-    "name": "NEPC Airlines",
-    "alias": "",
-    "iata": "D5",
-    "icao": null,
-    "callsign": "",
-    "country": "India",
-    "active": false
-  },
-  {
-    "id": "16753",
-    "name": "Canadian World",
-    "alias": "",
-    "iata": "10",
-    "icao": "CNN",
-    "callsign": "Canadian",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "16796",
     "name": "I-Fly",
     "alias": "",
@@ -13298,36 +8528,6 @@
     "callsign": "RUSSIAN SKY",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "16798",
-    "name": "T.A.T",
-    "alias": "",
-    "iata": "IJ",
-    "icao": null,
-    "callsign": "",
-    "country": "France",
-    "active": false
-  },
-  {
-    "id": "16811",
-    "name": "Alinord",
-    "alias": "",
-    "iata": "DN",
-    "icao": null,
-    "callsign": "",
-    "country": "Italy",
-    "active": false
-  },
-  {
-    "id": "16825",
-    "name": "Pacific Express",
-    "alias": "",
-    "iata": "VB",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "16837",
@@ -13378,16 +8578,6 @@
     "callsign": "",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "16900",
-    "name": "TROPICAL LINHAS AEREAS",
-    "alias": "TROPICAL",
-    "iata": "T1",
-    "icao": "TP3",
-    "callsign": "",
-    "country": "Brazil",
-    "active": false
   },
   {
     "id": "16901",
@@ -13570,36 +8760,6 @@
     "active": true
   },
   {
-    "id": "17575",
-    "name": "Samurai Airlines",
-    "alias": "Samurai Airlines (DUMMY)",
-    "iata": "07",
-    "icao": "770",
-    "callsign": "Sam",
-    "country": "Pakistan",
-    "active": false
-  },
-  {
-    "id": "17614",
-    "name": "AirOne Continental",
-    "alias": "AirOne Continental",
-    "iata": "00",
-    "icao": "000",
-    "callsign": "Eastern",
-    "country": "Slovakia",
-    "active": false
-  },
-  {
-    "id": "17618",
-    "name": "AirOne Polska",
-    "alias": "AirOne Polska",
-    "iata": "U1",
-    "icao": "001",
-    "callsign": "AOC",
-    "country": "Poland",
-    "active": false
-  },
-  {
     "id": "17675",
     "name": "Peach Aviation",
     "alias": "",
@@ -13650,16 +8810,6 @@
     "active": true
   },
   {
-    "id": "17822",
-    "name": "Pelangi ",
-    "alias": "",
-    "iata": "9P",
-    "icao": null,
-    "callsign": "",
-    "country": "Malaysia",
-    "active": false
-  },
-  {
     "id": "17841",
     "name": "Aws express",
     "alias": "",
@@ -13688,16 +8838,6 @@
     "callsign": "",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "17861",
-    "name": "Air Cape",
-    "alias": "",
-    "iata": "KP",
-    "icao": null,
-    "callsign": "",
-    "country": "South Africa",
-    "active": false
   },
   {
     "id": "17862",
@@ -13758,16 +8898,6 @@
     "callsign": "",
     "country": "Singapore",
     "active": true
-  },
-  {
-    "id": "17893",
-    "name": "Starling Airlines Spain",
-    "alias": "",
-    "iata": "SX",
-    "icao": "STS",
-    "callsign": "STARLING",
-    "country": "Spain",
-    "active": false
   },
   {
     "id": "17909",
@@ -13838,16 +8968,6 @@
     "callsign": "RUBY",
     "country": "United States",
     "active": true
-  },
-  {
-    "id": "18228",
-    "name": "Chicago Express (C8)",
-    "alias": "ATA Connection",
-    "iata": "C8",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "18232",
@@ -13930,16 +9050,6 @@
     "active": true
   },
   {
-    "id": "18545",
-    "name": "ValueJet",
-    "alias": "",
-    "iata": "J7",
-    "icao": "VJA",
-    "callsign": "CRITTER",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "18553",
     "name": "Maastricht Airlines",
     "alias": "",
@@ -13950,26 +9060,6 @@
     "active": true
   },
   {
-    "id": "18592",
-    "name": "CheapFlyingInternational",
-    "alias": "CheapFlying",
-    "iata": "WL",
-    "icao": "FQR",
-    "callsign": "cheapflying",
-    "country": "France",
-    "active": false
-  },
-  {
-    "id": "18616",
-    "name": "Aviaexpresscruise",
-    "alias": "",
-    "iata": "E6",
-    "icao": null,
-    "callsign": "",
-    "country": "Russia",
-    "active": false
-  },
-  {
     "id": "18617",
     "name": "Euro Jet",
     "alias": "",
@@ -13978,36 +9068,6 @@
     "callsign": "",
     "country": "Germany",
     "active": true
-  },
-  {
-    "id": "18637",
-    "name": "AirOne Atlantic",
-    "alias": "AirOneAtlantic",
-    "iata": "00",
-    "icao": "AO1",
-    "callsign": "",
-    "country": "Slovakia",
-    "active": false
-  },
-  {
-    "id": "18643",
-    "name": "HQ- Business Express",
-    "alias": "",
-    "iata": "HQ",
-    "icao": null,
-    "callsign": "BizEx",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "18673",
-    "name": "Royal Southern Airlines.",
-    "alias": "Royal Southern",
-    "iata": "R1",
-    "icao": "RS1",
-    "callsign": "RSA",
-    "country": "Colombia",
-    "active": false
   },
   {
     "id": "18700",
@@ -14030,46 +9090,6 @@
     "active": true
   },
   {
-    "id": "18722",
-    "name": "WestAir",
-    "alias": "",
-    "iata": "OE",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "18723",
-    "name": "WestAir Airlines",
-    "alias": "",
-    "iata": "OE",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "18724",
-    "name": "WestAir Airlines ",
-    "alias": "",
-    "iata": "OE",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "18727",
-    "name": "North Pacific Airlines",
-    "alias": "",
-    "iata": "NO",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "18732",
     "name": "Malindo Air",
     "alias": "",
@@ -14078,26 +9098,6 @@
     "callsign": "Malindo",
     "country": "Malaysia",
     "active": true
-  },
-  {
-    "id": "18749",
-    "name": "Tramm Airlines",
-    "alias": "Tramm Airlines",
-    "iata": "9F",
-    "icao": "TLM",
-    "callsign": "9F",
-    "country": "Netherlands Antilles",
-    "active": false
-  },
-  {
-    "id": "18762",
-    "name": "Lina Congo",
-    "alias": "",
-    "iata": "GC",
-    "icao": null,
-    "callsign": "",
-    "country": "Congo (Brazzaville)",
-    "active": false
   },
   {
     "id": "18825",
@@ -14118,16 +9118,6 @@
     "callsign": "",
     "country": "Russia",
     "active": true
-  },
-  {
-    "id": "18896",
-    "name": "3 Valleys Airlines",
-    "alias": "",
-    "iata": "3V",
-    "icao": "VA3",
-    "callsign": "3 Valleys",
-    "country": "France",
-    "active": false
   },
   {
     "id": "18930",
@@ -14190,16 +9180,6 @@
     "active": true
   },
   {
-    "id": "19208",
-    "name": "GoDutch",
-    "alias": "",
-    "iata": "GD",
-    "icao": "GOD",
-    "callsign": "",
-    "country": "Netherlands",
-    "active": false
-  },
-  {
     "id": "19225",
     "name": "Thai Lion Air",
     "alias": "",
@@ -14208,16 +9188,6 @@
     "callsign": "",
     "country": "Thailand",
     "active": true
-  },
-  {
-    "id": "19231",
-    "name": "Deutsche Luftverkehrsgesellschaft",
-    "alias": "",
-    "iata": "DW",
-    "icao": "DLT",
-    "callsign": "",
-    "country": "Germany",
-    "active": false
   },
   {
     "id": "19287",
@@ -14248,26 +9218,6 @@
     "callsign": "SUPERGREEN",
     "country": "Indonesia",
     "active": true
-  },
-  {
-    "id": "19317",
-    "name": "Gulisano airways",
-    "alias": "",
-    "iata": "GU",
-    "icao": "GU1",
-    "callsign": "",
-    "country": "Italy",
-    "active": false
-  },
-  {
-    "id": "19358",
-    "name": "Caribbean Wings",
-    "alias": "",
-    "iata": "XP",
-    "icao": "ZYZ",
-    "callsign": "caribbean Wings",
-    "country": "Turks and Caicos Islands",
-    "active": false
   },
   {
     "id": "19361",
@@ -14308,16 +9258,6 @@
     "callsign": "",
     "country": "India",
     "active": true
-  },
-  {
-    "id": "19465",
-    "name": "Global Freightways",
-    "alias": "",
-    "iata": "F5",
-    "icao": "GF5",
-    "callsign": "Freight",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "19473",
@@ -14518,16 +9458,6 @@
     "callsign": "",
     "country": "Iceland",
     "active": true
-  },
-  {
-    "id": "19811",
-    "name": "British Air Ferries",
-    "alias": "",
-    "iata": "??",
-    "icao": "??!",
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "19812",
@@ -14750,36 +9680,6 @@
     "active": true
   },
   {
-    "id": "19979",
-    "name": "FRA Air",
-    "alias": "",
-    "iata": "X9",
-    "icao": "X9F",
-    "callsign": "FA",
-    "country": "Germany",
-    "active": false
-  },
-  {
-    "id": "19983",
-    "name": "Royal",
-    "alias": "",
-    "iata": "QN",
-    "icao": null,
-    "callsign": "Roy",
-    "country": "Canada",
-    "active": false
-  },
-  {
-    "id": "19986",
-    "name": "GREAT LAKES (GX)",
-    "alias": "",
-    "iata": "GX",
-    "icao": null,
-    "callsign": "",
-    "country": "Canada",
-    "active": false
-  },
-  {
     "id": "20004",
     "name": "Volotea Costa Rica",
     "alias": "Volotea Costa Rica",
@@ -14838,16 +9738,6 @@
     "callsign": "",
     "country": "Brazil",
     "active": true
-  },
-  {
-    "id": "20124",
-    "name": "Wings of England",
-    "alias": "",
-    "iata": "EX",
-    "icao": "..,",
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "20127",
@@ -14930,16 +9820,6 @@
     "active": true
   },
   {
-    "id": "20261",
-    "name": "International Flying Service",
-    "alias": "IFS",
-    "iata": "F4",
-    "icao": null,
-    "callsign": "",
-    "country": "Italy",
-    "active": false
-  },
-  {
     "id": "20264",
     "name": "Air Vistara",
     "alias": "Tata SIA Airlines",
@@ -15020,36 +9900,6 @@
     "active": true
   },
   {
-    "id": "20438",
-    "name": "Naka Nihon Airlines Service",
-    "alias": "",
-    "iata": "NV",
-    "icao": "ALS",
-    "callsign": "",
-    "country": "Japan",
-    "active": false
-  },
-  {
-    "id": "20548",
-    "name": "Islands Express",
-    "alias": "",
-    "iata": "X9",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
-    "id": "20549",
-    "name": "Atlantic Air Services",
-    "alias": "",
-    "iata": "X7",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
-  },
-  {
     "id": "20565",
     "name": "Boutique Air (Priv)",
     "alias": "",
@@ -15068,26 +9918,6 @@
     "callsign": "",
     "country": "Spain",
     "active": true
-  },
-  {
-    "id": "20580",
-    "name": "Aguilar Connect",
-    "alias": "",
-    "iata": "3X",
-    "icao": "GUI",
-    "callsign": "Moonexpress",
-    "country": "Chile",
-    "active": false
-  },
-  {
-    "id": "20589",
-    "name": "ROYAL BRITAIN",
-    "alias": "Flying Brits",
-    "iata": "7V",
-    "icao": "ROB",
-    "callsign": "",
-    "country": "United Kingdom",
-    "active": false
   },
   {
     "id": "20599",
@@ -15180,26 +10010,6 @@
     "active": true
   },
   {
-    "id": "20777",
-    "name": "Palair Macedonia",
-    "alias": "",
-    "iata": "3D",
-    "icao": "PMK",
-    "callsign": "",
-    "country": "Macedonia",
-    "active": false
-  },
-  {
-    "id": "20788",
-    "name": "Palair Macedonia (3D)",
-    "alias": "",
-    "iata": "3D",
-    "icao": null,
-    "callsign": "",
-    "country": "Macedonia",
-    "active": false
-  },
-  {
     "id": "20802",
     "name": "GermanXL",
     "alias": "",
@@ -15228,26 +10038,6 @@
     "callsign": "",
     "country": "France",
     "active": true
-  },
-  {
-    "id": "20961",
-    "name": "Deutsche Luftverkehrsgesellschaft (DLT)",
-    "alias": "",
-    "iata": "DW",
-    "icao": "DWD",
-    "callsign": "",
-    "country": "Germany",
-    "active": false
-  },
-  {
-    "id": "20963",
-    "name": "Atlantic Air Cargo",
-    "alias": "",
-    "iata": "K3",
-    "icao": null,
-    "callsign": "",
-    "country": "United States",
-    "active": false
   },
   {
     "id": "20976",
@@ -15300,16 +10090,6 @@
     "active": true
   },
   {
-    "id": "21056",
-    "name": "Dummy",
-    "alias": "",
-    "iata": "0E",
-    "icao": null,
-    "callsign": "",
-    "country": "France",
-    "active": false
-  },
-  {
     "id": "21131",
     "name": "All America BOPY",
     "alias": "All America BOPY",
@@ -15318,16 +10098,6 @@
     "callsign": "BOPY",
     "country": "Paraguay",
     "active": true
-  },
-  {
-    "id": "21181",
-    "name": "Air Andaman (2Y)",
-    "alias": "",
-    "iata": "2Y",
-    "icao": "AOW",
-    "callsign": "AIR ANDAMAN",
-    "country": "Thailand",
-    "active": false
   },
   {
     "id": "21268",
