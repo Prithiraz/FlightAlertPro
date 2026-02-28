@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchFlights } from '../lib/api';
+import AirportAutocomplete from '../components/AirportAutocomplete';
+import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -13,6 +15,7 @@ export default function Search() {
     return_date: '',
     passengers: 1,
     cabin_class: 'economy',
+    airline_filter: '',
   });
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -77,30 +80,20 @@ export default function Search() {
 
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.row}>
-          <div style={styles.field}>
-            <label style={styles.label}>From (IATA)</label>
-            <input
-              name="from_iata"
-              value={form.from_iata}
-              onChange={handleChange}
-              maxLength={3}
-              placeholder="LAX"
-              required
-              style={styles.input}
-            />
-          </div>
-          <div style={styles.field}>
-            <label style={styles.label}>To (IATA)</label>
-            <input
-              name="to_iata"
-              value={form.to_iata}
-              onChange={handleChange}
-              maxLength={3}
-              placeholder="JFK"
-              required
-              style={styles.input}
-            />
-          </div>
+          <AirportAutocomplete
+            label="From"
+            placeholder="City, airport or IATA (e.g. London)"
+            value={form.from_iata}
+            onChange={(v) => setForm((p) => ({ ...p, from_iata: v }))}
+            required
+          />
+          <AirportAutocomplete
+            label="To"
+            placeholder="City, airport or IATA (e.g. JFK)"
+            value={form.to_iata}
+            onChange={(v) => setForm((p) => ({ ...p, to_iata: v }))}
+            required
+          />
         </div>
 
         <div style={styles.row}>
@@ -156,6 +149,16 @@ export default function Search() {
               ))}
             </select>
           </div>
+        </div>
+
+        <div style={styles.row}>
+          <AirlineAutocomplete
+            label="Airline Filter (optional)"
+            placeholder="e.g. Emirates, EK"
+            value={form.airline_filter}
+            onChange={(v) => setForm((p) => ({ ...p, airline_filter: v }))}
+          />
+          <div style={{ flex: 1, minWidth: '160px' }} />
         </div>
 
         {error && <p style={styles.error}>{error}</p>}
