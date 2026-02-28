@@ -2,10 +2,13 @@ from fastapi import APIRouter, Request, HTTPException, Header
 from typing import Optional
 import logging
 from payments import payments_service
+from cache import cache_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_PROCESSED_EVENT_TTL = 86400  # 24 hours
 
 @router.post("/webhook/stripe")
 async def stripe_webhook(
@@ -25,7 +28,17 @@ async def stripe_webhook(
             logger.error("Webhook signature verification failed")
             raise HTTPException(status_code=400, detail="Invalid signature")
 
+        event_id = event.get('id')
         event_type = event['type']
+
+        # Idempotency: atomically claim the event; skip if already processed.
+        # set_if_not_exists returns False when the key already exists (Redis SET NX).
+        if event_id and not cache_service.set_if_not_exists(
+            f"stripe_event:{event_id}", True, ttl=_PROCESSED_EVENT_TTL
+        ):
+            logger.info(f"Duplicate webhook event {event_id} ({event_type}), skipping")
+            return {"status": "success", "event_type": event_type, "duplicate": True}
+
         logger.info(f"Processing webhook event: {event_type}")
 
         if event_type == 'checkout.session.completed':

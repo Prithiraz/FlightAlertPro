@@ -71,6 +71,23 @@ async def create_alert(
                     detail="Phone number required for SMS/WhatsApp alerts"
                 )
 
+        # Enforce per-user active alert limit (anti-abuse).
+        # This application-level check gives callers a clear 429 error.
+        # For strict enforcement under concurrent load, pair this with a
+        # database-level CHECK constraint or trigger on the price_alerts table.
+        count_result = (
+            supabase.table('price_alerts')
+            .select('id', count='exact')
+            .eq('user_email', user_email)
+            .eq('active', True)
+            .execute()
+        )
+        if (count_result.count or 0) >= config.MAX_ALERTS_PER_USER:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Maximum of {config.MAX_ALERTS_PER_USER} active alerts per account reached"
+            )
+
         # Insert into Supabase
         result = supabase.table('price_alerts').insert({
             'user_email': user_email,
