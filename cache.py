@@ -88,6 +88,27 @@ class CacheService:
         except Exception as e:
             logger.error(f"Cache delete error: {str(e)}")
 
+    def set_if_not_exists(self, key: str, value: Any, ttl: int = 300) -> bool:
+        """Set key only if it does not already exist.
+
+        Returns True if the key was newly set, False if it already existed.
+        When Redis is available this is atomic (SET NX).  The in-memory
+        fallback is best-effort for single-process deployments.
+        """
+        try:
+            if self.redis_client:
+                import json
+                result = self.redis_client.set(key, json.dumps(value), ex=ttl, nx=True)
+                return result is not None
+            else:
+                if self.lru_cache.get(key) is not None:
+                    return False
+                self.lru_cache.set(key, value, ttl)
+                return True
+        except Exception as e:
+            logger.error(f"Cache set_if_not_exists error: {str(e)}")
+            return False
+
     def clear(self):
         try:
             if self.redis_client:
