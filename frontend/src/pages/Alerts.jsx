@@ -2,23 +2,30 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createAlert, listAlerts, deleteAlert, getAlertHistory, getMe, listAlertTemplates, createAlertTemplate, deleteAlertTemplate } from '../lib/api';
 import { useAuth } from '../App';
+import { usePreferences } from '../lib/PreferencesContext';
+import { formatDateTime } from '../lib/datetime';
+import { formatCurrency } from '../lib/currency';
+import { t } from '../i18n';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import UpgradeBanner from '../components/UpgradeBanner';
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'SGD', 'AED', 'CHF', 'NZD'];
 const CHANNELS = ['email', 'whatsapp', 'telegram'];
 
-const emptyForm = {
+const makeEmptyForm = (currency = 'USD') => ({
   from_iata: '',
   to_iata: '',
   max_price: '',
-  currency: 'USD',
+  currency,
   departure_date: '',
   notification_channels: ['email'],
-};
+});
+
+const emptyForm = makeEmptyForm();
 
 export default function Alerts() {
   const { user } = useAuth();
+  const { locale, timezone, homeCurrency } = usePreferences();
   const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -33,6 +40,14 @@ export default function Alerts() {
   const [templates, setTemplates] = useState([]);
   const [templateName, setTemplateName] = useState('');
   const [templateMsg, setTemplateMsg] = useState('');
+
+  // Default currency to home currency from preferences
+  useEffect(() => {
+    if (homeCurrency && !prefillApplied) {
+      setForm((prev) => ({ ...prev, currency: homeCurrency }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeCurrency]);
 
   useEffect(() => {
     const prefill = location.state?.prefill;
@@ -140,7 +155,7 @@ export default function Alerts() {
 
       await createAlert(payload);
       setSuccess('Alert created successfully!');
-      setForm(emptyForm);
+      setForm(makeEmptyForm(homeCurrency));
       await fetchAlerts();
     } catch (err) {
       setError(err.message || 'Failed to create alert');
@@ -178,7 +193,7 @@ export default function Alerts() {
 
   return (
     <div style={styles.page}>
-      <h2 style={styles.heading}>Price Alerts</h2>
+      <h2 style={styles.heading}>{t('alerts.title')}</h2>
 
       {meData && (
         <UpgradeBanner usage={meData.usage} limits={meData.limits} plan={meData.plan} />
@@ -215,18 +230,18 @@ export default function Alerts() {
 
       {/* Create Alert Form */}
       <div style={styles.formSection}>
-        <h3 style={styles.subHeading}>Create New Alert</h3>
+        <h3 style={styles.subHeading}>{t('alerts.createNew')}</h3>
         <form onSubmit={handleCreate} style={styles.form}>
           <div style={styles.row}>
             <AirportAutocomplete
-              label="From"
+              label={t('common.from')}
               placeholder="City, airport or IATA (e.g. London)"
               value={form.from_iata}
               onChange={(v) => setForm((p) => ({ ...p, from_iata: v }))}
               required
             />
             <AirportAutocomplete
-              label="To"
+              label={t('common.to')}
               placeholder="City, airport or IATA (e.g. JFK)"
               value={form.to_iata}
               onChange={(v) => setForm((p) => ({ ...p, to_iata: v }))}
@@ -236,7 +251,7 @@ export default function Alerts() {
 
           <div style={styles.row}>
             <div style={styles.field}>
-              <label style={styles.label}>Max Price</label>
+              <label style={styles.label}>{t('alerts.maxPrice')}</label>
               <input
                 type="number"
                 name="max_price"
@@ -250,7 +265,7 @@ export default function Alerts() {
               />
             </div>
             <div style={styles.field}>
-              <label style={styles.label}>Currency</label>
+              <label style={styles.label}>{t('alerts.alertCurrency')}</label>
               <select
                 name="currency"
                 value={form.currency}
@@ -265,7 +280,7 @@ export default function Alerts() {
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Departure Date (optional)</label>
+            <label style={styles.label}>{t('alerts.departureDate')}</label>
             <input
               type="date"
               name="departure_date"
@@ -276,7 +291,7 @@ export default function Alerts() {
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Notification Channels</label>
+            <label style={styles.label}>{t('alerts.notifChannels')}</label>
             <div style={styles.channels}>
               {CHANNELS.map((ch) => (
                 <label key={ch} style={styles.checkLabel}>
@@ -295,19 +310,19 @@ export default function Alerts() {
           {success && <p style={styles.success}>{success}</p>}
 
           <button type="submit" disabled={creating} style={styles.button}>
-            {creating ? 'Creating...' : 'Create Alert'}
+            {creating ? t('alerts.creating') : t('alerts.createBtn')}
           </button>
         </form>
       </div>
 
       {/* Existing Alerts */}
       <div>
-        <h3 style={styles.subHeading}>Your Alerts</h3>
+        <h3 style={styles.subHeading}>{t('alerts.yourAlerts')}</h3>
 
         {loading ? (
-          <p style={styles.empty}>Loading alerts...</p>
+          <p style={styles.empty}>{t('alerts.loading')}</p>
         ) : alerts.length === 0 ? (
-          <p style={styles.empty}>No alerts yet. Create one above.</p>
+          <p style={styles.empty}>{t('alerts.noAlerts')}</p>
         ) : (
           <div style={styles.alertList}>
             {alerts.map((alert) => (
@@ -318,7 +333,7 @@ export default function Alerts() {
                   <span style={styles.iata}>{alert.to_iata}</span>
                 </div>
                 <div style={styles.alertMeta}>
-                  Max: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
+                  Max: {formatCurrency(Number(alert.max_price), alert.currency || 'USD', locale)}
                   {alert.departure_date && ` · Dep: ${alert.departure_date}`}
                 </div>
                 <div style={styles.alertMeta}>
@@ -326,21 +341,21 @@ export default function Alerts() {
                 </div>
                 {alert.created_at && (
                   <div style={styles.alertMeta}>
-                    Created: {new Date(alert.created_at).toLocaleDateString()}
+                    Created: {formatDateTime(alert.created_at, { locale, timezone })}
                   </div>
                 )}
                 <button
                   onClick={() => handleDeactivate(alert.id)}
                   style={styles.deactivateBtn}
                 >
-                  Deactivate
+                  {t('alerts.deactivate')}
                 </button>
                 {/* Price History toggle */}
                 <button
                   onClick={() => toggleHistory(alert.id)}
                   style={styles.historyBtn}
                 >
-                  {history[alert.id]?.open ? 'Hide history' : 'View history'}
+                  {history[alert.id]?.open ? t('alerts.hideHistory') : t('alerts.viewHistory')}
                 </button>
                 {history[alert.id]?.open && (
                   <div style={styles.historySection}>
@@ -350,7 +365,7 @@ export default function Alerts() {
                     )}
                     {!history[alert.id]?.loading && !history[alert.id]?.error && (
                       history[alert.id]?.data?.length === 0 ? (
-                        <p style={styles.alertMeta}>No history yet.</p>
+                        <p style={styles.alertMeta}>{t('alerts.noHistory')}</p>
                       ) : (
                         <table style={styles.historyTable}>
                           <thead>
@@ -363,8 +378,8 @@ export default function Alerts() {
                           <tbody>
                             {history[alert.id].data.map((pt) => (
                               <tr key={pt.id}>
-                                <td style={styles.td}>{new Date(pt.checked_at).toLocaleString()}</td>
-                                <td style={styles.td}>{pt.currency} {Number(pt.lowest_price).toFixed(2)}</td>
+                                <td style={styles.td}>{formatDateTime(pt.checked_at, { locale, timezone })}</td>
+                                <td style={styles.td}>{formatCurrency(Number(pt.lowest_price), pt.currency || 'USD', locale)}</td>
                                 <td style={styles.td}>{pt.provider || '—'}</td>
                               </tr>
                             ))}

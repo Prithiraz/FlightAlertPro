@@ -3,16 +3,17 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
 import { getAdminMe } from '../lib/api';
+import { t } from '../i18n';
 import MobileMenu from './MobileMenu';
 
 const BASE_LINKS = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/search', label: 'Search' },
-  { to: '/alerts', label: 'Alerts' },
-  { to: '/saved', label: 'Saved' },
-  { to: '/notifications', label: 'Notifications' },
-  { to: '/billing', label: 'Billing' },
-  { to: '/settings', label: 'Settings' },
+  { to: '/dashboard', label: t('nav.dashboard') },
+  { to: '/search', label: t('nav.search') },
+  { to: '/alerts', label: t('nav.alerts') },
+  { to: '/saved', label: t('nav.saved') },
+  { to: '/notifications', label: t('nav.notifications') },
+  { to: '/billing', label: t('nav.billing') },
+  { to: '/settings', label: t('nav.settings') },
 ];
 
 const ADMIN_LINKS = [
