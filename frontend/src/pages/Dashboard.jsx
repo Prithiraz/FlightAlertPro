@@ -50,7 +50,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (user?.email) {
       setAlertsLoading(true);
-      listAlerts(user.email)
+      listAlerts()
         .then((data) => setMyAlerts(Array.isArray(data) ? data : data.alerts ?? []))
         .catch((err) => setAlertsError(err.message || 'Failed to load alerts'))
         .finally(() => setAlertsLoading(false));

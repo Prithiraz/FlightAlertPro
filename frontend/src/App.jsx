@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Search from './pages/Search';
 import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
+import Billing from './pages/Billing';
 
 const AuthContext = createContext(null);
 
@@ -72,6 +73,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/billing"
+            element={
+              <ProtectedRoute>
+                <Billing />
               </ProtectedRoute>
             }
           />

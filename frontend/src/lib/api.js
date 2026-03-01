@@ -1,3 +1,5 @@
+import { supabase } from './supabase.js';
+
 // Default to the same host but on port 8000 (Codespaces-friendly fallback)
 const _defaultBase = (() => {
   const url = new URL(window.location.href);
@@ -7,11 +9,26 @@ const _defaultBase = (() => {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || _defaultBase;
 
+/** Retrieve the Supabase access token for the current session (best-effort). */
+async function getAuthHeaders() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+  } catch (_) {
+    // supabase may not be initialised (e.g. SSR / tests)
+  }
+  return {};
+}
+
 export async function apiFetch(path, options = {}) {
+  const authHeaders = await getAuthHeaders();
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders,
       ...(options.headers || {}),
     },
   });
@@ -23,9 +40,10 @@ export async function apiFetch(path, options = {}) {
 }
 
 async function request(method, path, body) {
+  const authHeaders = await getAuthHeaders();
   const options = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
   };
   if (body !== undefined) {
     options.body = JSON.stringify(body);
@@ -64,8 +82,10 @@ export function searchFlights(params) {
 }
 
 export function createAlert(params) {
+  // Strip user_email – backend derives identity from the JWT
+  const { user_email: _ignored, ...rest } = params;
   // Always map legacy channels -> notification_channels when channels is provided
-  const payload = { ...params };
+  const payload = { ...rest };
   if (payload.channels !== undefined) {
     payload.notification_channels = payload.channels;
     delete payload.channels;
@@ -73,12 +93,14 @@ export function createAlert(params) {
   return request('POST', '/api/alerts/create', payload);
 }
 
-export function listAlerts(userEmail) {
-  return request('GET', `/api/alerts/list?user_email=${encodeURIComponent(userEmail)}`);
+/** List the authenticated user's alerts (no user_email param needed). */
+export function listAlerts() {
+  return request('GET', '/api/alerts/list');
 }
 
-export function deleteAlert(alertId, userEmail) {
-  return request('DELETE', `/api/alerts/${alertId}?user_email=${encodeURIComponent(userEmail)}`);
+/** Deactivate an alert by ID (backend enforces ownership via JWT). */
+export function deleteAlert(alertId) {
+  return request('DELETE', `/api/alerts/${alertId}`);
 }
 
 export function searchAirports(query, { grouped = true, commercial_only = true, limit = 10 } = {}) {
@@ -99,3 +121,32 @@ export function searchAirlines(query, { limit = 20 } = {}) {
 export function getCurrencyRates(base = 'USD') {
   return apiFetch(`/api/currency/rates?base=${encodeURIComponent(base)}`);
 }
+
+/** Fetch the current user's profile, plan, and usage. */
+export function getMe() {
+  return request('GET', '/api/me');
+}
+
+/** Fetch the current user's billing status and subscription info. */
+export function getBillingStatus() {
+  return request('GET', '/api/billing/status');
+}
+
+/**
+ * Create a Stripe Checkout session for the given plan.
+ * @param {'pro'|'elite'|'business'} plan
+ */
+export function createBillingCheckout(plan) {
+  return request('POST', `/api/billing/checkout?plan=${encodeURIComponent(plan)}`);
+}
+
+/** Fetch a Stripe Billing Portal URL for the current user. */
+export function getBillingPortal() {
+  return request('GET', '/api/billing/portal');
+}
+
+/** Fetch the last N notifications for the current user. */
+export function getNotificationHistory(limit = 20) {
+  return request('GET', `/api/notifications/history?limit=${limit}`);
+}
+

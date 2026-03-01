@@ -53,7 +53,7 @@ export default function Alerts() {
   const fetchAlerts = async () => {
     setLoading(true);
     try {
-      const data = await listAlerts(user.email);
+      const data = await listAlerts();
       setAlerts(Array.isArray(data) ? data : data.alerts ?? []);
     } catch (err) {
       setError(err.message || 'Failed to load alerts');
@@ -84,7 +84,6 @@ export default function Alerts() {
 
     try {
       const payload = {
-        user_email: user.email,
         from_iata: form.from_iata.toUpperCase(),
         to_iata: form.to_iata.toUpperCase(),
         max_price: Number(form.max_price),
@@ -110,7 +109,7 @@ export default function Alerts() {
     setError('');
     setSuccess('');
     try {
-      await deleteAlert(alertId, user.email);
+      await deleteAlert(alertId);
       setSuccess('Alert removed.');
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));
     } catch (err) {
