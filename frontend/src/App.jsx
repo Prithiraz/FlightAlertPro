@@ -16,6 +16,12 @@ import SavedSearches from './pages/SavedSearches';
 import Notifications from './pages/Notifications';
 import Admin from './pages/Admin';
 import Analytics from './pages/Analytics';
+import Landing from './pages/Landing';
+import Pricing from './pages/Pricing';
+import HowItWorks from './pages/HowItWorks';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import ReferralLanding from './pages/ReferralLanding';
 
 const AuthContext = createContext(null);
 
@@ -60,6 +66,14 @@ function App() {
       <BrowserRouter>
         {user && onboarded && <Header />}
         <Routes>
+          {/* Public marketing routes */}
+          <Route path="/landing" element={<Landing />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/ref/:code" element={<ReferralLanding />} />
+
           <Route
             path="/"
             element={
@@ -67,10 +81,11 @@ function App() {
                 ? onboarded
                   ? <Navigate to="/dashboard" replace />
                   : <Navigate to="/onboarding" replace />
-                : <Login />
+                : <Landing />
             }
           />
           <Route path="/reset" element={<ResetPassword />} />
+          <Route path="/login" element={<Login />} />
           <Route
             path="/onboarding"
             element={

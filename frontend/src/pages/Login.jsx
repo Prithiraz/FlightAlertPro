@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { claimReferral, trackEvent } from '../lib/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,12 @@ export default function Login() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    // Pre-select signup mode when ?signup=1 is present (from landing page CTAs)
+    if (searchParams.get('signup') === '1') setIsSignUp(true);
+  }, [searchParams]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -29,6 +36,13 @@ export default function Login() {
       if (err) {
         setError(err.message);
       } else {
+        // Claim referral code if one was stored from a /ref/<code> visit
+        const referralCode = localStorage.getItem('referral_code');
+        if (referralCode) {
+          claimReferral(referralCode).catch(() => {});
+          localStorage.removeItem('referral_code');
+        }
+        trackEvent('signup_complete').catch(() => {});
         setMessage('Account created! Check your email to confirm, then log in.');
       }
     } else {

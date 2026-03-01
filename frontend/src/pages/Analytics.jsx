@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api';
 export default function Analytics() {
   const [isAdmin, setIsAdmin] = useState(null);
   const [series, setSeries] = useState([]);
+  const [growth, setGrowth] = useState([]);
   const [days, setDays] = useState(7);
   const [loading, setLoading] = useState(true);
 
@@ -26,9 +27,14 @@ export default function Analytics() {
   useEffect(() => {
     if (!isAdmin) return;
     setLoading(true);
-    apiFetch(`/api/admin/analytics?days=${days}`)
-      .then((d) => setSeries(d.series || []))
-      .catch(() => setSeries([]))
+    Promise.all([
+      apiFetch(`/api/admin/analytics?days=${days}`).catch(() => ({ series: [] })),
+      apiFetch(`/api/admin/growth?days=${days}`).catch(() => ({ series: [] })),
+    ])
+      .then(([analyticsData, growthData]) => {
+        setSeries(analyticsData.series || []);
+        setGrowth(growthData.series || []);
+      })
       .finally(() => setLoading(false));
   }, [isAdmin, days]);
 
@@ -38,6 +44,30 @@ export default function Analytics() {
   const maxSearches = Math.max(...series.map((r) => r.searches), 1);
   const maxNotifs = Math.max(...series.map((r) => r.notifications_sent), 1);
   const maxAlerts = Math.max(...series.map((r) => r.alerts_created), 1);
+
+  // Growth funnel totals across period
+  const funnelTotals = growth.reduce((acc, row) => {
+    acc.landing_view = (acc.landing_view || 0) + (row.landing_view || 0);
+    acc.pricing_view = (acc.pricing_view || 0) + (row.pricing_view || 0);
+    acc.signup_start = (acc.signup_start || 0) + (row.signup_start || 0);
+    acc.signup_complete = (acc.signup_complete || 0) + (row.signup_complete || 0);
+    acc.first_search = (acc.first_search || 0) + (row.first_search || 0);
+    acc.first_alert_created = (acc.first_alert_created || 0) + (row.first_alert_created || 0);
+    acc.paid_success = (acc.paid_success || 0) + (row.paid_success || 0);
+    return acc;
+  }, {});
+
+  const funnelSteps = [
+    { key: 'landing_view', label: 'Landing Views', color: '#3b82f6' },
+    { key: 'pricing_view', label: 'Pricing Views', color: '#6366f1' },
+    { key: 'signup_start', label: 'Signup Started', color: '#8b5cf6' },
+    { key: 'signup_complete', label: 'Signup Complete', color: '#ec4899' },
+    { key: 'first_search', label: 'First Search', color: '#f59e0b' },
+    { key: 'first_alert_created', label: 'First Alert', color: '#10b981' },
+    { key: 'paid_success', label: 'Paid', color: '#16a34a' },
+  ];
+
+  const topFunnelVal = funnelTotals[funnelSteps[0].key] || 1;
 
   return (
     <div style={styles.page}>
@@ -57,6 +87,41 @@ export default function Analytics() {
             ))}
           </div>
         </div>
+
+        {/* Growth Funnel */}
+        <section style={styles.section}>
+          <h2 style={styles.h2}>🚀 Growth Funnel – Last {days} Days</h2>
+          {funnelSteps.every((s) => !funnelTotals[s.key]) ? (
+            <p style={styles.empty}>No growth events recorded yet. Events will appear once users visit the marketing pages.</p>
+          ) : (
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Step</th>
+                  <th style={styles.th}>Count</th>
+                  <th style={styles.th}>Conversion</th>
+                  <th style={styles.th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnelSteps.map((step) => {
+                  const count = funnelTotals[step.key] || 0;
+                  const pct = topFunnelVal > 0 ? (count / topFunnelVal) * 100 : 0;
+                  return (
+                    <tr key={step.key}>
+                      <td style={styles.td}>{step.label}</td>
+                      <td style={styles.td}><span style={styles.count}>{count}</span></td>
+                      <td style={styles.td}>{pct.toFixed(1)}%</td>
+                      <td style={styles.td}>
+                        <span style={{ ...styles.bar, width: `${(count / Math.max(...Object.values(funnelTotals), 1)) * 140}px`, background: step.color }} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </section>
 
         <section style={styles.section}>
           <h2 style={styles.h2}>Daily Usage – Last {days} Days</h2>

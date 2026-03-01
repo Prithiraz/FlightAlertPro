@@ -225,3 +225,138 @@ Circuit-breaker state per provider is visible at `GET /health/integrations`.
 |---|---|---|
 | `SEARCH_IP_RATE_LIMIT_PER_MINUTE` | `30` | Max search requests per IP per minute |
 | `SEARCH_IP_BLOCK_MINUTES` | `15` | How long an abusive IP is blocked |
+
+---
+
+## Growth Engine
+
+### Public marketing routes
+
+| Route | Description |
+|---|---|
+| `/` | Landing page (public, shown to unauthenticated users) |
+| `/pricing` | Full plan comparison page |
+| `/how-it-works` | Three-step explainer |
+| `/privacy` | Privacy policy |
+| `/terms` | Terms of service |
+| `/ref/<code>` | Referral landing page |
+| `/login?signup=1` | Signup form (pre-selected) |
+
+### Referral system
+
+The referral system lets existing users invite friends with a unique code link (`/ref/<CODE>`).
+
+**Flow:**
+1. User visits `/ref/ABC` → code is stored in `localStorage`.
+2. A `visit` event is recorded in `referral_events`.
+3. User clicks "Create Free Account" → goes to `/login?signup=1`.
+4. After successful signup, the frontend calls `POST /api/referral/claim` with the stored code.
+5. A row is written to `user_attribution` linking the new user to the referrer.
+6. When the user becomes a paying customer (Stripe webhook), a `paid` event is written.
+
+**API endpoints:**
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/referral/my-code` | Required | Return (or create) your referral code |
+| `POST` | `/api/referral/track` | None | Track a referral event (visit/signup/paid) |
+| `POST` | `/api/referral/claim` | Required | Attach a referral code to your account |
+| `GET` | `/api/admin/referrals` | Admin | (Future) referral summary |
+
+**To test locally:**
+```bash
+# 1. Visit the referral page in your browser
+open http://localhost:5173/ref/TESTCODE
+
+# 2. Check localStorage has the code
+# In browser devtools: localStorage.getItem('referral_code')  → "TESTCODE"
+
+# 3. Sign up via /login?signup=1
+# 4. Verify the user_attribution row was created in Supabase
+```
+
+**Database tables** (see `20260301_growth_engine_tables.sql`):
+- `referral_codes` – one row per user, unique code
+- `referral_events` – visit / signup / paid events
+- `user_attribution` – which referral code converted each user
+
+### Lifecycle emails
+
+Lifecycle emails are sent by a daily background job. Trigger it manually:
+
+```python
+from lifecycle_emails import run_lifecycle_emails
+run_lifecycle_emails()          # live send
+run_lifecycle_emails(dry_run=True)  # log only, no email sent
+```
+
+**Triggers:**
+| Template | When |
+|---|---|
+| `welcome` | Within 1 hour of signup |
+| `nudge_create_alert` | >2 hours after signup, searched but no alert |
+| `tips_after_alert` | First alert created, tips not yet sent |
+| `reengagement` | No activity for 7+ days |
+
+**Environment variables needed:**
+```
+GMAIL_USER=alerts@yourdomain.com
+GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
+```
+
+Users can opt out in Settings → "Email Preferences". The `lifecycle_emails_opt_in` boolean is stored in `user_profiles` (column added in migration `20260301_growth_engine_tables.sql`).
+
+### Events / growth analytics
+
+All funnel events are stored in `growth_events` and surfaced in the admin Analytics page.
+
+**Tracked events:**
+- `landing_view`, `pricing_view`
+- `signup_start`, `signup_complete`
+- `first_search`, `first_alert_created`
+- `upgrade_click`, `checkout_started`, `paid_success`
+
+**API:**
+```bash
+POST /api/events
+{ "event_name": "upgrade_click", "props_json": { "plan": "pro" } }
+```
+
+Auth is optional – anonymous events are stored with `user_id = null`.
+
+**Growth admin endpoint:**
+```bash
+GET /api/admin/growth?days=14
+```
+Returns per-day counts for all funnel events. Visible in the Analytics page under "Growth Funnel".
+
+### Upgrade components
+
+- `UpgradeBanner` – shown when the user is near their alert limit (already in use on Dashboard).
+- `UpgradeModal` – triggered when the user hits a hard limit or tries a premium feature.
+
+**Usage:**
+```jsx
+import UpgradeModal from '../components/UpgradeModal';
+
+// Inside a component:
+{showUpgradeModal && (
+  <UpgradeModal
+    reason="alert_limit"         // 'alert_limit' | 'search_limit' | 'premium_feature'
+    feature="WhatsApp alerts"    // optional, used for 'premium_feature' reason
+    onClose={() => setShowUpgradeModal(false)}
+  />
+)}
+```
+
+The modal automatically tracks an `upgrade_click` event and redirects the user to `/billing`.
+
+### Running the full build check
+
+```bash
+# Python syntax check
+python -m compileall .
+
+# Frontend production build
+cd frontend && npm run build
+```
