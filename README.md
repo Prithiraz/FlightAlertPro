@@ -360,3 +360,89 @@ python -m compileall .
 # Frontend production build
 cd frontend && npm run build
 ```
+
+---
+
+## Deploying to staging / production
+
+FlightAlertPro uses **Railway** (FastAPI backend) and **Vercel** (Vite/React frontend).
+
+### Platform choice
+
+| Layer | Platform | Why |
+|---|---|---|
+| Backend | [Railway](https://railway.app) | Native Python / FastAPI support, built-in env management, easy rollback |
+| Frontend | [Vercel](https://vercel.com) | Zero-config Vite builds, preview URLs per branch, free tier |
+
+### One-time setup
+
+#### Backend (Railway)
+
+1. Create a Railway project and a **backend** service pointing at this repo root.
+2. Set the start command:
+   ```
+   uvicorn main:app --host 0.0.0.0 --port $PORT
+   ```
+3. Add all required env vars in **Railway → Variables** (see `docs/ops.md` for the full list).
+4. Generate a **Railway token** (`railway login --browserless`) and add it as the
+   `RAILWAY_TOKEN` GitHub secret.
+
+#### Frontend (Vercel)
+
+1. Import the repo into Vercel, set **Root Directory** to `frontend`.
+2. Vercel auto-detects Vite; no extra build config needed.
+3. Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_BASE_URL` in Vercel → Settings → Environment Variables for each environment.
+4. Generate a Vercel token and add `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` as GitHub secrets.
+
+#### GitHub Environments
+
+Create two environments in **GitHub → Settings → Environments**:
+- `staging` – no required reviewers (auto-deploy on `main`)
+- `production` – add required reviewers; deploy triggers on `v*` tag or manual dispatch
+
+### Triggering deployments
+
+| Target | How |
+|---|---|
+| Staging (auto) | Push or merge to `main` — the `deploy-staging` workflow runs automatically |
+| Production (tag) | `git tag v1.2.3 && git push origin v1.2.3` |
+| Production (manual) | GitHub UI → Actions → **Deploy – Production** → Run workflow |
+
+### Required secrets & variables
+
+#### GitHub Secrets (all environments)
+
+| Secret | Description |
+|---|---|
+| `RAILWAY_TOKEN` | Railway API token for CLI deploys |
+| `VERCEL_TOKEN` | Vercel personal access token |
+| `VERCEL_ORG_ID` | Found in Vercel project settings |
+| `VERCEL_PROJECT_ID` | Found in Vercel project settings |
+
+#### GitHub Variables
+
+| Variable | Environment | Value |
+|---|---|---|
+| `STAGING_BACKEND_URL` | staging | `https://your-staging.up.railway.app` |
+| `PROD_BACKEND_URL` | production | `https://your-prod.up.railway.app` |
+| `VITE_SUPABASE_URL` | all | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | all | Supabase anon key |
+| `VITE_API_BASE_URL` | staging/prod | Backend Railway URL |
+
+### Post-deploy smoke tests
+
+The `smoke-test-staging` / `smoke-test-prod` job runs `scripts/smoke_test.sh` which checks:
+- `GET /health` → HTTP 200
+- `GET /health/integrations` → HTTP 200
+- `GET /api/metadata/stats` → HTTP 200
+- `GET /api/systemcheck` → HTTP 200
+
+Run manually:
+```bash
+SMOKE_BASE_URL=https://your-backend.up.railway.app bash scripts/smoke_test.sh
+```
+
+### Further reading
+
+- `docs/release-checklist.md` — step-by-step deploy + rollback guide
+- `docs/ops.md` — backups, key rotation, incident response

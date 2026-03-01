@@ -99,6 +99,7 @@ class SimpleSearchRequest(BaseModel):
 
 @app.on_event("startup")
 async def startup_event():
+    config.validate()
     logger.info("FlightAlertPro API Starting...")
     print(secrets_manager.get_report())
     logger.info("API Ready")
