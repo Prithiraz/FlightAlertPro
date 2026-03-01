@@ -1,7 +1,8 @@
+import asyncio
 import logging
+import random
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from config import config
@@ -10,15 +11,31 @@ from notifications import notification_service
 
 logger = logging.getLogger(__name__)
 
-# Maximum number of alerts processed concurrently
-_MAX_WORKERS = 10
+# Maximum number of alerts processed concurrently (asyncio semaphore)
+_MAX_CONCURRENT = 10
 # Cooldown: do not re-notify for the same alert within this many seconds (6 hours)
 _NOTIFICATION_COOLDOWN_SECONDS = 6 * 3600
+# Dedupe tolerance: skip notification if price changed by less than 1%
+_PRICE_TOLERANCE = 0.01
+# Per-provider in-memory rate limit: max calls per minute
+_PROVIDER_RATE_LIMITS = {
+    "rapidapi": config.RAPIDAPI_RATE_LIMIT,
+    "duffel": config.DUFFEL_RATE_LIMIT,
+}
+
+
+def _jitter_sleep(attempt: int, base: float = 1.0, cap: float = 60.0) -> float:
+    """Return sleep duration using full-jitter exponential backoff."""
+    delay = min(cap, base * (2 ** attempt))
+    return random.uniform(0, delay)
+
 
 class AlertWorker:
     def __init__(self):
         self.scheduler = BlockingScheduler()
         self.use_redis = config.REDIS_URL is not None
+        # Per-provider call timestamps for simple rate limiting
+        self._provider_calls: dict[str, list[float]] = {}
 
     def acquire_lock(self, lock_key: str, timeout: int = 300) -> bool:
         if self.use_redis:
@@ -72,7 +89,31 @@ class AlertWorker:
             except Exception as e:
                 logger.error(f"Error releasing DB lock: {str(e)}")
 
+    # ------------------------------------------------------------------
+    # Provider-level rate limiting (simple token-bucket in memory)
+    # ------------------------------------------------------------------
+
+    def _provider_allow(self, provider: str) -> bool:
+        """Return True if the provider has capacity; enforces per-minute cap."""
+        limit = _PROVIDER_RATE_LIMITS.get(provider)
+        if limit is None:
+            return True
+        now = time.time()
+        calls = self._provider_calls.setdefault(provider, [])
+        # Keep only timestamps within the last 60 s
+        calls[:] = [t for t in calls if now - t < 60]
+        if len(calls) >= limit:
+            logger.warning("Provider %s rate-limited (%d/%d calls/min)", provider, len(calls), limit)
+            return False
+        calls.append(now)
+        return True
+
+    # ------------------------------------------------------------------
+    # Async check_alerts / _process_alert
+    # ------------------------------------------------------------------
+
     def check_alerts(self):
+        """Synchronous entry point: run the async check in a fresh event loop."""
         lock_key = "check_alerts_lock"
 
         if not self.acquire_lock(lock_key):
@@ -80,35 +121,36 @@ class AlertWorker:
             return
 
         try:
-            logger.info("Starting alert check...")
-
-            from supabase import create_client
-            supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
-
-            result = supabase.table('price_alerts').select('*').eq('active', True).execute()
-
-            alerts = result.data
-            logger.info(f"Found {len(alerts)} active alerts")
-
-            with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
-                futures = {pool.submit(self._process_alert, alert): alert.get('id') for alert in alerts}
-                for future in as_completed(futures):
-                    alert_id = futures[future]
-                    try:
-                        future.result()
-                    except Exception as e:
-                        logger.error(f"Error processing alert {alert_id}: {str(e)}")
-
-            logger.info("Alert check completed")
-
+            asyncio.run(self._check_alerts_async())
         except Exception as e:
             logger.error(f"Error in check_alerts: {str(e)}")
-
         finally:
             self.release_lock(lock_key)
 
-    def _process_alert(self, alert: dict):
-        """Process a single price alert by searching for flights and triggering notifications if needed"""
+    async def _check_alerts_async(self):
+        logger.info("Starting alert check...")
+
+        from supabase import create_client
+        supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+
+        result = supabase.table('price_alerts').select('*').eq('active', True).execute()
+        alerts = result.data or []
+        logger.info(f"Found {len(alerts)} active alerts")
+
+        semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
+
+        async def bounded(alert):
+            async with semaphore:
+                try:
+                    await self._process_alert_async(alert)
+                except Exception as exc:
+                    logger.error("Error processing alert %s: %s", alert.get('id'), exc, exc_info=True)
+
+        await asyncio.gather(*[bounded(a) for a in alerts])
+        logger.info("Alert check completed")
+
+    async def _process_alert_async(self, alert: dict):
+        """Process a single price alert (async version)."""
         alert_id = alert.get('id')
         from_iata = alert.get('from_iata')
         to_iata = alert.get('to_iata')
@@ -116,20 +158,15 @@ class AlertWorker:
         currency = alert.get('currency', 'USD')
         departure_date = alert.get('departure_date')
         user_email = alert.get('user_email')
-        
+
         logger.info(f"Processing alert {alert_id}: {from_iata} -> {to_iata}, max_price: {max_price} {currency}")
-        
+
         try:
-            # Import search functionality
-            import asyncio
-            from datetime import timezone
             from search import search_flights, SearchRequest, FlightSegment, PassengerCount
-            
-            # Build search request
+
             if not departure_date:
-                # If no specific date, search for next 7 days
                 departure_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
-            
+
             search_request = SearchRequest(
                 segments=[FlightSegment(
                     from_iata=from_iata,
@@ -140,83 +177,168 @@ class AlertWorker:
                 cabin_class="economy",
                 currency=currency
             )
-            
-            # Run the search (need to run async function in sync context)
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                search_result = loop.run_until_complete(search_flights(search_request))
-            finally:
-                loop.close()
-            
+
+            # Apply per-provider rate limiting before hitting the search layer.
+            # Use whichever provider is configured; fall back to "rapidapi".
+            search_provider = "duffel" if config.DUFFEL_API_KEY else "rapidapi"
+            if not self._provider_allow(search_provider):
+                logger.warning("Alert %s: skipped – provider %s rate-limited", alert_id, search_provider)
+                return
+
+            # Search with jittered exponential backoff on transient failures
+            search_result = None
+            for attempt in range(3):
+                try:
+                    search_result = await search_flights(search_request)
+                    break
+                except Exception as exc:
+                    if attempt == 2:
+                        raise
+                    delay = _jitter_sleep(attempt)
+                    logger.warning(
+                        "Search failed for alert %s (attempt %d/3), retrying in %.1fs: %s",
+                        alert_id, attempt + 1, delay, exc
+                    )
+                    await asyncio.sleep(delay)
             offers = search_result.get('offers', [])
-            
-            if not offers:
+            provider = (offers[0].get('provider') if offers else None) or 'unknown'
+
+            # --- Save price history (even when above threshold) ---
+            if offers:
+                lowest_price = min(offer['price'] for offer in offers)
+                logger.info(f"Alert {alert_id}: Lowest price found: {lowest_price} {currency}")
+                await self._save_price_history(alert_id, lowest_price, currency, provider)
+            else:
                 logger.info(f"No offers found for alert {alert_id}")
                 return
-            
-            # Find lowest price (offers list is guaranteed non-empty here)
-            lowest_price = min(offer['price'] for offer in offers)
-            logger.info(f"Alert {alert_id}: Lowest price found: {lowest_price} {currency}")
-            
+
             # Check if price meets threshold
             if lowest_price > max_price:
                 logger.info(f"Alert {alert_id}: Price {lowest_price} exceeds threshold {max_price}, skipping")
                 return
-            
-            # Check deduplication - avoid sending alert for same or higher price
+
+            # --- Dedupe: tolerance + persistent cooldown ---
             last_triggered_price = alert.get('last_triggered_price')
-            if last_triggered_price is not None and lowest_price >= last_triggered_price:
-                logger.info(f"Alert {alert_id}: Price {lowest_price} not lower than last triggered price {last_triggered_price}, skipping")
+            last_triggered_at_raw = alert.get('last_triggered_at')
+
+            if last_triggered_price is not None:
+                # 1% tolerance: if new price is within 1% of last triggered price, skip.
+                # Guard against zero/near-zero last_triggered_price to avoid division issues.
+                if last_triggered_price > 0 and abs(lowest_price - last_triggered_price) / last_triggered_price <= _PRICE_TOLERANCE:
+                    logger.info(
+                        f"Alert {alert_id}: Price {lowest_price} within tolerance of last "
+                        f"triggered price {last_triggered_price}, skipping"
+                    )
+                    return
+                # Must be strictly lower (beyond tolerance) to trigger
+                if lowest_price >= last_triggered_price:
+                    logger.info(
+                        f"Alert {alert_id}: Price {lowest_price} not lower than last triggered "
+                        f"price {last_triggered_price}, skipping"
+                    )
+                    return
+
+            # Persistent cooldown via last_triggered_at in DB
+            if last_triggered_at_raw:
+                try:
+                    last_triggered_at = datetime.fromisoformat(
+                        last_triggered_at_raw.replace('Z', '+00:00')
+                    )
+                    cooldown_expires = last_triggered_at + timedelta(seconds=_NOTIFICATION_COOLDOWN_SECONDS)
+                    if datetime.now(timezone.utc) < cooldown_expires:
+                        logger.info(f"Alert {alert_id}: Within cooldown window, skipping notification")
+                        return
+                except Exception:
+                    pass
+
+            # --- Idempotency check via notification_log ---
+            channels = alert.get('channels') or alert.get('notification_channels', ['email'])
+            now_bucket = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H')
+            rounded = round(lowest_price)
+
+            if config.DRY_RUN:
+                logger.info(
+                    "[DRY_RUN] Alert %s: would send notification to %s (price %.2f %s)",
+                    alert_id, user_email, lowest_price, currency
+                )
                 return
 
-            # Cooldown check: skip if a notification was sent within the cooldown window
-            cooldown_key = f"alert_cooldown:{alert_id}"
-            if cache_service.get(cooldown_key) is not None:
-                logger.info(f"Alert {alert_id}: Within cooldown window, skipping notification")
-                return
-            
-            # Price drop detected! Send notification
+            # Check/insert dedupe key to avoid duplicate sends
+            from supabase import create_client
+            supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+            for channel in channels:
+                dedupe_key = f"{alert_id}:{channel}:{rounded}:{now_bucket}"
+                try:
+                    existing = (
+                        supabase.table('notification_log')
+                        .select('id')
+                        .eq('dedupe_key', dedupe_key)
+                        .execute()
+                    )
+                    if existing.data:
+                        logger.info(f"Alert {alert_id}: Duplicate notification skipped (key={dedupe_key})")
+                        return
+                except Exception:
+                    pass  # table may not exist yet – proceed
+
+            # --- Send notification ---
             logger.info(f"Alert {alert_id}: Price drop detected! {lowest_price} <= {max_price}")
-            
-            # Get notification channels
-            channels = alert.get('channels') or alert.get('notification_channels', ['email'])
-            phone = alert.get('phone')
-            
-            # Send notification using existing notification service
             route = f"{from_iata} → {to_iata}"
             old_price = last_triggered_price if last_triggered_price else max_price
-            
+
             notification_result = notification_service.send_price_alert(
                 user_email=user_email,
                 route=route,
                 old_price=old_price,
                 new_price=lowest_price,
                 channels=channels,
-                phone=phone
+                phone=alert.get('phone')
             )
-            
             logger.info(f"Alert {alert_id}: Notification sent - {notification_result}")
 
-            # Set cooldown so we don't re-notify within the cooldown window
-            cache_service.set(cooldown_key, True, ttl=_NOTIFICATION_COOLDOWN_SECONDS)
+            # --- Log to notification_log ---
+            now_iso = datetime.now(timezone.utc).isoformat()
+            for channel in channels:
+                dedupe_key = f"{alert_id}:{channel}:{rounded}:{now_bucket}"
+                try:
+                    supabase.table('notification_log').insert({
+                        'alert_id': alert_id,
+                        'channel': channel,
+                        'status': 'sent',
+                        'message_content': f"Price drop: {route} at {lowest_price} {currency}",
+                        'dedupe_key': dedupe_key,
+                        'sent_at': now_iso,
+                    }).execute()
+                except Exception as exc:
+                    logger.warning("Could not write notification_log: %s", exc)
 
-            # Update alert in database
-            from supabase import create_client
-            supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
-            
-            # Update triggered_at and last_triggered_price
+            # --- Update alert: triggered_at, last_triggered_price, last_triggered_at ---
             update_data = {
-                'triggered_at': datetime.now(timezone.utc).isoformat(),
-                'last_triggered_price': lowest_price
+                'triggered_at': now_iso,
+                'last_triggered_price': lowest_price,
+                'last_triggered_at': now_iso,
             }
-            
             supabase.table('price_alerts').update(update_data).eq('id', alert_id).execute()
-            
+
             logger.info(f"Alert {alert_id}: Processing completed successfully")
-            
+
         except Exception as e:
             logger.error(f"Error processing alert {alert_id}: {str(e)}", exc_info=True)
+
+    async def _save_price_history(self, alert_id: str, lowest_price: float, currency: str, provider: str):
+        """Persist a price data point for this alert check."""
+        try:
+            from supabase import create_client
+            supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+            supabase.table('price_history').insert({
+                'alert_id': alert_id,
+                'lowest_price': lowest_price,
+                'currency': currency,
+                'provider': provider,
+                'checked_at': datetime.now(timezone.utc).isoformat(),
+            }).execute()
+        except Exception as exc:
+            logger.warning("Could not save price history for alert %s: %s", alert_id, exc)
 
     def start(self, interval_minutes: int = 5):
         logger.info(f"Starting alert worker (interval: {interval_minutes} minutes)")

@@ -7,6 +7,7 @@ import os
 # Add parent directory to path
 sys.path.insert(0, '/home/runner/work/FlightAlertPro')
 
+import asyncio
 import logging
 from datetime import datetime
 from worker import AlertWorker
@@ -46,8 +47,8 @@ def test_alert_processing_logic():
     
     # Test the processing logic (will fail to send notification due to missing API keys, but logic should work)
     try:
-        logger.info("\n[1/1] Testing alert processing logic...")
-        worker._process_alert(mock_alert)
+        logger.info("\n[1/1] Testing alert processing logic (async)...")
+        asyncio.run(worker._process_alert_async(mock_alert))
         logger.info("✅ Alert processing logic executed (notifications may fail without API keys)")
         return True
     except Exception as e:

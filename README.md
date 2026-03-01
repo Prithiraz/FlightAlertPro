@@ -44,10 +44,30 @@ Run the background alert worker:
 python worker.py
 ```
 
+Run a dry-run (no notifications sent, logs what would happen):
+
+```bash
+DRY_RUN=true python worker.py
+```
+
+Worker-related environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DRY_RUN` | `false` | When `true`, skips sending notifications and DB writes |
+| `RAPIDAPI_RATE_LIMIT` | `30` | Max RapidAPI calls per minute per worker run |
+| `DUFFEL_RATE_LIMIT` | `20` | Max Duffel calls per minute per worker run |
+
 Verify all components:
 
 ```bash
 curl http://localhost:8000/api/systemcheck
+```
+
+Check provider circuit-breaker status:
+
+```bash
+curl http://localhost:8000/health/integrations
 ```
 
 ### 3. Frontend
@@ -107,3 +127,34 @@ Start a Stripe checkout (plan: pro | elite | business):
 ```bash
 curl -X POST "http://localhost:8000/api/payments/checkout?user_email=you@example.com&plan=pro&success_url=https://example.com/success&cancel_url=https://example.com/cancel"
 ```
+
+Fetch price history for an alert (requires auth token):
+```bash
+curl -H "Authorization: Bearer <token>" \
+  "http://localhost:8000/api/alerts/<alert_id>/history?limit=50"
+```
+
+### Manual test checklist
+
+After the worker has run at least once:
+
+1. **Trigger worker loop once**
+   ```bash
+   python -c "
+   from worker import AlertWorker
+   import asyncio, logging; logging.basicConfig(level='INFO')
+   asyncio.run(AlertWorker()._check_alerts_async())
+   "
+   ```
+
+2. **Confirm notification_log written (or dedupe skip)**
+   ```bash
+   # Check Supabase dashboard: table notification_log
+   # Or query via psql / supabase CLI
+   ```
+
+3. **Fetch price history**
+   ```bash
+   curl -H "Authorization: Bearer <token>" \
+     "http://localhost:8000/api/alerts/<alert_id>/history"
+   ```

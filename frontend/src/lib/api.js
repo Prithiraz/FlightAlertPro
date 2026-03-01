@@ -145,7 +145,12 @@ export function getBillingPortal() {
   return request('GET', '/api/billing/portal');
 }
 
-/** Fetch the last N notifications for the current user. */
+/** Fetch price history for a specific alert. */
+export function getAlertHistory(alertId, limit = 100) {
+  return request('GET', `/api/alerts/${encodeURIComponent(alertId)}/history?limit=${limit}`);
+}
+
+
 export function getNotificationHistory(limit = 20) {
   return request('GET', `/api/notifications/history?limit=${limit}`);
 }

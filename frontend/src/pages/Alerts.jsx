@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { createAlert, listAlerts, deleteAlert } from '../lib/api';
+import { createAlert, listAlerts, deleteAlert, getAlertHistory } from '../lib/api';
 import { useAuth } from '../App';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 
@@ -26,6 +26,8 @@ export default function Alerts() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [prefillApplied, setPrefillApplied] = useState(false);
+  // history: { [alertId]: { loading, data, error, open } }
+  const [history, setHistory] = useState({});
 
   useEffect(() => {
     const prefill = location.state?.prefill;
@@ -114,6 +116,21 @@ export default function Alerts() {
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));
     } catch (err) {
       setError(err.message || 'Failed to remove alert');
+    }
+  };
+
+  const toggleHistory = async (alertId) => {
+    const current = history[alertId] || {};
+    if (current.open) {
+      setHistory((h) => ({ ...h, [alertId]: { ...current, open: false } }));
+      return;
+    }
+    setHistory((h) => ({ ...h, [alertId]: { ...current, open: true, loading: true, error: null } }));
+    try {
+      const result = await getAlertHistory(alertId);
+      setHistory((h) => ({ ...h, [alertId]: { open: true, loading: false, data: result.history || [], error: null } }));
+    } catch (err) {
+      setHistory((h) => ({ ...h, [alertId]: { open: true, loading: false, data: [], error: err.message || 'Failed to load history' } }));
     }
   };
 
@@ -243,6 +260,45 @@ export default function Alerts() {
                 >
                   Deactivate
                 </button>
+                {/* Price History toggle */}
+                <button
+                  onClick={() => toggleHistory(alert.id)}
+                  style={styles.historyBtn}
+                >
+                  {history[alert.id]?.open ? 'Hide history' : 'View history'}
+                </button>
+                {history[alert.id]?.open && (
+                  <div style={styles.historySection}>
+                    {history[alert.id]?.loading && <p style={styles.alertMeta}>Loading history…</p>}
+                    {history[alert.id]?.error && (
+                      <p style={{ color: '#dc2626', fontSize: '0.8rem' }}>{history[alert.id].error}</p>
+                    )}
+                    {!history[alert.id]?.loading && !history[alert.id]?.error && (
+                      history[alert.id]?.data?.length === 0 ? (
+                        <p style={styles.alertMeta}>No history yet.</p>
+                      ) : (
+                        <table style={styles.historyTable}>
+                          <thead>
+                            <tr>
+                              <th style={styles.th}>Date / Time</th>
+                              <th style={styles.th}>Price</th>
+                              <th style={styles.th}>Provider</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {history[alert.id].data.map((pt) => (
+                              <tr key={pt.id}>
+                                <td style={styles.td}>{new Date(pt.checked_at).toLocaleString()}</td>
+                                <td style={styles.td}>{pt.currency} {Number(pt.lowest_price).toFixed(2)}</td>
+                                <td style={styles.td}>{pt.provider || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -275,4 +331,9 @@ const styles = {
   arrow: { color: '#6b7280' },
   alertMeta: { fontSize: '0.875rem', color: '#6b7280' },
   deactivateBtn: { alignSelf: 'flex-start', marginTop: '0.5rem', padding: '0.375rem 0.875rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
+  historyBtn: { alignSelf: 'flex-start', padding: '0.3rem 0.75rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' },
+  historySection: { marginTop: '0.5rem', borderTop: '1px solid #e5e7eb', paddingTop: '0.5rem' },
+  historyTable: { width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' },
+  th: { textAlign: 'left', padding: '0.25rem 0.5rem', borderBottom: '1px solid #e5e7eb', color: '#374151', fontWeight: '600' },
+  td: { padding: '0.25rem 0.5rem', borderBottom: '1px solid #f3f4f6', color: '#6b7280' },
 };

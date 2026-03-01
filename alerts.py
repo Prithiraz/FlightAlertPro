@@ -168,6 +168,42 @@ async def delete_alert(
         logger.error(f"Failed to delete alert: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete alert: {str(e)}")
 
+@router.get("/{alert_id}/history")
+async def get_alert_history(
+    alert_id: str,
+    limit: int = 100,
+    user_email: str = Depends(get_current_user_email),
+):
+    """Return price history points for a specific alert (owner only)."""
+    try:
+        # Verify ownership
+        existing = (
+            supabase.table('price_alerts')
+            .select('id')
+            .eq('id', alert_id)
+            .eq('user_email', user_email)
+            .execute()
+        )
+        if not existing.data:
+            raise HTTPException(status_code=404, detail="Alert not found or unauthorized")
+
+        result = (
+            supabase.table('price_history')
+            .select('id, checked_at, lowest_price, currency, provider')
+            .eq('alert_id', alert_id)
+            .order('checked_at', desc=True)
+            .limit(max(1, min(limit, 500)))
+            .execute()
+        )
+        return {"alert_id": alert_id, "history": result.data or []}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch history for alert {alert_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve price history: {str(e)}")
+
+
 @router.get("/stats")
 async def get_alert_stats():
     """Get alert statistics"""
