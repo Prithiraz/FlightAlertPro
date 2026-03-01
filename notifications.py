@@ -4,6 +4,7 @@ from datetime import datetime
 from ycloud_whatsapp import ycloud_whatsapp_service
 from email_service import email_service
 from telegram_service import telegram_service
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,14 @@ class NotificationService:
             "failed": [],
             "timestamp": datetime.utcnow().isoformat()
         }
+
+        if config.DISABLE_NOTIFICATIONS:
+            logger.warning("Notifications disabled via DISABLE_NOTIFICATIONS kill switch")
+            results["failed"] = [
+                {"channel": c, "reason": "Notifications temporarily disabled"} for c in channels
+            ]
+            results["disabled"] = True
+            return results
 
         if "whatsapp" in channels and phone:
             try:

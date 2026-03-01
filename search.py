@@ -157,6 +157,10 @@ async def search_airscraper(segment: FlightSegment, request: SearchRequest) -> L
 
 async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
     """Search via Duffel (server-side only)"""
+    if config.DISABLE_PROVIDER_DUFFEL:
+        logger.info("Duffel disabled via DISABLE_PROVIDER_DUFFEL kill switch")
+        return []
+
     if not check_circuit_breaker('duffel'):
         return []
 
@@ -280,6 +284,10 @@ async def search_flights(
     Aggregate flight search across multiple suppliers
     Supports multi-city, passengers, baggage, airline filters
     """
+    # Kill switch
+    if config.DISABLE_SEARCH:
+        raise HTTPException(status_code=503, detail="Flight search is temporarily disabled")
+
     # Enforce per-user daily search rate limit when the caller is authenticated.
     if credentials and config.SUPABASE_JWT_SECRET:
         try:

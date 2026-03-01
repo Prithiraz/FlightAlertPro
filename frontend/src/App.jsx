@@ -14,6 +14,8 @@ import Billing from './pages/Billing';
 import Onboarding from './pages/Onboarding';
 import SavedSearches from './pages/SavedSearches';
 import Notifications from './pages/Notifications';
+import Admin from './pages/Admin';
+import Analytics from './pages/Analytics';
 
 const AuthContext = createContext(null);
 
@@ -130,6 +132,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Billing />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <Analytics />
               </ProtectedRoute>
             }
           />

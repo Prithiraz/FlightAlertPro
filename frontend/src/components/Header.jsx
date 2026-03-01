@@ -1,10 +1,18 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
+import { getAdminMe } from '../lib/api';
 
 export default function Header() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) { setIsAdmin(false); return; }
+    getAdminMe().then((d) => setIsAdmin(d.is_admin === true)).catch(() => setIsAdmin(false));
+  }, [user]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -27,6 +35,8 @@ export default function Header() {
         <NavLink to="/notifications" style={navLinkStyle}>Notifications</NavLink>
         <NavLink to="/billing" style={navLinkStyle}>Billing</NavLink>
         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
+        {isAdmin && <NavLink to="/admin" style={navLinkStyle}>Admin</NavLink>}
+        {isAdmin && <NavLink to="/analytics" style={navLinkStyle}>Analytics</NavLink>}
         {user?.email && <span style={styles.userEmail}>{user.email}</span>}
         <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
       </nav>
