@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { getProfile } from './lib/api';
 import { PreferencesProvider } from './lib/PreferencesContext';
+import { WorkspaceProvider } from './lib/WorkspaceContext';
 import Header from './components/Header';
 import OfflineBanner from './components/OfflineBanner';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -24,6 +25,7 @@ import HowItWorks from './pages/HowItWorks';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import ReferralLanding from './pages/ReferralLanding';
+import Workspace from './pages/Workspace';
 
 const AuthContext = createContext(null);
 
@@ -66,6 +68,7 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, loading }}>
       <PreferencesProvider user={user}>
+      <WorkspaceProvider user={user}>
       <BrowserRouter>
         <OfflineBanner />
         {user && onboarded && <Header />}
@@ -170,9 +173,18 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/workspace"
+            element={
+              <ProtectedRoute>
+                <Workspace />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </WorkspaceProvider>
       </PreferencesProvider>
     </AuthContext.Provider>
   );
