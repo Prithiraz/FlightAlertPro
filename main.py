@@ -195,8 +195,8 @@ async def health_check():
             .execute()
         )
         if rows.data:
-            import time as _t
-            worker_last_run = datetime.utcfromtimestamp(rows.data[0]["value"]).isoformat()
+            from datetime import timezone as _tz
+            worker_last_run = datetime.fromtimestamp(rows.data[0]["value"], tz=_tz.utc).isoformat()
     except Exception:
         pass
     return {

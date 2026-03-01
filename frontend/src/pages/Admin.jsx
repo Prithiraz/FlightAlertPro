@@ -64,7 +64,6 @@ export default function Admin() {
     return adminFetch(`/api/admin/users?sort=${sort}&limit=50`)
       .then((d) => setUsers(d.users || []))
       .catch(() => {});
-
   }
 
   function handleSortChange(sort) {
