@@ -58,6 +58,20 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Add OWASP-recommended security headers to every response."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'none'; frame-ancestors 'none'"
+    )
+    return response
+
+
+@app.middleware("http")
 async def ip_rate_limit_middleware(request: Request, call_next):
     """Per-IP rate limit on /api/search to prevent scraping/abuse."""
     if request.url.path == "/api/search" and request.method == "POST":

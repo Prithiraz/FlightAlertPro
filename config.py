@@ -74,6 +74,7 @@ class Config:
     # Kill switches
     DISABLE_SEARCH = os.getenv('DISABLE_SEARCH', 'false').lower() == 'true'
     DISABLE_NOTIFICATIONS = os.getenv('DISABLE_NOTIFICATIONS', 'false').lower() == 'true'
+    DISABLE_BILLING = os.getenv('DISABLE_BILLING', 'false').lower() == 'true'
     DISABLE_PROVIDER_DUFFEL = os.getenv('DISABLE_PROVIDER_DUFFEL', 'false').lower() == 'true'
 
     # Per-IP search rate limiting (in-memory)
@@ -125,5 +126,24 @@ class Config:
             else:
                 print(msg, file=sys.stderr)
                 sys.exit(1)
+
+        # Security checks: warn about dangerous misconfigurations.
+        import logging as _log
+        _sec = _log.getLogger(__name__)
+
+        # SUPABASE_SERVICE_ROLE_KEY must never appear in frontend (VITE_) env vars.
+        service_role_in_frontend = os.getenv('VITE_SUPABASE_SERVICE_ROLE_KEY')
+        if service_role_in_frontend:
+            _sec.error(
+                "[security] VITE_SUPABASE_SERVICE_ROLE_KEY is set — this exposes a "
+                "privileged service key to the browser. Remove it immediately."
+            )
+
+        # Wildcard CORS with credentials is insecure.
+        if '*' in cls.ALLOWED_ORIGINS:
+            _sec.warning(
+                "[security] ALLOWED_ORIGINS contains '*' while allow_credentials=True. "
+                "This is insecure. Specify explicit origins instead."
+            )
 
 config = Config()

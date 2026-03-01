@@ -4,6 +4,7 @@ import logging
 from payments import payments_service
 from cache import cache_service
 from config import config
+from audit_log import audit
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,14 @@ async def stripe_webhook(
                 result.get('plan', 'pro'),
                 result.get('subscription_id'),
             )
+            await audit(
+                action="plan.upgrade",
+                email=result.get('user_email'),
+                target_type="subscription",
+                target_id=result.get('subscription_id'),
+                request=request,
+                metadata={"plan": result.get('plan', 'pro'), "event": event_type},
+            )
             logger.info(f"Checkout completed processed: {result}")
 
         elif event_type == 'invoice.paid':
@@ -86,13 +95,30 @@ async def stripe_webhook(
             customer_email = _extract_customer_email(subscription)
             sub_status = subscription.get('status', '')
             plan = subscription.get('metadata', {}).get('plan', 'pro')
-            _upsert_user_plan(customer_email, plan if sub_status == 'active' else 'free', subscription.get('id'))
+            new_plan = plan if sub_status == 'active' else 'free'
+            _upsert_user_plan(customer_email, new_plan, subscription.get('id'))
+            await audit(
+                action="plan.change",
+                email=customer_email,
+                target_type="subscription",
+                target_id=subscription.get('id'),
+                request=request,
+                metadata={"plan": new_plan, "status": sub_status},
+            )
             logger.info(f"Subscription updated: {subscription.get('id')}")
 
         elif event_type == 'customer.subscription.deleted':
             subscription = event['data']['object']
             customer_email = _extract_customer_email(subscription)
             _upsert_user_plan(customer_email, 'free', None)
+            await audit(
+                action="plan.cancel",
+                email=customer_email,
+                target_type="subscription",
+                target_id=subscription.get('id'),
+                request=request,
+                metadata={"event": event_type},
+            )
             logger.info(f"Subscription cancelled: {subscription.get('id')}")
 
         else:

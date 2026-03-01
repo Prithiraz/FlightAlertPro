@@ -1,12 +1,13 @@
 """Price alerts management with Supabase"""
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel, Field, field_validator
 from pydantic.functional_validators import model_validator
 from typing import List, Optional
 from supabase import create_client, Client
 from config import config
 from auth_deps import CurrentUser, get_current_user
 from entitlements import get_plan_limits
+from audit_log import audit
 import logging
 
 logger = logging.getLogger(__name__)
@@ -17,15 +18,18 @@ router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
 
 
+_ALLOWED_CHANNELS = frozenset({"email", "sms", "whatsapp", "telegram", "push"})
+
+
 def get_current_user_email(user: CurrentUser = Depends(get_current_user)) -> str:
     """Compatibility shim: return only the email from the current user context."""
     return user.email
 
 class CreateAlertRequest(BaseModel):
-    from_iata: str = Field(..., min_length=3, max_length=3)
-    to_iata: str = Field(..., min_length=3, max_length=3)
+    from_iata: str = Field(..., min_length=3, max_length=3, pattern=r'^[A-Za-z]{3}$')
+    to_iata: str = Field(..., min_length=3, max_length=3, pattern=r'^[A-Za-z]{3}$')
     max_price: float = Field(..., gt=0)
-    currency: str = Field("USD", min_length=3, max_length=3)
+    currency: str = Field("USD", min_length=3, max_length=3, pattern=r'^[A-Za-z]{3}$')
     departure_date: Optional[str] = None
     notification_channels: List[str] = Field(default=["email"])
     phone: Optional[str] = None
@@ -40,12 +44,22 @@ class CreateAlertRequest(BaseModel):
                 data['notification_channels'] = data.pop('channels')
         return data
 
+    @field_validator('notification_channels')
+    @classmethod
+    def validate_channels(cls, v):
+        invalid = [c for c in v if c not in _ALLOWED_CHANNELS]
+        if invalid:
+            raise ValueError(f"Invalid notification channels: {invalid}. Allowed: {sorted(_ALLOWED_CHANNELS)}")
+        return v
+
 @router.post("/create", status_code=201)
 async def create_alert(
     alert: CreateAlertRequest,
-    user_email: str = Depends(get_current_user_email),
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
 ):
     """Create a new price alert"""
+    user_email = user.email
     try:
         # Validate phone if SMS/WhatsApp selected
         if ("sms" in alert.notification_channels or "whatsapp" in alert.notification_channels):
@@ -102,10 +116,20 @@ async def create_alert(
         }).execute()
 
         if result.data:
-            logger.info(f"Created alert {result.data[0]['id']} for {user_email}")
+            alert_id = result.data[0]['id']
+            logger.info(f"Created alert {alert_id} for {user_email}")
+            await audit(
+                action="alert.create",
+                user_id=user.user_id,
+                email=user_email,
+                target_type="price_alert",
+                target_id=alert_id,
+                request=request,
+                metadata={"from_iata": alert.from_iata.upper(), "to_iata": alert.to_iata.upper()},
+            )
             return {
                 "success": True,
-                "alert_id": result.data[0]['id'],
+                "alert_id": alert_id,
                 "message": f"Alert created successfully for {alert.from_iata} → {alert.to_iata}"
             }
         else:
@@ -115,7 +139,7 @@ async def create_alert(
         raise
     except Exception as e:
         logger.error(f"Failed to create alert: {e}")
-        raise HTTPException(status_code=500, detail=f"Alert creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Alert creation failed")
 
 @router.get("/list")
 async def list_alerts(
@@ -143,9 +167,11 @@ async def list_alerts(
 @router.delete("/{alert_id}")
 async def delete_alert(
     alert_id: str,
-    user_email: str = Depends(get_current_user_email),
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
 ):
     """Deactivate a price alert"""
+    user_email = user.email
     try:
         # Verify ownership
         existing = supabase.table('price_alerts').select('*').eq('id', alert_id).eq('user_email', user_email).execute()
@@ -158,6 +184,14 @@ async def delete_alert(
 
         if result.data:
             logger.info(f"Deactivated alert {alert_id}")
+            await audit(
+                action="alert.delete",
+                user_id=user.user_id,
+                email=user_email,
+                target_type="price_alert",
+                target_id=alert_id,
+                request=request,
+            )
             return {"success": True, "message": "Alert deactivated"}
         else:
             raise HTTPException(status_code=500, detail="Failed to deactivate alert")
@@ -166,7 +200,7 @@ async def delete_alert(
         raise
     except Exception as e:
         logger.error(f"Failed to delete alert: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete alert: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete alert")
 
 @router.get("/{alert_id}/history")
 async def get_alert_history(
@@ -205,8 +239,8 @@ async def get_alert_history(
 
 
 @router.get("/stats")
-async def get_alert_stats():
-    """Get alert statistics"""
+async def get_alert_stats(user: CurrentUser = Depends(get_current_user)):
+    """Get aggregate alert statistics (authenticated users only)."""
     try:
         total = supabase.table('price_alerts').select('id', count='exact').execute()
         active = supabase.table('price_alerts').select('id', count='exact').eq('active', True).execute()
