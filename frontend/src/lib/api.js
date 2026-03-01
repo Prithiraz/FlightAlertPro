@@ -155,3 +155,33 @@ export function getNotificationHistory(limit = 20) {
   return request('GET', `/api/notifications/history?limit=${limit}`);
 }
 
+// Profile
+export function getProfile() {
+  return request('GET', '/api/profile');
+}
+export function updateProfile(data) {
+  return request('POST', '/api/profile', data);
+}
+
+// Saved searches
+export function listSavedSearches() {
+  return request('GET', '/api/saved-searches');
+}
+export function saveSearch(name, params_json) {
+  return request('POST', '/api/saved-searches', { name, params_json });
+}
+export function deleteSavedSearch(id) {
+  return request('DELETE', `/api/saved-searches/${id}`);
+}
+
+// Alert templates
+export function listAlertTemplates() {
+  return request('GET', '/api/alert-templates');
+}
+export function createAlertTemplate(name, template_json) {
+  return request('POST', '/api/alert-templates', { name, template_json });
+}
+export function deleteAlertTemplate(id) {
+  return request('DELETE', `/api/alert-templates/${id}`);
+}
+

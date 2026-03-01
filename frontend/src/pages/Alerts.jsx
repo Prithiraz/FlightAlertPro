@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { createAlert, listAlerts, deleteAlert, getAlertHistory } from '../lib/api';
+import { createAlert, listAlerts, deleteAlert, getAlertHistory, getMe, listAlertTemplates, createAlertTemplate, deleteAlertTemplate } from '../lib/api';
 import { useAuth } from '../App';
 import AirportAutocomplete from '../components/AirportAutocomplete';
+import UpgradeBanner from '../components/UpgradeBanner';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'whatsapp', 'telegram'];
@@ -28,6 +29,10 @@ export default function Alerts() {
   const [prefillApplied, setPrefillApplied] = useState(false);
   // history: { [alertId]: { loading, data, error, open } }
   const [history, setHistory] = useState({});
+  const [meData, setMeData] = useState(null);
+  const [templates, setTemplates] = useState([]);
+  const [templateName, setTemplateName] = useState('');
+  const [templateMsg, setTemplateMsg] = useState('');
 
   useEffect(() => {
     const prefill = location.state?.prefill;
@@ -49,6 +54,8 @@ export default function Alerts() {
   useEffect(() => {
     if (user?.email) {
       fetchAlerts();
+      getMe().then(setMeData).catch(() => {});
+      listAlertTemplates().then((d) => setTemplates(d.templates || [])).catch(() => {});
     }
   }, [user?.email]);
 
@@ -76,6 +83,41 @@ export default function Alerts() {
         ? prev.notification_channels.filter((c) => c !== channel)
         : [...prev.notification_channels, channel],
     }));
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) return;
+    try {
+      const tmpl = await createAlertTemplate(templateName.trim(), {
+        currency: form.currency,
+        notification_channels: form.notification_channels,
+      });
+      setTemplates((prev) => [tmpl, ...prev]);
+      setTemplateName('');
+      setTemplateMsg('Template saved!');
+      setTimeout(() => setTemplateMsg(''), 3000);
+    } catch (err) {
+      setTemplateMsg(err.message || 'Failed to save template');
+    }
+  };
+
+  const handleApplyTemplate = (tmpl) => {
+    const t = tmpl.template_json || {};
+    setForm((prev) => ({
+      ...prev,
+      currency: t.currency ?? prev.currency,
+      notification_channels: t.notification_channels ?? prev.notification_channels,
+    }));
+    setSuccess(`Applied template: ${tmpl.name}`);
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    try {
+      await deleteAlertTemplate(id);
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      alert(err.message || 'Failed to delete template');
+    }
   };
 
   const handleCreate = async (e) => {
@@ -137,6 +179,39 @@ export default function Alerts() {
   return (
     <div style={styles.page}>
       <h2 style={styles.heading}>Price Alerts</h2>
+
+      {meData && (
+        <UpgradeBanner usage={meData.usage} limits={meData.limits} plan={meData.plan} />
+      )}
+
+      {/* Alert Templates */}
+      <div style={styles.formSection}>
+          <h3 style={styles.subHeading}>Templates</h3>
+          {templates.length > 0 && (
+            <div style={styles.templateList}>
+              {templates.map((tmpl) => (
+                <div key={tmpl.id} style={styles.templateItem}>
+                  <span style={styles.templateName}>{tmpl.name}</span>
+                  <button onClick={() => handleApplyTemplate(tmpl)} style={styles.applyBtn}>Use</button>
+                  <button onClick={() => handleDeleteTemplate(tmpl.id)} style={styles.deleteTemplateBtn}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={styles.templateSaveRow}>
+            <input
+              type="text"
+              placeholder="Template name (saves current channels + currency)"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              style={styles.templateInput}
+            />
+            <button onClick={handleSaveTemplate} style={styles.saveTemplateBtn} disabled={!templateName.trim()}>
+              Save Template
+            </button>
+            {templateMsg && <span style={styles.templateMsg}>{templateMsg}</span>}
+          </div>
+        </div>
 
       {/* Create Alert Form */}
       <div style={styles.formSection}>
@@ -336,4 +411,13 @@ const styles = {
   historyTable: { width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' },
   th: { textAlign: 'left', padding: '0.25rem 0.5rem', borderBottom: '1px solid #e5e7eb', color: '#374151', fontWeight: '600' },
   td: { padding: '0.25rem 0.5rem', borderBottom: '1px solid #f3f4f6', color: '#6b7280' },
+  templateList: { display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' },
+  templateItem: { display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '0.3rem 0.6rem' },
+  templateName: { fontSize: '0.875rem', fontWeight: '500' },
+  applyBtn: { padding: '0.2rem 0.5rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' },
+  deleteTemplateBtn: { padding: '0.2rem 0.5rem', background: 'none', color: '#9ca3af', border: 'none', cursor: 'pointer', fontSize: '0.85rem' },
+  templateSaveRow: { display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' },
+  templateInput: { flex: '1', minWidth: '200px', padding: '0.4rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem' },
+  saveTemplateBtn: { padding: '0.4rem 1rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
+  templateMsg: { fontSize: '0.85rem', color: '#16a34a' },
 };

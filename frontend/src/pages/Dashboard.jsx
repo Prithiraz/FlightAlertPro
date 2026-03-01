@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
-import { searchFlights, listAlerts, getCurrencyRates } from '../lib/api';
+import { searchFlights, listAlerts, getCurrencyRates, getMe, saveSearch } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
+import UpgradeBanner from '../components/UpgradeBanner';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'SGD', 'AED'];
@@ -46,6 +47,8 @@ export default function Dashboard() {
   const [myAlerts, setMyAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [alertsError, setAlertsError] = useState('');
+  const [meData, setMeData] = useState(null);
+  const [saveSearchMsg, setSaveSearchMsg] = useState('');
 
   useEffect(() => {
     if (user?.email) {
@@ -54,6 +57,7 @@ export default function Dashboard() {
         .then((data) => setMyAlerts(Array.isArray(data) ? data : data.alerts ?? []))
         .catch((err) => setAlertsError(err.message || 'Failed to load alerts'))
         .finally(() => setAlertsLoading(false));
+      getMe().then(setMeData).catch(() => {});
     }
   }, [user?.email]);
 
@@ -107,6 +111,25 @@ export default function Dashboard() {
     });
   };
 
+  const handleSaveSearch = async () => {
+    setSaveSearchMsg('');
+    const name = `${form.from_iata.toUpperCase()} → ${form.to_iata.toUpperCase()} ${form.departure_date}`.trim();
+    try {
+      await saveSearch(name || 'My search', {
+        from_iata: form.from_iata.toUpperCase(),
+        to_iata: form.to_iata.toUpperCase(),
+        departure_date: form.departure_date,
+        return_date: form.return_date,
+        passengers: form.passengers,
+        cabin_class: form.cabin_class,
+      });
+      setSaveSearchMsg('Saved!');
+      setTimeout(() => setSaveSearchMsg(''), 3000);
+    } catch (err) {
+      setSaveSearchMsg(err.message || 'Failed');
+    }
+  };
+
   // Fetch FX rates once on mount (backend caches Frankfurter rates for 1 hour)
   useEffect(() => {
     getCurrencyRates('USD')
@@ -126,6 +149,9 @@ export default function Dashboard() {
   return (
     <div style={styles.page}>
       <div style={styles.content}>
+        {meData && (
+          <UpgradeBanner usage={meData.usage} limits={meData.limits} plan={meData.plan} />
+        )}
         {/* Flight Search */}
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>Search Flights</h2>
@@ -229,6 +255,8 @@ export default function Dashboard() {
               <div style={styles.resultsHeader}>
                 <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
                 <div style={styles.currencyRow}>
+                  <button onClick={handleSaveSearch} style={styles.saveSearchBtn}>💾 Save Search</button>
+                  {saveSearchMsg && <span style={styles.saveSearchMsg}>{saveSearchMsg}</span>}
                   <label style={styles.currencyLabel}>Display in:</label>
                   <select
                     value={displayCurrency}
@@ -344,6 +372,8 @@ const styles = {
     fontWeight: '600',
     fontSize: '0.875rem',
   },
+  saveSearchBtn: { padding: '0.375rem 0.875rem', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
+  saveSearchMsg: { fontSize: '0.85rem', color: '#16a34a' },
   error: { color: '#dc2626', fontSize: '0.875rem', margin: 0 },
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '1.5rem' },
   results: { marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' },
