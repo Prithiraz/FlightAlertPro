@@ -26,6 +26,7 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import ReferralLanding from './pages/ReferralLanding';
 import Workspace from './pages/Workspace';
+import Status from './pages/Status';
 
 const AuthContext = createContext(null);
 
@@ -79,6 +80,7 @@ function App() {
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/status" element={<Status />} />
           <Route path="/ref/:code" element={<ReferralLanding />} />
 
           <Route

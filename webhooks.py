@@ -66,6 +66,13 @@ async def stripe_webhook(
 
         logger.info(f"Processing webhook event: {event_type}")
 
+        # Record webhook receipt for status page / health monitoring
+        try:
+            from metrics import record_metric
+            record_metric("stripe_webhook_received", 1, {"event_type": event_type})
+        except Exception:
+            pass
+
         if event_type == 'checkout.session.completed':
             session = event['data']['object']
             result = payments_service.handle_checkout_completed(session)

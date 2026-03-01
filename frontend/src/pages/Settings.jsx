@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../App';
 import { usePreferences } from '../lib/PreferencesContext';
 import { useWorkspace } from '../lib/WorkspaceContext';
-import { getProfile, updateProfile, subscribePush, unsubscribePush, getMe } from '../lib/api';
+import { getProfile, updateProfile, subscribePush, unsubscribePush, getMe, apiFetch } from '../lib/api';
 import { t } from '../i18n';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
@@ -68,6 +68,9 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [plan, setPlan] = useState('free');
+
+  // Support bundle export
+  const [bundleMsg, setBundleMsg] = useState('');
 
   // Display preferences
   const [homeCurrency, setHomeCurrency] = useState('USD');
@@ -348,6 +351,32 @@ export default function Settings() {
           )}
         </div>
       )}
+
+      {/* Support bundle export */}
+      <div style={styles.card}>
+        <h3 style={styles.subHeading}>Support</h3>
+        <p style={styles.note}>Export a diagnostics bundle (no secrets) to share with support.</p>
+        {bundleMsg && <p style={{ fontSize: '0.8rem', color: bundleMsg.startsWith('Error') ? '#dc2626' : '#16a34a', margin: '0.5rem 0' }}>{bundleMsg}</p>}
+        <button
+          style={styles.saveBtn}
+          onClick={() => {
+            setBundleMsg('Exporting…');
+            apiFetch('/api/support/bundle')
+              .then((data) => {
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `support-bundle-${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                setBundleMsg('Downloaded.');
+                setTimeout(() => setBundleMsg(''), 4000);
+              })
+              .catch((e) => { setBundleMsg(`Error: ${e.message}`); setTimeout(() => setBundleMsg(''), 6000); });
+          }}
+        >📦 Export support bundle</button>
+      </div>
 
       {/* Team — Business plan */}
       <div style={styles.card}>
