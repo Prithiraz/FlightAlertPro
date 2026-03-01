@@ -18,6 +18,7 @@ class ProfileUpdate(BaseModel):
     home_currency: Optional[str] = None
     default_channels: Optional[List[str]] = None
     onboarded: Optional[bool] = None
+    lifecycle_emails_opt_in: Optional[bool] = None
 
 
 @router.get("/profile")
@@ -62,6 +63,8 @@ async def upsert_profile(body: ProfileUpdate, user: CurrentUser = Depends(get_cu
         update_data["default_channels"] = body.default_channels
     if body.onboarded is not None:
         update_data["onboarded"] = body.onboarded
+    if body.lifecycle_emails_opt_in is not None:
+        update_data["lifecycle_emails_opt_in"] = body.lifecycle_emails_opt_in
     try:
         result = (
             supabase.table("user_profiles")

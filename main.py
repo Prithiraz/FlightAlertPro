@@ -29,6 +29,8 @@ from profile import router as profile_router
 from saved_searches import router as saved_searches_router
 from alert_templates import router as alert_templates_router
 from admin import router as admin_router
+from events import router as events_router
+from referral import router as referral_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -84,6 +86,8 @@ app.include_router(profile_router)
 app.include_router(saved_searches_router)
 app.include_router(alert_templates_router)
 app.include_router(admin_router)
+app.include_router(events_router)
+app.include_router(referral_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str

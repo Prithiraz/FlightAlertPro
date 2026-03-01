@@ -205,3 +205,25 @@ export function getAdminAnalytics(days = 7) {
   return request('GET', `/api/admin/analytics?days=${days}`);
 }
 
+// Events tracking (Phase 4)
+export function trackEvent(eventName, props = {}) {
+  return request('POST', '/api/events', { event_name: eventName, props_json: props });
+}
+
+// Referral (Phase 2)
+export function getMyReferralCode() {
+  return request('GET', '/api/referral/my-code');
+}
+export function trackReferralVisit(code) {
+  return apiFetch('/api/referral/track', {
+    method: 'POST',
+    body: JSON.stringify({ code, event_type: 'visit' }),
+  });
+}
+export function claimReferral(code) {
+  return request('POST', '/api/referral/claim', { code });
+}
+export function getAdminGrowth(days = 14) {
+  return request('GET', `/api/admin/growth?days=${days}`);
+}
+

@@ -392,8 +392,60 @@ async def admin_analytics(
 
 
 # ---------------------------------------------------------------------------
-# Legacy endpoints (kept for backward compatibility, now admin-only)
+# Growth analytics (Phase 5)
 # ---------------------------------------------------------------------------
+
+@router.get("/growth")
+async def admin_growth(
+    days: int = Query(14, ge=1, le=90),
+    admin: CurrentUser = Depends(require_admin),
+):
+    """Return daily counts of growth funnel events from the growth_events table."""
+    supabase = _get_supabase()
+    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+
+    FUNNEL_EVENTS = [
+        "landing_view", "pricing_view", "signup_start", "signup_complete",
+        "first_search", "first_alert_created", "upgrade_click",
+        "checkout_started", "paid_success",
+    ]
+
+    events_by_day: Dict[str, Dict[str, int]] = {}
+    try:
+        r = (
+            supabase.table("growth_events")
+            .select("event_name, created_at")
+            .in_("event_name", FUNNEL_EVENTS)
+            .gte("created_at", since)
+            .execute()
+        )
+        for row in (r.data or []):
+            day = (row.get("created_at") or "")[:10]
+            event = row.get("event_name", "")
+            if day and event:
+                if day not in events_by_day:
+                    events_by_day[day] = {}
+                events_by_day[day][event] = events_by_day[day].get(event, 0) + 1
+    except Exception as exc:
+        logger.debug("Could not aggregate growth events: %s", exc)
+
+    all_days = sorted(events_by_day.keys())
+    series = [
+        {
+            "date": d,
+            **{e: events_by_day[d].get(e, 0) for e in FUNNEL_EVENTS},
+        }
+        for d in all_days
+    ]
+
+    return {
+        "days": days,
+        "series": series,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
+
 
 @router.get("/metrics")
 async def get_metrics(admin: CurrentUser = Depends(require_admin)):
