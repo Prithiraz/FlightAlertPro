@@ -23,6 +23,8 @@ from currency import router as currency_router
 from alerts import router as alerts_router
 from systemcheck import router as systemcheck_router
 from webhooks import router as webhooks_router
+from me import router as me_router
+from billing import router as billing_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -54,6 +56,8 @@ app.include_router(currency_router)
 app.include_router(alerts_router)
 app.include_router(systemcheck_router)
 app.include_router(webhooks_router)
+app.include_router(me_router)
+app.include_router(billing_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str

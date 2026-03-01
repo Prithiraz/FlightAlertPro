@@ -1,5 +1,6 @@
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -8,6 +9,11 @@ from cache import cache_service
 from notifications import notification_service
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of alerts processed concurrently
+_MAX_WORKERS = 10
+# Cooldown: do not re-notify for the same alert within this many seconds (6 hours)
+_NOTIFICATION_COOLDOWN_SECONDS = 6 * 3600
 
 class AlertWorker:
     def __init__(self):
@@ -84,11 +90,14 @@ class AlertWorker:
             alerts = result.data
             logger.info(f"Found {len(alerts)} active alerts")
 
-            for alert in alerts:
-                try:
-                    self._process_alert(alert)
-                except Exception as e:
-                    logger.error(f"Error processing alert {alert.get('id')}: {str(e)}")
+            with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
+                futures = {pool.submit(self._process_alert, alert): alert.get('id') for alert in alerts}
+                for future in as_completed(futures):
+                    alert_id = futures[future]
+                    try:
+                        future.result()
+                    except Exception as e:
+                        logger.error(f"Error processing alert {alert_id}: {str(e)}")
 
             logger.info("Alert check completed")
 
@@ -160,6 +169,12 @@ class AlertWorker:
             if last_triggered_price is not None and lowest_price >= last_triggered_price:
                 logger.info(f"Alert {alert_id}: Price {lowest_price} not lower than last triggered price {last_triggered_price}, skipping")
                 return
+
+            # Cooldown check: skip if a notification was sent within the cooldown window
+            cooldown_key = f"alert_cooldown:{alert_id}"
+            if cache_service.get(cooldown_key) is not None:
+                logger.info(f"Alert {alert_id}: Within cooldown window, skipping notification")
+                return
             
             # Price drop detected! Send notification
             logger.info(f"Alert {alert_id}: Price drop detected! {lowest_price} <= {max_price}")
@@ -182,7 +197,10 @@ class AlertWorker:
             )
             
             logger.info(f"Alert {alert_id}: Notification sent - {notification_result}")
-            
+
+            # Set cooldown so we don't re-notify within the cooldown window
+            cache_service.set(cooldown_key, True, ttl=_NOTIFICATION_COOLDOWN_SECONDS)
+
             # Update alert in database
             from supabase import create_client
             supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)

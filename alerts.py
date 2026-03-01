@@ -1,12 +1,11 @@
 """Price alerts management with Supabase"""
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import model_validator
 from typing import List, Optional
 from supabase import create_client, Client
-from jose import jwt, JWTError
 from config import config
+from auth_deps import CurrentUser, get_current_user
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,26 +15,10 @@ router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 # Initialize Supabase client
 supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
 
-_bearer = HTTPBearer()
 
-def get_current_user_email(credentials: HTTPAuthorizationCredentials = Depends(_bearer)) -> str:
-    """Verify the Supabase JWT and return the authenticated user's email."""
-    if not config.SUPABASE_JWT_SECRET:
-        raise HTTPException(status_code=500, detail="Server authentication not configured")
-    try:
-        payload = jwt.decode(
-            credentials.credentials,
-            config.SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-        email: Optional[str] = payload.get("email")
-        if not email:
-            raise HTTPException(status_code=401, detail="Token does not contain email")
-        return email
-    except JWTError as exc:
-        logger.debug("JWT validation failed: %s", exc)
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+def get_current_user_email(user: CurrentUser = Depends(get_current_user)) -> str:
+    """Compatibility shim: return only the email from the current user context."""
+    return user.email
 
 class CreateAlertRequest(BaseModel):
     from_iata: str = Field(..., min_length=3, max_length=3)

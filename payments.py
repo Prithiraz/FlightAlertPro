@@ -119,6 +119,30 @@ class PaymentsService:
             'status': 'paid'
         }
 
+    def create_portal_session(self, customer_email: str, return_url: str) -> Optional[Dict]:
+        """Create a Stripe Billing Portal session for self-service management."""
+        if not self.enabled:
+            logger.warning("Stripe not configured - cannot create portal session")
+            return None
+        try:
+            # Find or create customer by email
+            customers = stripe.Customer.list(email=customer_email, limit=1)
+            if customers.data:
+                customer_id = customers.data[0].id
+            else:
+                customer = stripe.Customer.create(email=customer_email)
+                customer_id = customer.id
+
+            session = stripe.billing_portal.Session.create(
+                customer=customer_id,
+                return_url=return_url,
+            )
+            logger.info(f"Portal session created for {customer_email}: {session.id}")
+            return {"url": session.url}
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error creating portal session: {str(e)}")
+            return None
+
     def get_subscription(self, subscription_id: str) -> Optional[Dict]:
         if not self.enabled:
             return None

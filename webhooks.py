@@ -3,12 +3,36 @@ from typing import Optional
 import logging
 from payments import payments_service
 from cache import cache_service
+from config import config
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 _PROCESSED_EVENT_TTL = 86400  # 24 hours
+
+
+def _upsert_user_plan(user_email: str, plan: str, subscription_id: Optional[str] = None):
+    """Persist plan/subscription changes into user_profiles (best-effort)."""
+    if not user_email:
+        return
+    try:
+        from supabase import create_client
+        supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+        update_data = {"plan": plan, "email": user_email}
+        if subscription_id:
+            update_data["subscription_id"] = subscription_id
+        supabase.table("user_profiles").upsert(update_data, on_conflict="email").execute()
+        logger.info("Upserted plan=%s for %s", plan, user_email)
+    except Exception as exc:
+        logger.warning("Could not upsert plan for %s: %s", user_email, exc)
+
+
+def _extract_customer_email(subscription: dict) -> Optional[str]:
+    """Extract the customer email from a Stripe subscription object."""
+    return subscription.get("customer_email") or (
+        subscription.get("customer_details") or {}
+    ).get("email")
 
 @router.post("/webhook/stripe")
 async def stripe_webhook(
@@ -44,7 +68,11 @@ async def stripe_webhook(
         if event_type == 'checkout.session.completed':
             session = event['data']['object']
             result = payments_service.handle_checkout_completed(session)
-
+            _upsert_user_plan(
+                result.get('user_email'),
+                result.get('plan', 'pro'),
+                result.get('subscription_id'),
+            )
             logger.info(f"Checkout completed processed: {result}")
 
         elif event_type == 'invoice.paid':
@@ -55,10 +83,16 @@ async def stripe_webhook(
 
         elif event_type == 'customer.subscription.updated':
             subscription = event['data']['object']
+            customer_email = _extract_customer_email(subscription)
+            sub_status = subscription.get('status', '')
+            plan = subscription.get('metadata', {}).get('plan', 'pro')
+            _upsert_user_plan(customer_email, plan if sub_status == 'active' else 'free', subscription.get('id'))
             logger.info(f"Subscription updated: {subscription.get('id')}")
 
         elif event_type == 'customer.subscription.deleted':
             subscription = event['data']['object']
+            customer_email = _extract_customer_email(subscription)
+            _upsert_user_plan(customer_email, 'free', None)
             logger.info(f"Subscription cancelled: {subscription.get('id')}")
 
         else:
