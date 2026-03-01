@@ -134,7 +134,10 @@ async function staleWhileRevalidate(request, cacheName) {
     return response;
   }).catch(() => null);
 
-  return cached || networkFetch;
+  if (cached) return cached;
+  // No cache hit – wait for the network (may be null on failure)
+  const fresh = await networkFetch;
+  return fresh || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
 }
 
 async function networkFirst(request) {

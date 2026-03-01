@@ -98,7 +98,12 @@ export default function Search() {
       const sorted = [...offers].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
       setResults(sorted);
       // Cache last results for offline viewing
-      try { localStorage.setItem('fap_last_search_results', JSON.stringify({ form, results: sorted, ts: Date.now() })); } catch {
+      try {
+        localStorage.setItem(
+          'fap_last_search_results',
+          JSON.stringify({ form, results: sorted, ts: Date.now() })
+        );
+      } catch {
         // ignore storage errors
       }
     } catch (err) {

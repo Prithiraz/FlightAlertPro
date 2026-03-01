@@ -13,7 +13,8 @@
   --color-border: #e5e7eb;
   --color-border-input: #d1d5db;
 
-  /* ── Spacing scale ─────────────────────────────────────────── */
+  --color-warning-bg: #92400e;
+  --color-warning-text: #fef3c7;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;

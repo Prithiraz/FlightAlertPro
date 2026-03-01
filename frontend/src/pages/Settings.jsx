@@ -5,6 +5,7 @@ import { getProfile, updateProfile, subscribePush, unsubscribePush } from '../li
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
 
 function urlBase64ToUint8Array(base64String) {
+  // Add padding to make the length a multiple of 4 (required for atob)
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(base64);

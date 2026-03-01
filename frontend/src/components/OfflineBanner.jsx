@@ -28,8 +28,8 @@ export default function OfflineBanner() {
 
 const styles = {
   banner: {
-    background: '#92400e',
-    color: '#fef3c7',
+    background: 'var(--color-warning-bg, #92400e)',
+    color: 'var(--color-warning-text, #fef3c7)',
     textAlign: 'center',
     padding: '0.6rem 1rem',
     fontSize: '0.875rem',

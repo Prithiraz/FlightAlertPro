@@ -121,6 +121,8 @@ def send_push_notification(user_email: str, title: str, body: str, url: str = "/
                 },
                 data=payload,
                 vapid_private_key=config.VAPID_PRIVATE_KEY,
+                # VAPID spec requires a mailto: or https: contact URI in the claims.
+                # Fall back to the user's email if no dedicated contact address is configured.
                 vapid_claims={"sub": f"mailto:{config.VAPID_CONTACT_EMAIL or user_email}"},
             )
             sent += 1
