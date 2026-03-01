@@ -149,6 +149,13 @@ class AlertWorker:
         await asyncio.gather(*[bounded(a) for a in alerts])
         logger.info("Alert check completed")
 
+        # Record worker run timestamp for /health and status page
+        try:
+            from metrics import record_worker_run
+            record_worker_run()
+        except Exception as _exc:
+            logger.debug("Could not record worker_last_run: %s", _exc)
+
     async def _process_alert_async(self, alert: dict):
         """Process a single price alert (async version)."""
         alert_id = alert.get('id')
@@ -367,8 +374,57 @@ class AlertWorker:
             replace_existing=True
         )
 
+        self.scheduler.add_job(
+            self._run_uptime_checks,
+            trigger=IntervalTrigger(minutes=5),
+            id='uptime_checks',
+            name='Synthetic uptime checks',
+            replace_existing=True,
+        )
+
         logger.info("Worker started")
         self.scheduler.start()
+
+    def _run_uptime_checks(self):
+        """Run synthetic checks against key internal endpoints and store results."""
+        import requests as _req
+        import time as _time
+        from config import config as _cfg
+
+        base = f"http://localhost:{_cfg.PORT}" if hasattr(_cfg, 'PORT') else "http://localhost:8000"
+        checks = [
+            ("health", f"{base}/health"),
+            ("api_systemcheck", f"{base}/api/systemcheck"),
+            ("api_metadata_stats", f"{base}/api/metadata/stats"),
+        ]
+
+        try:
+            from supabase import create_client as _cc
+            _sb = _cc(_cfg.SUPABASE_URL, _cfg.SUPABASE_ANON_KEY)
+        except Exception as exc:
+            logger.warning("uptime_checks: cannot connect to DB: %s", exc)
+            return
+
+        for check_name, url in checks:
+            t0 = _time.monotonic()
+            ok = False
+            error = None
+            latency_ms = None
+            try:
+                resp = _req.get(url, timeout=10)
+                latency_ms = int((_time.monotonic() - t0) * 1000)
+                ok = resp.status_code < 500
+            except Exception as exc:
+                latency_ms = int((_time.monotonic() - t0) * 1000)
+                error = str(exc)
+
+            try:
+                row = {"check_name": check_name, "ok": ok, "latency_ms": latency_ms}
+                if error:
+                    row["error"] = error[:500]
+                _sb.table("uptime_checks").insert(row).execute()
+            except Exception as exc:
+                logger.debug("uptime_checks: insert failed for %s: %s", check_name, exc)
 
 if __name__ == "__main__":
     from logging_config import setup_logging

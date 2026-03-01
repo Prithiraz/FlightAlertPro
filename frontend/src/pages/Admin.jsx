@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../lib/api';
 
-async function adminFetch(path) {
-  return apiFetch(path);
+async function adminFetch(path, options) {
+  return apiFetch(path, options);
 }
+
+const INCIDENT_STATUSES = ['investigating', 'identified', 'monitoring', 'resolved'];
+const INCIDENT_SEVERITIES = ['minor', 'major', 'critical'];
 
 export default function Admin() {
   const [isAdmin, setIsAdmin] = useState(null);
@@ -17,6 +20,12 @@ export default function Admin() {
   const [error, setError] = useState('');
 
   const [copyMsg, setCopyMsg] = useState('');
+
+  // Incidents
+  const [incidents, setIncidents] = useState([]);
+  const [incForm, setIncForm] = useState({ title: '', description: '', severity: 'minor', status: 'investigating' });
+  const [incSaving, setIncSaving] = useState(false);
+  const [incMsg, setIncMsg] = useState('');
 
   useEffect(() => {
     adminFetch('/api/admin/me')
@@ -41,7 +50,14 @@ export default function Admin() {
       adminFetch('/api/admin/overview').then(setOverview).catch(() => {}),
       adminFetch('/api/admin/providers').then((d) => setProviders(d.providers || [])).catch(() => {}),
       loadUsers('alerts'),
+      loadIncidents(),
     ]).finally(() => setLoading(false));
+  }
+
+  function loadIncidents() {
+    return adminFetch('/api/admin/incidents')
+      .then((d) => setIncidents(d.incidents || []))
+      .catch(() => {});
   }
 
   function loadUsers(sort) {
@@ -261,6 +277,95 @@ export default function Admin() {
             )}
           </section>
         )}
+
+        {/* Incidents management */}
+        <section style={styles.section}>
+          <h2 style={styles.h2}>🚨 Incident Management</h2>
+          {incMsg && <p style={{ color: incMsg.startsWith('Error') ? '#dc2626' : '#16a34a', fontSize: '0.875rem', marginBottom: '0.75rem' }}>{incMsg}</p>}
+
+          {/* Create incident form */}
+          <div style={styles.incForm}>
+            <h3 style={styles.h3}>Create Incident</h3>
+            <div style={styles.formRow}>
+              <input
+                style={styles.input}
+                placeholder="Title *"
+                value={incForm.title}
+                onChange={(e) => setIncForm((f) => ({ ...f, title: e.target.value }))}
+              />
+              <select style={styles.select} value={incForm.severity} onChange={(e) => setIncForm((f) => ({ ...f, severity: e.target.value }))}>
+                {INCIDENT_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select style={styles.select} value={incForm.status} onChange={(e) => setIncForm((f) => ({ ...f, status: e.target.value }))}>
+                {INCIDENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <textarea
+              style={{ ...styles.input, width: '100%', height: '60px', resize: 'vertical', marginBottom: '0.5rem' }}
+              placeholder="Description (optional)"
+              value={incForm.description}
+              onChange={(e) => setIncForm((f) => ({ ...f, description: e.target.value }))}
+            />
+            <button
+              style={styles.diagBtn}
+              disabled={incSaving || !incForm.title}
+              onClick={() => {
+                if (!incForm.title) return;
+                setIncSaving(true);
+                adminFetch('/api/admin/incidents', {
+                  method: 'POST',
+                  body: JSON.stringify({ title: incForm.title, description: incForm.description, severity: incForm.severity, status: incForm.status }),
+                })
+                  .then(() => {
+                    setIncForm({ title: '', description: '', severity: 'minor', status: 'investigating' });
+                    setIncMsg('Incident created.');
+                    setTimeout(() => setIncMsg(''), 4000);
+                    loadIncidents();
+                  })
+                  .catch((e) => { setIncMsg(`Error: ${e.message}`); })
+                  .finally(() => setIncSaving(false));
+              }}
+            >{incSaving ? 'Saving…' : 'Create Incident'}</button>
+          </div>
+
+          {/* Incidents list */}
+          {incidents.length === 0 ? (
+            <p style={styles.empty}>No incidents. 🎉</p>
+          ) : (
+            <table style={{ ...styles.table, marginTop: '1rem' }}>
+              <thead>
+                <tr>
+                  {['Title', 'Severity', 'Status', 'Started', 'Actions'].map((h) => <th key={h} style={styles.th}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {incidents.map((inc) => (
+                  <tr key={inc.id}>
+                    <td style={styles.td}>
+                      <strong>{inc.title}</strong>
+                      {inc.description && <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{inc.description}</div>}
+                    </td>
+                    <td style={{ ...styles.td, color: inc.severity === 'critical' ? '#dc2626' : inc.severity === 'major' ? '#ea580c' : '#d97706', fontWeight: '600' }}>{inc.severity}</td>
+                    <td style={styles.td}>{inc.status}</td>
+                    <td style={{ ...styles.td, fontSize: '0.8rem', color: '#6b7280' }}>{(inc.started_at || '').slice(0, 16).replace('T', ' ')}</td>
+                    <td style={styles.td}>
+                      {inc.status !== 'resolved' && (
+                        <button
+                          style={{ ...styles.diagBtn, background: '#16a34a', fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                          onClick={() => {
+                            adminFetch(`/api/admin/incidents/${inc.id}/resolve`, { method: 'POST' })
+                              .then(() => { loadIncidents(); setIncMsg('Incident resolved.'); setTimeout(() => setIncMsg(''), 4000); })
+                              .catch((e) => setIncMsg(`Error: ${e.message}`));
+                          }}
+                        >Resolve</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
       </div>
     </div>
   );
@@ -282,7 +387,7 @@ const styles = {
   titleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' },
   h1: { fontSize: '1.75rem', fontWeight: '800', color: '#1d4ed8', margin: 0 },
   h2: { fontSize: '1.15rem', fontWeight: '700', color: '#1d4ed8', margin: '0 0 1rem 0' },
-  h3: { fontSize: '1rem', fontWeight: '700', color: '#374151', margin: '1rem 0 0.5rem 0' },
+  h3: { fontSize: '1rem', fontWeight: '700', color: '#374151', margin: '0 0 0.75rem 0' },
   section: {
     background: '#fff',
     borderRadius: '8px',
@@ -319,4 +424,8 @@ const styles = {
   empty: { color: '#9ca3af', fontSize: '0.875rem', textAlign: 'center', padding: '1rem 0' },
   diagBtn: { padding: '0.5rem 1rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
   copyMsg: { fontSize: '0.875rem', color: '#16a34a', fontWeight: '600' },
+  incForm: { background: '#f9fafb', borderRadius: '6px', padding: '1rem', marginBottom: '1rem', border: '1px solid #e5e7eb' },
+  formRow: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' },
+  input: { padding: '0.4rem 0.6rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', flex: '1', minWidth: '150px' },
+  select: { padding: '0.4rem 0.6rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', background: '#fff' },
 };

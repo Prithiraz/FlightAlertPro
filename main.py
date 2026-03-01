@@ -33,6 +33,9 @@ from events import router as events_router
 from referral import router as referral_router
 from push_notifications import router as push_router
 from workspaces import router as workspaces_router
+from status import router as status_router
+from incidents import router as incidents_router
+from support import router as support_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -110,6 +113,28 @@ async def ip_rate_limit_middleware(request: Request, call_next):
             )
     return await call_next(request)
 
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """Record basic request count, error count, and latency metrics."""
+    import time as _time
+    t0 = _time.monotonic()
+    response = await call_next(request)
+    duration_ms = (_time.monotonic() - t0) * 1000
+    # Only record for /api/ paths; skip health/status to avoid noise
+    path = request.url.path
+    if path.startswith("/api/") and path not in ("/api/status",):
+        try:
+            from metrics import record_request
+            record_request(
+                path=path,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+            )
+        except Exception:
+            pass  # never block a response for metrics
+    return response
+
 # Include new routers
 app.include_router(metadata_router)
 app.include_router(search_router)
@@ -127,6 +152,9 @@ app.include_router(events_router)
 app.include_router(referral_router)
 app.include_router(push_router)
 app.include_router(workspaces_router)
+app.include_router(status_router)
+app.include_router(incidents_router)
+app.include_router(support_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str
@@ -153,10 +181,29 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    # Best-effort: read worker_last_run_ts from service_metrics
+    worker_last_run = None
+    try:
+        from supabase import create_client
+        _sb = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+        rows = (
+            _sb.table("service_metrics")
+            .select("value")
+            .eq("metric_name", "worker_last_run_ts")
+            .order("ts", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if rows.data:
+            from datetime import timezone as _tz
+            worker_last_run = datetime.fromtimestamp(rows.data[0]["value"], tz=_tz.utc).isoformat()
+    except Exception:
+        pass
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "environment": config.ENVIRONMENT
+        "environment": config.ENVIRONMENT,
+        "worker_last_run": worker_last_run,
     }
 
 @app.get("/health/integrations")
@@ -184,6 +231,23 @@ async def integrations_health():
             integrations[provider]["status"] = "circuit_open"
         else:
             integrations[provider]["circuit_breaker"] = "closed"
+
+    # Stripe: last webhook received_at from service_metrics
+    if payments_service.enabled:
+        try:
+            from supabase import create_client
+            _sb = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+            rows = (
+                _sb.table("service_metrics")
+                .select("ts")
+                .eq("metric_name", "stripe_webhook_received")
+                .order("ts", desc=True)
+                .limit(1)
+                .execute()
+            )
+            integrations["stripe"]["last_webhook_at"] = rows.data[0]["ts"] if rows.data else None
+        except Exception:
+            pass
 
     all_ok = all(i["status"] in ("ok", "disabled") for i in integrations.values())
     status_code = 200 if all_ok else 503
