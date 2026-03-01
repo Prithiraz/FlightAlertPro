@@ -282,3 +282,19 @@ export function getWorkspaceUsage(workspaceId, range = '7d') {
   return request('GET', `/api/workspaces/${encodeURIComponent(workspaceId)}/usage?range=${encodeURIComponent(range)}`);
 }
 
+// Privacy & compliance (Phase 1–2)
+export function exportMyData(includePriceHistory = true) {
+  return request('GET', `/api/privacy/export?price_history=${includePriceHistory}`);
+}
+export function requestAccountDeletion() {
+  return request('POST', '/api/privacy/delete-request', { confirmation: 'DELETE_MY_ACCOUNT' });
+}
+export function confirmAccountDeletion(token) {
+  return request('POST', '/api/privacy/delete-confirm', { token });
+}
+
+// Admin — privacy events (Phase 5)
+export function getAdminPrivacyEvents(limit = 100) {
+  return request('GET', `/api/admin/privacy/events?limit=${limit}`);
+}
+

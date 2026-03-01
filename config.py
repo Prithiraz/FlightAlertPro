@@ -93,6 +93,11 @@ class Config:
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_RETENTION_DAYS = int(os.getenv('LOG_RETENTION_DAYS', '7'))
 
+    # Data retention windows (Phase 3 — privacy compliance)
+    RETAIN_NOTIFICATION_LOG_DAYS = int(os.getenv('RETAIN_NOTIFICATION_LOG_DAYS', '90'))
+    RETAIN_PRICE_HISTORY_DAYS = int(os.getenv('RETAIN_PRICE_HISTORY_DAYS', '180'))
+    RETAIN_AUDIT_LOG_DAYS = int(os.getenv('RETAIN_AUDIT_LOG_DAYS', '365'))
+
     # VAPID keys for Web Push notifications (optional; push is disabled if absent)
     VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
     VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')

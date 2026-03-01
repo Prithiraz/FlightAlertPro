@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../App';
 import { usePreferences } from '../lib/PreferencesContext';
 import { useWorkspace } from '../lib/WorkspaceContext';
-import { getProfile, updateProfile, subscribePush, unsubscribePush, getMe, apiFetch } from '../lib/api';
+import { getProfile, updateProfile, subscribePush, unsubscribePush, getMe, apiFetch,
+         exportMyData, requestAccountDeletion, confirmAccountDeletion } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { t } from '../i18n';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
@@ -72,6 +74,22 @@ export default function Settings() {
   // Support bundle export
   const [bundleMsg, setBundleMsg] = useState('');
 
+  // Privacy — data export
+  const [exportMsg, setExportMsg] = useState('');
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Privacy — account deletion
+  const [deleteStep, setDeleteStep] = useState(0); // 0=idle, 1=confirm1, 2=confirm2, 3=done
+  const [deleteToken, setDeleteToken] = useState('');
+  const [deleteMsg, setDeleteMsg] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Phase 4 — consent preferences
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [productUpdatesOptIn, setProductUpdatesOptIn] = useState(true);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [consentSaved, setConsentSaved] = useState(false);
+
   // Display preferences
   const [homeCurrency, setHomeCurrency] = useState('USD');
   const [locale, setLocale] = useState('en-US');
@@ -99,6 +117,8 @@ export default function Settings() {
         if (profile.home_currency) setHomeCurrency(profile.home_currency);
         if (profile.locale) setLocale(profile.locale);
         if (profile.timezone) setTimezone(profile.timezone);
+        if (profile.marketing_opt_in !== undefined) setMarketingOptIn(!!profile.marketing_opt_in);
+        if (profile.product_updates_opt_in !== undefined) setProductUpdatesOptIn(profile.product_updates_opt_in !== false);
       })
       .catch(() => {});
     getMe()
@@ -217,6 +237,71 @@ export default function Settings() {
     } finally {
       setPushLoading(false);
       setTimeout(() => setPushMsg(''), 4000);
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportLoading(true);
+    setExportMsg('Preparing export…');
+    try {
+      const data = await exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `my-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportMsg('Downloaded.');
+      setTimeout(() => setExportMsg(''), 5000);
+    } catch (e) {
+      setExportMsg(`Error: ${e.message}`);
+      setTimeout(() => setExportMsg(''), 8000);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDeleteRequest = async () => {
+    setDeleteLoading(true);
+    setDeleteMsg('');
+    try {
+      const res = await requestAccountDeletion();
+      setDeleteToken(res.confirm_token);
+      setDeleteStep(2);
+    } catch (e) {
+      setDeleteMsg(`Error: ${e.message}`);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true);
+    setDeleteMsg('');
+    try {
+      await confirmAccountDeletion(deleteToken);
+      setDeleteStep(3);
+      // Sign the user out after a brief delay so they can read the success message
+      setTimeout(() => supabase.auth.signOut(), 3000);
+    } catch (e) {
+      setDeleteMsg(`Error: ${e.message}`);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleConsentSave = async () => {
+    setConsentSaving(true);
+    setConsentSaved(false);
+    try {
+      await updateProfile({ marketing_opt_in: marketingOptIn, product_updates_opt_in: productUpdatesOptIn });
+      setConsentSaved(true);
+      setTimeout(() => setConsentSaved(false), 2000);
+    } catch {
+      // ignore
+    } finally {
+      setConsentSaving(false);
     }
   };
 
@@ -405,6 +490,129 @@ export default function Settings() {
             </a>
           </>
         )}
+      </div>
+
+      {/* Privacy — Communications preferences (Phase 4) */}
+      <div style={styles.card}>
+        <h3 style={styles.subHeading}>📨 Communications Preferences</h3>
+        <p style={{ ...styles.note, marginBottom: '0.75rem', color: '#374151' }}>
+          Control the types of emails we send you. We will always send essential account and security emails regardless of these settings.
+        </p>
+        <label style={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={marketingOptIn}
+            onChange={(e) => setMarketingOptIn(e.target.checked)}
+            style={styles.checkbox}
+          />
+          <span style={styles.checkboxLabel}>
+            <strong>Marketing emails</strong> — special offers, promotions, and partner deals
+          </span>
+        </label>
+        <label style={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={productUpdatesOptIn}
+            onChange={(e) => setProductUpdatesOptIn(e.target.checked)}
+            style={styles.checkbox}
+          />
+          <span style={styles.checkboxLabel}>
+            <strong>Product updates</strong> — new features, improvements, and release notes
+          </span>
+        </label>
+        <button onClick={handleConsentSave} disabled={consentSaving} style={styles.saveBtn}>
+          {consentSaving ? 'Saving…' : 'Save preferences'}
+        </button>
+        {consentSaved && <p style={styles.savedMsg}>Saved ✓</p>}
+      </div>
+
+      {/* Privacy — Data export (Phase 1) */}
+      <div style={styles.card}>
+        <h3 style={styles.subHeading}>🔒 Privacy &amp; Data</h3>
+        <p style={{ ...styles.note, marginBottom: '0.75rem', color: '#374151' }}>
+          You own your data. Download a copy of everything we hold about you, or permanently delete your account.
+        </p>
+        {exportMsg && (
+          <p style={{ fontSize: '0.8rem', color: exportMsg.startsWith('Error') ? '#dc2626' : '#16a34a', margin: '0 0 0.5rem' }}>
+            {exportMsg}
+          </p>
+        )}
+        <button
+          style={{ ...styles.saveBtn, marginRight: '0.75rem' }}
+          onClick={handleExportData}
+          disabled={exportLoading}
+        >
+          {exportLoading ? 'Exporting…' : '⬇ Download my data'}
+        </button>
+        <p style={styles.note}>Downloads a JSON file with your alerts, searches, notifications and billing status.</p>
+
+        {/* Account deletion (Phase 2) */}
+        <div style={{ marginTop: '1.5rem', borderTop: '1px solid #f3f4f6', paddingTop: '1.25rem' }}>
+          {deleteStep === 0 && (
+            <>
+              <button
+                style={{ ...styles.saveBtn, background: '#dc2626' }}
+                onClick={() => setDeleteStep(1)}
+              >
+                🗑 Delete my account
+              </button>
+              <p style={styles.note}>Permanently removes all your data. This cannot be undone.</p>
+            </>
+          )}
+          {deleteStep === 1 && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '1rem' }}>
+              <p style={{ fontWeight: '700', color: '#991b1b', marginBottom: '0.5rem' }}>⚠ Are you sure?</p>
+              <p style={{ fontSize: '0.875rem', color: '#7f1d1d', marginBottom: '1rem' }}>
+                This will permanently delete your account, all alerts, saved searches, notification history, and profile data.
+                This action <strong>cannot</strong> be undone.
+              </p>
+              {deleteMsg && <p style={{ fontSize: '0.8rem', color: '#dc2626', marginBottom: '0.5rem' }}>{deleteMsg}</p>}
+              <button
+                style={{ ...styles.saveBtn, background: '#dc2626', marginRight: '0.75rem' }}
+                onClick={handleDeleteRequest}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Processing…' : 'Yes, delete my account'}
+              </button>
+              <button
+                style={{ ...styles.saveBtn, background: '#6b7280' }}
+                onClick={() => { setDeleteStep(0); setDeleteMsg(''); }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {deleteStep === 2 && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '1rem' }}>
+              <p style={{ fontWeight: '700', color: '#991b1b', marginBottom: '0.5rem' }}>Final confirmation</p>
+              <p style={{ fontSize: '0.875rem', color: '#7f1d1d', marginBottom: '1rem' }}>
+                Click below to permanently delete your account. There is no recovery after this step.
+              </p>
+              {deleteMsg && <p style={{ fontSize: '0.8rem', color: '#dc2626', marginBottom: '0.5rem' }}>{deleteMsg}</p>}
+              <button
+                style={{ ...styles.saveBtn, background: '#dc2626', marginRight: '0.75rem' }}
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting…' : '✓ Confirm deletion'}
+              </button>
+              <button
+                style={{ ...styles.saveBtn, background: '#6b7280' }}
+                onClick={() => { setDeleteStep(0); setDeleteMsg(''); setDeleteToken(''); }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {deleteStep === 3 && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '1rem' }}>
+              <p style={{ fontWeight: '700', color: '#166534' }}>Account deleted</p>
+              <p style={{ fontSize: '0.875rem', color: '#166534' }}>
+                Your account and all associated data have been permanently deleted. You will be signed out shortly.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

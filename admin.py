@@ -619,3 +619,49 @@ async def admin_usage_summary(
     }
 
 
+# ---------------------------------------------------------------------------
+# Phase 5 – Privacy audit events (no PII)
+# ---------------------------------------------------------------------------
+
+PRIVACY_ACTIONS = {
+    "privacy.export",
+    "privacy.delete_request",
+    "privacy.delete_confirmed",
+    "privacy.prune_run",
+}
+
+
+@router.get("/privacy/events")
+async def admin_privacy_events(
+    limit: int = Query(100, ge=1, le=1000),
+    admin: CurrentUser = Depends(require_admin),
+):
+    """Return privacy audit events (no PII — only hashed IDs and event types)."""
+    supabase = _get_supabase()
+    try:
+        r = (
+            supabase.table("audit_log")
+            .select("id,action,user_id,created_at,metadata")
+            .in_("action", list(PRIVACY_ACTIONS))
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        entries = r.data or []
+    except Exception as exc:
+        logger.error("Could not fetch privacy audit events: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to retrieve privacy events")
+
+    # Strip any accidental PII from metadata before returning
+    safe_entries = []
+    for e in entries:
+        safe_entries.append({
+            "id": e.get("id"),
+            "action": e.get("action"),
+            "user_id_hash": e.get("user_id", "")[:8] + "…" if e.get("user_id") else None,
+            "created_at": e.get("created_at"),
+            "metadata": e.get("metadata") or {},
+        })
+
+    return {"events": safe_entries, "count": len(safe_entries)}
+

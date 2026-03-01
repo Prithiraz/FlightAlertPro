@@ -22,6 +22,10 @@ class ProfileUpdate(BaseModel):
     locale: Optional[str] = None
     timezone: Optional[str] = None
     preferred_date_format: Optional[str] = None
+    # Phase 4 — consent / communications preferences
+    marketing_opt_in: Optional[bool] = None
+    product_updates_opt_in: Optional[bool] = None
+    transactional_only: Optional[bool] = None
 
 
 @router.get("/profile")
@@ -80,6 +84,12 @@ async def upsert_profile(body: ProfileUpdate, user: CurrentUser = Depends(get_cu
         update_data["timezone"] = body.timezone
     if body.preferred_date_format is not None:
         update_data["preferred_date_format"] = body.preferred_date_format
+    if body.marketing_opt_in is not None:
+        update_data["marketing_opt_in"] = body.marketing_opt_in
+    if body.product_updates_opt_in is not None:
+        update_data["product_updates_opt_in"] = body.product_updates_opt_in
+    if body.transactional_only is not None:
+        update_data["transactional_only"] = body.transactional_only
     try:
         result = (
             supabase.table("user_profiles")

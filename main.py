@@ -36,6 +36,7 @@ from workspaces import router as workspaces_router
 from status import router as status_router
 from incidents import router as incidents_router
 from support import router as support_router
+from privacy import router as privacy_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -155,6 +156,7 @@ app.include_router(workspaces_router)
 app.include_router(status_router)
 app.include_router(incidents_router)
 app.include_router(support_router)
+app.include_router(privacy_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str
