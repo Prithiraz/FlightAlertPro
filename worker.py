@@ -296,6 +296,22 @@ class AlertWorker:
             )
             logger.info(f"Alert {alert_id}: Notification sent - {notification_result}")
 
+            # --- Push notification (Web Push, best-effort) ---
+            try:
+                from push_notifications import send_push_notification
+                push_title = f"✈️ Price drop: {route}"
+                push_body = f"{currency} {lowest_price:.0f} — below your {currency} {max_price} threshold!"
+                push_sent = send_push_notification(
+                    user_email=user_email,
+                    title=push_title,
+                    body=push_body,
+                    url="/alerts",
+                )
+                if push_sent:
+                    logger.info(f"Alert {alert_id}: Push notification sent to {push_sent} device(s)")
+            except Exception as push_exc:
+                logger.warning("Alert %s: push notification failed (non-fatal): %s", alert_id, push_exc)
+
             # --- Log to notification_log ---
             now_iso = datetime.now(timezone.utc).isoformat()
             for channel in channels:

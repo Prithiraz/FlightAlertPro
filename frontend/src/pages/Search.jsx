@@ -33,6 +33,21 @@ export default function Search() {
     if (prefill) {
       setForm((prev) => ({ ...prev, ...prefill }));
     }
+    // Load last cached results when offline
+    if (!navigator.onLine) {
+      try {
+        const cached = localStorage.getItem('fap_last_search_results');
+        if (cached) {
+          const { results: cachedResults } = JSON.parse(cached);
+          if (Array.isArray(cachedResults) && cachedResults.length > 0) {
+            setResults(cachedResults);
+            setSearched(true);
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -82,6 +97,15 @@ export default function Search() {
       const offers = Array.isArray(data) ? data : (data.offers ?? data.results ?? []);
       const sorted = [...offers].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
       setResults(sorted);
+      // Cache last results for offline viewing
+      try {
+        localStorage.setItem(
+          'fap_last_search_results',
+          JSON.stringify({ form, results: sorted, ts: Date.now() })
+        );
+      } catch {
+        // ignore storage errors
+      }
     } catch (err) {
       setError(err.message || 'Search failed');
     } finally {

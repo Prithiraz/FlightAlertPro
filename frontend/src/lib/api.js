@@ -227,3 +227,11 @@ export function getAdminGrowth(days = 14) {
   return request('GET', `/api/admin/growth?days=${days}`);
 }
 
+// Push notifications
+export function subscribePush(subscription) {
+  return request('POST', '/api/push/subscribe', subscription);
+}
+export function unsubscribePush() {
+  return request('DELETE', '/api/push/unsubscribe');
+}
+

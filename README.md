@@ -363,6 +363,36 @@ cd frontend && npm run build
 
 ---
 
+## PWA & Push Notifications
+
+FlightAlertPro ships as a **Progressive Web App** (PWA).
+
+### Install on mobile / desktop
+
+1. Open the app in Chrome or Edge on any device.
+2. Go to **Settings → Install App**.
+3. Tap "Install App" when the prompt appears, or use your browser's "Add to Home Screen" option.
+
+### Enable push notifications
+
+1. Go to **Settings → Push Notifications**.
+2. Toggle "Enable browser push notifications".
+3. Allow the permission prompt.
+
+Requires backend VAPID keys (see `.env.example`):
+
+```
+VAPID_PUBLIC_KEY=<generated>
+VAPID_PRIVATE_KEY=<generated>
+VITE_VAPID_PUBLIC_KEY=<same public key, for frontend>
+```
+
+Generate keys: `npx web-push generate-vapid-keys`
+
+For detailed setup, testing, and icon generation instructions see **[docs/pwa.md](docs/pwa.md)**.
+
+---
+
 ## Deploying to staging / production
 
 FlightAlertPro uses **Railway** (FastAPI backend) and **Vercel** (Vite/React frontend).

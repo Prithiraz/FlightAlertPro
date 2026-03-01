@@ -31,6 +31,7 @@ from alert_templates import router as alert_templates_router
 from admin import router as admin_router
 from events import router as events_router
 from referral import router as referral_router
+from push_notifications import router as push_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -88,6 +89,7 @@ app.include_router(alert_templates_router)
 app.include_router(admin_router)
 app.include_router(events_router)
 app.include_router(referral_router)
+app.include_router(push_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str

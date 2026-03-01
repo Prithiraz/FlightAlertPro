@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { getProfile } from './lib/api';
 import Header from './components/Header';
+import OfflineBanner from './components/OfflineBanner';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
@@ -64,6 +65,7 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, loading }}>
       <BrowserRouter>
+        <OfflineBanner />
         {user && onboarded && <Header />}
         <Routes>
           {/* Public marketing routes */}

@@ -85,6 +85,11 @@ class Config:
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_RETENTION_DAYS = int(os.getenv('LOG_RETENTION_DAYS', '7'))
 
+    # VAPID keys for Web Push notifications (optional; push is disabled if absent)
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_CONTACT_EMAIL = os.getenv('VAPID_CONTACT_EMAIL', '')
+
     @classmethod
     def validate(cls) -> None:
         """Fail fast with a readable error if required env vars are missing.
