@@ -476,3 +476,38 @@ SMOKE_BASE_URL=https://your-backend.up.railway.app bash scripts/smoke_test.sh
 
 - `docs/release-checklist.md` — step-by-step deploy + rollback guide
 - `docs/ops.md` — backups, key rotation, incident response
+
+## Performance Tuning
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `CACHE_TTL_SECONDS` | `900` | How long (seconds) search results are cached (5–15 min recommended) |
+| `PROVIDER_TIMEOUT_SECONDS` | `10` | Per-provider HTTP timeout; provider is skipped on timeout |
+| `REDIS_URL` | *(unset)* | Optional Redis URL. If set, uses Redis for caching; otherwise in-memory LRU |
+
+### Cache behaviour
+
+- Search results for identical request payloads are cached for `CACHE_TTL_SECONDS`.
+- Concurrent identical requests are deduplicated: only one upstream call is made.
+- Response includes `cache_hit` (bool) and `cached_at` (ISO timestamp) fields.
+- Partial results are returned when a provider fails; check `provider_status` in the response.
+
+### Metrics endpoint
+
+`GET /api/metrics` returns JSON with:
+- `search_total`, `search_cache_hits`, `cache_hit_ratio`
+- `provider_calls`, `provider_errors`, `provider_latency` (avg + p95 ms per provider)
+- `circuit_breakers` state per provider
+
+### Performance smoke test
+
+Verify cache is working after deployment:
+
+```bash
+# Start the backend locally first, then:
+./scripts/perf_smoke.sh http://localhost:8000
+```
+
+The script runs the same search twice and asserts `cache_hit=true` on the second call.

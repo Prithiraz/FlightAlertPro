@@ -153,9 +153,24 @@ export default function Alerts() {
         payload.departure_date = form.departure_date;
       }
 
-      await createAlert(payload);
-      setSuccess('Alert created successfully!');
+      // Optimistic UI: add a temporary pending alert immediately
+      const tempId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? `pending-${crypto.randomUUID()}`
+        : `pending-${Date.now()}-${Math.random()}`;
+      const tempAlert = { ...payload, id: tempId, active: true, _pending: true };
+      setAlerts((prev) => [tempAlert, ...prev]);
       setForm(makeEmptyForm(homeCurrency));
+
+      try {
+        await createAlert(payload);
+        setSuccess('Alert created successfully!');
+      } catch (err) {
+        // Roll back optimistic entry and re-show the form values
+        setAlerts((prev) => prev.filter((a) => a.id !== tempId));
+        setForm(payload);
+        throw err;
+      }
+
       await fetchAlerts();
     } catch (err) {
       setError(err.message || 'Failed to create alert');
@@ -320,13 +335,26 @@ export default function Alerts() {
         <h3 style={styles.subHeading}>{t('alerts.yourAlerts')}</h3>
 
         {loading ? (
-          <p style={styles.empty}>{t('alerts.loading')}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {[1, 2, 3].map((i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', animation: 'fap-pulse 1.5s ease-in-out infinite' }}>
+                <div style={{ height: '1rem', background: '#e5e7eb', borderRadius: '4px', width: '40%' }} />
+                <div style={{ height: '0.875rem', background: '#e5e7eb', borderRadius: '4px', width: '60%', marginTop: '0.5rem' }} />
+                <div style={{ height: '0.875rem', background: '#e5e7eb', borderRadius: '4px', width: '30%', marginTop: '0.5rem' }} />
+              </div>
+            ))}
+          </div>
         ) : alerts.length === 0 ? (
           <p style={styles.empty}>{t('alerts.noAlerts')}</p>
         ) : (
           <div style={styles.alertList}>
             {alerts.map((alert) => (
-              <div key={alert.id} style={styles.alertCard}>
+              <div key={alert.id} style={{ ...styles.alertCard, ...(alert._pending ? { opacity: 0.6 } : {}) }}>
+                {alert._pending && (
+                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic', marginBottom: '0.25rem' }}>
+                    ⏳ Saving…
+                  </div>
+                )}
                 <div style={styles.alertRoute}>
                   <span style={styles.iata}>{alert.from_iata}</span>
                   <span style={styles.arrow}> → </span>

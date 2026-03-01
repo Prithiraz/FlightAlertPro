@@ -67,6 +67,10 @@ class Config:
         if e.strip()
     ]
 
+    # Cache and provider tuning
+    CACHE_TTL_SECONDS = int(os.getenv('CACHE_TTL_SECONDS', '900'))
+    PROVIDER_TIMEOUT_SECONDS = int(os.getenv('PROVIDER_TIMEOUT_SECONDS', '10'))
+
     # Kill switches
     DISABLE_SEARCH = os.getenv('DISABLE_SEARCH', 'false').lower() == 'true'
     DISABLE_NOTIFICATIONS = os.getenv('DISABLE_NOTIFICATIONS', 'false').lower() == 'true'

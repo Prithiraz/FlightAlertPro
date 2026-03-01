@@ -1,5 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
+// Module-level cache: maps fetchItems function reference -> Map of query -> result
+// Prevents repeated API calls for the same query across component re-renders.
+const _queryCache = new WeakMap();
+const _QUERY_CACHE_MAX = 200;
+
+function cachedFetch(fetchItems, query) {
+  if (!_queryCache.has(fetchItems)) {
+    _queryCache.set(fetchItems, new Map());
+  }
+  const fnCache = _queryCache.get(fetchItems);
+  if (fnCache.has(query)) return Promise.resolve(fnCache.get(query));
+  return fetchItems(query).then((result) => {
+    if (fnCache.size >= _QUERY_CACHE_MAX) {
+      // Evict oldest entry
+      fnCache.delete(fnCache.keys().next().value);
+    }
+    fnCache.set(query, result);
+    return result;
+  });
+}
+
 /**
  * Reusable accessible autocomplete dropdown.
  *
@@ -70,7 +91,7 @@ export default function AutocompleteSelect({
     setLoading(true);
     setUnavailable(false);
     try {
-      const data = await fetchItems(q);
+      const data = await cachedFetch(fetchItems, q);
       const flat = buildFlatList(data);
       setItems(flat);
       setOpen(true);
