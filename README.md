@@ -158,3 +158,70 @@ After the worker has run at least once:
    curl -H "Authorization: Bearer <token>" \
      "http://localhost:8000/api/alerts/<alert_id>/history"
    ```
+
+## Admin & Operations Runbook
+
+### Setting up admin access
+
+Add the `ADMIN_EMAILS` environment variable with a comma-separated list of admin email addresses:
+
+```
+ADMIN_EMAILS=alice@example.com,bob@example.com
+```
+
+Verify admin access:
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:8000/api/admin/me
+# Returns: {"email":"alice@example.com","is_admin":true}
+```
+
+Non-admin accounts receive `403 Forbidden`.
+
+### Admin dashboard endpoints
+
+| Endpoint | Description |
+|---|---|
+| `GET /api/admin/me` | Verify admin status |
+| `GET /api/admin/overview` | System health (users, alerts, searches, notifications, errors) |
+| `GET /api/admin/providers` | Per-provider health (requests, failures, latency) |
+| `GET /api/admin/users?sort=alerts&limit=50` | User list with usage stats |
+| `GET /api/admin/user/{user_id}/details` | Detailed user view |
+| `GET /api/admin/analytics?days=7` | Daily usage series |
+
+All endpoints require a valid JWT from an email in `ADMIN_EMAILS`.
+
+### Kill switches
+
+Set these environment variables to instantly disable features:
+
+| Variable | Effect |
+|---|---|
+| `DISABLE_SEARCH=true` | Returns `503` for all flight searches |
+| `DISABLE_NOTIFICATIONS=true` | Skips all notification sends |
+| `DISABLE_PROVIDER_DUFFEL=true` | Skips Duffel as a search provider |
+
+### Interpreting provider health
+
+The `GET /api/admin/providers` endpoint aggregates data from `provider_metrics`.
+
+- `requests_24h` – total API calls in the last 24 h
+- `failures_24h` – failed calls; alert if this exceeds ~10% of requests
+- `avg_latency_ms` – average response time; > 3000 ms indicates degradation
+- `last_error` – timestamp of the most recent failure
+
+Circuit-breaker state per provider is visible at `GET /health/integrations`.
+
+### Responding to abuse events
+
+1. A 429 response is returned when a user exceeds plan limits or an IP exceeds `SEARCH_IP_RATE_LIMIT_PER_MINUTE` (default 30 req/min).
+2. IPs that exceed **3×** the per-minute cap are temporarily blocked for `SEARCH_IP_BLOCK_MINUTES` (default 15 minutes).
+3. Block events are logged as `WARNING` in the application log.
+4. To permanently block an IP, add reverse-proxy/WAF rules upstream of the API.
+5. To reduce the per-IP cap further, set `SEARCH_IP_RATE_LIMIT_PER_MINUTE` in `.env`.
+
+### Per-IP anti-abuse settings
+
+| Variable | Default | Description |
+|---|---|---|
+| `SEARCH_IP_RATE_LIMIT_PER_MINUTE` | `30` | Max search requests per IP per minute |
+| `SEARCH_IP_BLOCK_MINUTES` | `15` | How long an abusive IP is blocked |

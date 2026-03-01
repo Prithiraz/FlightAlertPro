@@ -28,6 +28,7 @@ from billing import router as billing_router
 from profile import router as profile_router
 from saved_searches import router as saved_searches_router
 from alert_templates import router as alert_templates_router
+from admin import router as admin_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -52,6 +53,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def ip_rate_limit_middleware(request: Request, call_next):
+    """Per-IP rate limit on /api/search to prevent scraping/abuse."""
+    if request.url.path == "/api/search" and request.method == "POST":
+        from rate_limiter import rate_limiter as _rl
+        # Use request.client.host as the authoritative IP.
+        # If the app is deployed behind a trusted reverse proxy (e.g. nginx/Cloudflare),
+        # set TRUSTED_PROXY=true in env and ensure the proxy strips x-forwarded-for
+        # before forwarding, or use a proxy middleware that validates the header.
+        client_ip = request.client.host if request.client else "unknown"
+        if not _rl.check_ip_search_limit(client_ip):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests from this IP. Please slow down."},
+            )
+    return await call_next(request)
+
 # Include new routers
 app.include_router(metadata_router)
 app.include_router(search_router)
@@ -64,6 +83,7 @@ app.include_router(billing_router)
 app.include_router(profile_router)
 app.include_router(saved_searches_router)
 app.include_router(alert_templates_router)
+app.include_router(admin_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str

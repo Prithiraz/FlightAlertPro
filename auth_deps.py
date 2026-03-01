@@ -44,3 +44,12 @@ def get_current_user(
     except JWTError as exc:
         logger.debug("JWT validation failed: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def require_admin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Dependency that allows only admin users (email in ADMIN_EMAILS allowlist)."""
+    if not config.ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin access not configured")
+    if user.email not in config.ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user

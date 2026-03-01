@@ -185,3 +185,23 @@ export function deleteAlertTemplate(id) {
   return request('DELETE', `/api/alert-templates/${id}`);
 }
 
+// Admin endpoints
+export function getAdminMe() {
+  return request('GET', '/api/admin/me');
+}
+export function getAdminOverview() {
+  return request('GET', '/api/admin/overview');
+}
+export function getAdminProviders() {
+  return request('GET', '/api/admin/providers');
+}
+export function getAdminUsers(sort = 'alerts', limit = 50) {
+  return request('GET', `/api/admin/users?sort=${encodeURIComponent(sort)}&limit=${limit}`);
+}
+export function getAdminUserDetails(userId) {
+  return request('GET', `/api/admin/user/${encodeURIComponent(userId)}/details`);
+}
+export function getAdminAnalytics(days = 7) {
+  return request('GET', `/api/admin/analytics?days=${days}`);
+}
+

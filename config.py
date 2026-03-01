@@ -57,6 +57,22 @@ class Config:
 
     ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 
+    # Admin allowlist – comma-separated email addresses
+    ADMIN_EMAILS = [
+        e.strip()
+        for e in os.getenv('ADMIN_EMAILS', '').split(',')
+        if e.strip()
+    ]
+
+    # Kill switches
+    DISABLE_SEARCH = os.getenv('DISABLE_SEARCH', 'false').lower() == 'true'
+    DISABLE_NOTIFICATIONS = os.getenv('DISABLE_NOTIFICATIONS', 'false').lower() == 'true'
+    DISABLE_PROVIDER_DUFFEL = os.getenv('DISABLE_PROVIDER_DUFFEL', 'false').lower() == 'true'
+
+    # Per-IP search rate limiting (in-memory)
+    SEARCH_IP_RATE_LIMIT_PER_MINUTE = int(os.getenv('SEARCH_IP_RATE_LIMIT_PER_MINUTE', '30'))
+    SEARCH_IP_BLOCK_MINUTES = int(os.getenv('SEARCH_IP_BLOCK_MINUTES', '15'))
+
     API_RATE_LIMIT_PER_MINUTE = int(os.getenv('API_RATE_LIMIT_PER_MINUTE', '100'))
     NOTIFICATION_RATE_LIMIT_PER_HOUR = int(os.getenv('NOTIFICATION_RATE_LIMIT_PER_HOUR', '20'))
     # Per-provider per-minute call caps enforced by the worker's token bucket
