@@ -6,6 +6,7 @@ from typing import List, Optional
 from supabase import create_client, Client
 from config import config
 from auth_deps import CurrentUser, get_current_user
+from entitlements import get_plan_limits
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,22 @@ async def create_alert(
                     detail="Phone number required for SMS/WhatsApp alerts"
                 )
 
+        # Determine the user's plan limit for active alerts.
+        plan = "free"
+        try:
+            plan_result = (
+                supabase.table("user_profiles")
+                .select("plan")
+                .eq("email", user_email)
+                .maybe_single()
+                .execute()
+            )
+            if plan_result.data and plan_result.data.get("plan"):
+                plan = plan_result.data["plan"]
+        except Exception as exc:
+            logger.debug("Could not fetch plan for %s: %s", user_email, exc)
+        max_alerts = get_plan_limits(plan)["max_active_alerts"]
+
         # Enforce per-user active alert limit (anti-abuse).
         # This application-level check gives callers a clear 429 error.
         # For strict enforcement under concurrent load, pair this with a
@@ -65,10 +82,10 @@ async def create_alert(
             .eq('active', True)
             .execute()
         )
-        if (count_result.count or 0) >= config.MAX_ALERTS_PER_USER:
+        if (count_result.count or 0) >= max_alerts:
             raise HTTPException(
                 status_code=429,
-                detail=f"Maximum of {config.MAX_ALERTS_PER_USER} active alerts per account reached"
+                detail=f"Maximum of {max_alerts} active alerts reached for the {plan} plan"
             )
 
         # Insert into Supabase

@@ -33,4 +33,18 @@ class RateLimiter:
         cache_service.set(key, current + 1, ttl=3600)
         return True
 
+    def check_search_rate_limit(self, user_id: str, max_per_day: int) -> bool:
+        """Check (and increment) the per-user daily search counter against *max_per_day*.
+
+        Returns True when the request is within the limit, False when exceeded.
+        The counter TTL is capped at 86 400 s (24 h) so it naturally resets each day.
+        """
+        key = f"search_daily:{user_id}"
+        current = cache_service.get(key) or 0
+        if current >= max_per_day:
+            logger.warning("Daily search limit (%d) exceeded for user %s", max_per_day, user_id)
+            return False
+        cache_service.set(key, current + 1, ttl=86400)
+        return True
+
 rate_limiter = RateLimiter()

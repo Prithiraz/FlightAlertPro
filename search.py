@@ -1,5 +1,7 @@
 """Flight search aggregator with multi-supplier support"""
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt as _jose_jwt
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
@@ -8,12 +10,22 @@ import logging
 import hashlib
 import time
 
+from supabase import create_client as _create_supabase_client
 from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
 from duffel_service import duffel_service
+from config import config
+from entitlements import get_plan_limits
+from rate_limiter import rate_limiter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["search"])
+
+# Optional bearer – does not reject unauthenticated requests
+_optional_bearer = HTTPBearer(auto_error=False)
+
+# Module-level Supabase client reused across requests
+_supabase = _create_supabase_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY) if config.SUPABASE_URL and config.SUPABASE_ANON_KEY else None
 
 # Circuit breaker state
 CIRCUIT_BREAKER = {
@@ -260,11 +272,55 @@ def dedupe_offers(offers: List[FlightOffer]) -> List[FlightOffer]:
     return unique
 
 @router.post("/search")
-async def search_flights(request: SearchRequest):
+async def search_flights(
+    request: SearchRequest,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_optional_bearer),
+):
     """
     Aggregate flight search across multiple suppliers
     Supports multi-city, passengers, baggage, airline filters
     """
+    # Enforce per-user daily search rate limit when the caller is authenticated.
+    if credentials and config.SUPABASE_JWT_SECRET:
+        try:
+            payload = _jose_jwt.decode(
+                credentials.credentials,
+                config.SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+            user_id: Optional[str] = payload.get("sub")
+            user_email: Optional[str] = payload.get("email")
+            if user_id and user_email:
+                # Look up the user's plan (best-effort; defaults to "free")
+                plan = "free"
+                try:
+                    if _supabase:
+                        plan_result = (
+                            _supabase.table("user_profiles")
+                            .select("plan")
+                            .eq("email", user_email)
+                            .maybe_single()
+                            .execute()
+                        )
+                        if plan_result.data and plan_result.data.get("plan"):
+                            plan = plan_result.data["plan"]
+                except Exception as exc:
+                    logger.debug("Could not fetch plan for %s: %s", user_email, exc)
+                limits = get_plan_limits(plan)
+                if not rate_limiter.check_search_rate_limit(user_id, limits["max_searches_per_day"]):
+                    raise HTTPException(
+                        status_code=429,
+                        detail=(
+                            f"Daily search limit ({limits['max_searches_per_day']}) reached "
+                            f"for the {plan} plan. Upgrade to search more."
+                        ),
+                    )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.debug("Optional auth check failed during search: %s", exc)
+
     # Generate cache key
     cache_key = hashlib.md5(request.json().encode()).hexdigest()
 
