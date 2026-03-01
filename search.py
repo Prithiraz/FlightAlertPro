@@ -17,8 +17,9 @@ from duffel_service import duffel_service
 from config import config
 from entitlements import get_plan_limits
 from rate_limiter import rate_limiter
-
 from cache import cache_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["search"])
 
