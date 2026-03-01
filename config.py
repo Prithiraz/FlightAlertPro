@@ -59,6 +59,9 @@ class Config:
 
     API_RATE_LIMIT_PER_MINUTE = int(os.getenv('API_RATE_LIMIT_PER_MINUTE', '100'))
     NOTIFICATION_RATE_LIMIT_PER_HOUR = int(os.getenv('NOTIFICATION_RATE_LIMIT_PER_HOUR', '20'))
+    # Per-provider per-minute call caps enforced by the worker's token bucket
+    RAPIDAPI_RATE_LIMIT = int(os.getenv('RAPIDAPI_RATE_LIMIT', '30'))
+    DUFFEL_RATE_LIMIT = int(os.getenv('DUFFEL_RATE_LIMIT', '20'))
 
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_RETENTION_DAYS = int(os.getenv('LOG_RETENTION_DAYS', '7'))

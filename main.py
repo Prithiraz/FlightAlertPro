@@ -93,6 +93,7 @@ async def health_check():
 async def integrations_health():
     from payments import payments_service
     from ycloud_whatsapp import ycloud_whatsapp_service
+    from circuit_breaker import circuit_breaker
 
     integrations = {
         "duffel": {"enabled": duffel_service.enabled, "status": "ok" if duffel_service.enabled else "disabled"},
@@ -102,10 +103,19 @@ async def integrations_health():
         "stripe": {"enabled": payments_service.enabled, "status": "ok" if payments_service.enabled else "disabled"},
         "ycloud": {"enabled": ycloud_whatsapp_service.enabled, "status": "ok" if ycloud_whatsapp_service.enabled else "disabled"},
         "gmail": {"enabled": config.GMAIL_USER is not None, "status": "ok" if config.GMAIL_USER else "disabled"},
-        "telegram": {"enabled": config.TELEGRAM_BOT_TOKEN is not None, "status": "ok" if config.TELEGRAM_BOT_TOKEN else "disabled"}
+        "telegram": {"enabled": config.TELEGRAM_BOT_TOKEN is not None, "status": "ok" if config.TELEGRAM_BOT_TOKEN else "disabled"},
     }
 
-    all_ok = all(i["status"] == "ok" or i["status"] == "disabled" for i in integrations.values())
+    # Annotate circuit-breaker status for each provider
+    for provider in ("duffel", "rapidapi"):
+        available = circuit_breaker.is_available(provider)
+        if not available:
+            integrations[provider]["circuit_breaker"] = "open"
+            integrations[provider]["status"] = "circuit_open"
+        else:
+            integrations[provider]["circuit_breaker"] = "closed"
+
+    all_ok = all(i["status"] in ("ok", "disabled") for i in integrations.values())
     status_code = 200 if all_ok else 503
 
     return JSONResponse(content=integrations, status_code=status_code)
