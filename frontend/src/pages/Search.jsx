@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { searchFlights, getCurrencyRates } from '../lib/api';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { searchFlights, getCurrencyRates, saveSearch } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
@@ -9,6 +9,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'SGD', 'AED
 
 export default function Search() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({
     from_iata: '',
     to_iata: '',
@@ -24,6 +25,16 @@ export default function Search() {
   const [searched, setSearched] = useState(false);
   const [displayCurrency, setDisplayCurrency] = useState('USD');
   const [fxRates, setFxRates] = useState(null); // rates relative to USD, USD key added as 1
+  const [saveMsg, setSaveMsg] = useState('');
+
+  // Support prefill from Saved Searches page
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (prefill) {
+      setForm((prev) => ({ ...prev, ...prefill }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -91,6 +102,25 @@ export default function Search() {
         },
       },
     });
+  };
+
+  const handleSaveSearch = async () => {
+    setSaveMsg('');
+    const name = `${form.from_iata.toUpperCase()} → ${form.to_iata.toUpperCase()} ${form.departure_date}`.trim();
+    try {
+      await saveSearch(name || 'My search', {
+        from_iata: form.from_iata.toUpperCase(),
+        to_iata: form.to_iata.toUpperCase(),
+        departure_date: form.departure_date,
+        return_date: form.return_date,
+        passengers: form.passengers,
+        cabin_class: form.cabin_class,
+      });
+      setSaveMsg('Search saved!');
+      setTimeout(() => setSaveMsg(''), 3000);
+    } catch (err) {
+      setSaveMsg(err.message || 'Failed to save');
+    }
   };
 
   return (
@@ -196,6 +226,8 @@ export default function Search() {
           <div style={styles.resultsHeader}>
             <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
             <div style={styles.currencyRow}>
+              <button onClick={handleSaveSearch} style={styles.saveSearchBtn}>💾 Save Search</button>
+              {saveMsg && <span style={styles.saveMsg}>{saveMsg}</span>}
               <label style={styles.currencyLabel}>Display in:</label>
               <select
                 value={displayCurrency}
@@ -284,4 +316,6 @@ const styles = {
   bookLink: { alignSelf: 'flex-start', marginTop: '0.5rem', background: '#1d4ed8', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontWeight: '600', fontSize: '0.875rem' },
   noBook: { fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' },
   createAlertBtn: { alignSelf: 'flex-start', marginTop: '0.5rem', padding: '0.375rem 0.875rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
+  saveSearchBtn: { padding: '0.375rem 0.875rem', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
+  saveMsg: { fontSize: '0.85rem', color: '#16a34a' },
 };

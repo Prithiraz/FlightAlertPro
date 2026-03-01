@@ -25,6 +25,9 @@ from systemcheck import router as systemcheck_router
 from webhooks import router as webhooks_router
 from me import router as me_router
 from billing import router as billing_router
+from profile import router as profile_router
+from saved_searches import router as saved_searches_router
+from alert_templates import router as alert_templates_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -58,6 +61,9 @@ app.include_router(systemcheck_router)
 app.include_router(webhooks_router)
 app.include_router(me_router)
 app.include_router(billing_router)
+app.include_router(profile_router)
+app.include_router(saved_searches_router)
+app.include_router(alert_templates_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str

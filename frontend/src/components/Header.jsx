@@ -23,6 +23,8 @@ export default function Header() {
         <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
         <NavLink to="/search" style={navLinkStyle}>Search</NavLink>
         <NavLink to="/alerts" style={navLinkStyle}>Alerts</NavLink>
+        <NavLink to="/saved" style={navLinkStyle}>Saved</NavLink>
+        <NavLink to="/notifications" style={navLinkStyle}>Notifications</NavLink>
         <NavLink to="/billing" style={navLinkStyle}>Billing</NavLink>
         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
         {user?.email && <span style={styles.userEmail}>{user.email}</span>}

@@ -50,6 +50,32 @@ async def get_me(user: CurrentUser = Depends(get_current_user)):
     except Exception as exc:
         logger.warning("Could not count alerts for %s: %s", user.email, exc)
 
+    # Saved searches count
+    saved_searches_count = 0
+    try:
+        result = (
+            supabase.table("saved_searches")
+            .select("id", count="exact")
+            .eq("user_id", user.user_id)
+            .execute()
+        )
+        saved_searches_count = result.count or 0
+    except Exception as exc:
+        logger.debug("Could not count saved searches for %s: %s", user.user_id, exc)
+
+    # Notifications count (all time)
+    notifications_count = 0
+    try:
+        result = (
+            supabase.table("notification_log")
+            .select("id", count="exact")
+            .eq("user_id", user.user_id)
+            .execute()
+        )
+        notifications_count = result.count or 0
+    except Exception as exc:
+        logger.debug("Could not count notifications for %s: %s", user.user_id, exc)
+
     return {
         "user_id": user.user_id,
         "email": user.email,
@@ -57,6 +83,8 @@ async def get_me(user: CurrentUser = Depends(get_current_user)):
         "limits": limits,
         "usage": {
             "alerts_active": alerts_active,
+            "saved_searches_count": saved_searches_count,
+            "notifications_count": notifications_count,
         },
     }
 
