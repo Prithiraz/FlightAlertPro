@@ -4,7 +4,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt as _jose_jwt
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import asyncio
 import logging
 import hashlib
@@ -16,6 +16,7 @@ from duffel_service import duffel_service
 from config import config
 from entitlements import get_plan_limits
 from rate_limiter import rate_limiter
+from cache import cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,19 @@ CIRCUIT_BREAKER = {
 CIRCUIT_THRESHOLD = 5
 CIRCUIT_COOLDOWN = 600  # 10 minutes
 
-# Search result cache
-SEARCH_CACHE = {}
-CACHE_TTL = 900  # 15 minutes
+# In-flight dedupe: maps cache_key -> asyncio.Future that resolves to the search result
+_inflight: Dict[str, asyncio.Future] = {}
+_inflight_lock = asyncio.Lock()
+
+# Simple request-level metrics counters (in-memory, reset on restart)
+_metrics: Dict[str, Any] = {
+    "search_total": 0,
+    "search_cache_hits": 0,
+    "search_errors": 0,
+    "provider_calls": {},      # provider -> total calls
+    "provider_errors": {},     # provider -> error count
+    "provider_latency_ms": {},  # provider -> list of recent latencies (last 100)
+}
 
 class PassengerCount(BaseModel):
     adults: int = Field(1, ge=1, le=9)
@@ -117,43 +128,77 @@ def record_failure(supplier: str):
         cb['state'] = 'open'
         logger.error(f"Circuit breaker OPENED for {supplier} after {cb['failures']} failures")
 
+def _record_provider_latency(provider: str, latency_ms: int):
+    """Record per-provider latency for metrics."""
+    _metrics["provider_calls"][provider] = _metrics["provider_calls"].get(provider, 0) + 1
+    recent = _metrics["provider_latency_ms"].setdefault(provider, [])
+    recent.append(latency_ms)
+    if len(recent) > 100:
+        recent.pop(0)
+
 async def search_aerodatabox(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
     """Search via AeroDataBox"""
     if not check_circuit_breaker('aerodatabox'):
         return []
 
+    t0 = time.time()
     try:
-        results = aerodatabox_adapter.search_flights(
-            segment.from_iata,
-            segment.to_iata,
-            segment.departure_date
+        results = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: aerodatabox_adapter.search_flights(
+                    segment.from_iata,
+                    segment.to_iata,
+                    segment.departure_date
+                )
+            ),
+            timeout=config.PROVIDER_TIMEOUT_SECONDS,
         )
         record_success('aerodatabox')
         return results or []
+    except asyncio.TimeoutError:
+        logger.warning("AeroDataBox search timed out")
+        record_failure('aerodatabox')
+        return []
     except Exception as e:
         logger.error(f"AeroDataBox search failed: {e}")
         record_failure('aerodatabox')
         return []
+    finally:
+        _record_provider_latency('aerodatabox', int((time.time() - t0) * 1000))
 
 async def search_airscraper(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
     """Search via AirScraper"""
     if not check_circuit_breaker('airscraper'):
         return []
 
+    t0 = time.time()
     try:
-        results = airscraper_adapter.search_flights(
-            segment.from_iata,
-            segment.to_iata,
-            segment.departure_date,
-            adults=request.passengers.adults,
-            children=request.passengers.children
+        results = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: airscraper_adapter.search_flights(
+                    segment.from_iata,
+                    segment.to_iata,
+                    segment.departure_date,
+                    adults=request.passengers.adults,
+                    children=request.passengers.children
+                )
+            ),
+            timeout=config.PROVIDER_TIMEOUT_SECONDS,
         )
         record_success('airscraper')
         return results or []
+    except asyncio.TimeoutError:
+        logger.warning("AirScraper search timed out")
+        record_failure('airscraper')
+        return []
     except Exception as e:
         logger.error(f"AirScraper search failed: {e}")
         record_failure('airscraper')
         return []
+    finally:
+        _record_provider_latency('airscraper', int((time.time() - t0) * 1000))
 
 async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
     """Search via Duffel (server-side only)"""
@@ -167,6 +212,7 @@ async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[
     if not duffel_service or not duffel_service.enabled:
         return []
 
+    t0 = time.time()
     try:
         # Note: duffel_service.search_flights is synchronous, but we need to call it from async context
         # For now, just skip Duffel integration - it would need proper async wrapper
@@ -176,6 +222,8 @@ async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[
         logger.error(f"Duffel search failed: {e}")
         record_failure('duffel')
         return []
+    finally:
+        _record_provider_latency('duffel', int((time.time() - t0) * 1000))
 
 def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
     """Normalize offer from different suppliers to common format"""
@@ -329,15 +377,36 @@ async def search_flights(
         except Exception as exc:
             logger.debug("Optional auth check failed during search: %s", exc)
 
-    # Generate cache key
+    # Generate cache key from normalized request payload
     cache_key = hashlib.md5(request.json().encode()).hexdigest()
 
-    # Check cache
-    if cache_key in SEARCH_CACHE:
-        cached_result, timestamp = SEARCH_CACHE[cache_key]
-        if time.time() - timestamp < CACHE_TTL:
-            logger.info(f"Returning cached search results for {cache_key}")
-            return cached_result
+    _metrics["search_total"] += 1
+
+    # Check cache (shared cache_service supports both Redis and in-memory)
+    cached = cache_service.get_search_results(cache_key)
+    if cached is not None:
+        logger.info(f"Cache hit for search {cache_key}")
+        _metrics["search_cache_hits"] += 1
+        cached["cache_hit"] = True
+        return cached
+
+    # In-flight dedupe: if an identical search is already running, wait for it
+    waiting_fut = None
+    async with _inflight_lock:
+        if cache_key in _inflight:
+            waiting_fut = _inflight[cache_key]
+        else:
+            own_fut = asyncio.get_event_loop().create_future()
+            _inflight[cache_key] = own_fut
+
+    if waiting_fut is not None:
+        # Another coroutine is executing the same search – wait for its result
+        try:
+            result = await asyncio.wait_for(asyncio.shield(waiting_fut), timeout=60)
+            result["cache_hit"] = True
+            return result
+        except Exception:
+            pass  # fall through to execute search ourselves
 
     start_time = time.time()
 
@@ -353,16 +422,19 @@ async def search_flights(
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Flatten and normalize results
+    # Flatten and normalize results; track per-provider status
     all_offers = []
+    provider_status = {}
 
     for idx, result in enumerate(results):
+        source = ['aerodatabox', 'airscraper', 'duffel'][idx]
         if isinstance(result, Exception):
-            logger.error(f"Supplier {idx} raised exception: {result}")
+            logger.error(f"Supplier {source} raised exception: {result}")
+            _metrics["provider_errors"][source] = _metrics["provider_errors"].get(source, 0) + 1
+            provider_status[source] = "error"
             continue
 
-        source = ['aerodatabox', 'airscraper', 'duffel'][idx]
-
+        provider_status[source] = "ok"
         for raw_offer in result:
             normalized = normalize_offer(raw_offer, source)
             if normalized:
@@ -398,11 +470,22 @@ async def search_flights(
         "total_offers": len(sorted_offers),
         "offers": [offer.dict() for offer in sorted_offers[:50]],  # Max 50 results
         "sources_queried": ['aerodatabox', 'airscraper', 'duffel'],
-        "search_time_ms": int((time.time() - start_time) * 1000)
+        "provider_status": provider_status,
+        "search_time_ms": int((time.time() - start_time) * 1000),
+        "cache_hit": False,
+        "cached_at": None,
     }
 
-    # Cache result
-    SEARCH_CACHE[cache_key] = (response, time.time())
+    # Store in cache
+    cached_at = datetime.now(timezone.utc).isoformat()
+    response["cached_at"] = cached_at
+    cache_service.set_search_results(cache_key, response, ttl=config.CACHE_TTL_SECONDS)
+
+    # Resolve in-flight future so waiting coroutines can return
+    async with _inflight_lock:
+        resolved_fut = _inflight.pop(cache_key, None)
+    if resolved_fut is not None and not resolved_fut.done():
+        resolved_fut.set_result(response)
 
     return response
 
@@ -414,3 +497,33 @@ async def get_circuit_breaker_status():
         "threshold": CIRCUIT_THRESHOLD,
         "cooldown_seconds": CIRCUIT_COOLDOWN
     }
+
+@router.get("/metrics")
+async def get_metrics():
+    """Expose performance metrics: search counts, cache hit ratio, per-provider latency."""
+    total = _metrics["search_total"]
+    hits = _metrics["search_cache_hits"]
+    cache_hit_ratio = round(hits / total, 4) if total > 0 else 0.0
+
+    provider_avg_latency = {}
+    for provider, latencies in _metrics["provider_latency_ms"].items():
+        if latencies:
+            provider_avg_latency[provider] = {
+                "avg_ms": round(sum(latencies) / len(latencies)),
+                "p95_ms": round(sorted(latencies)[int(len(latencies) * 0.95)]) if len(latencies) >= 20 else None,
+                "samples": len(latencies),
+            }
+
+    return {
+        "search_total": total,
+        "search_cache_hits": hits,
+        "cache_hit_ratio": cache_hit_ratio,
+        "search_errors": _metrics["search_errors"],
+        "provider_calls": _metrics["provider_calls"],
+        "provider_errors": _metrics["provider_errors"],
+        "provider_latency": provider_avg_latency,
+        "circuit_breakers": {p: cb["state"] for p, cb in CIRCUIT_BREAKER.items()},
+        "cache_ttl_seconds": config.CACHE_TTL_SECONDS,
+        "provider_timeout_seconds": config.PROVIDER_TIMEOUT_SECONDS,
+    }
+

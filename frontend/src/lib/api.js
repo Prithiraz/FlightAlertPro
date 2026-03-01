@@ -22,8 +22,11 @@ async function getAuthHeaders() {
   return {};
 }
 
+const SLOW_CALL_THRESHOLD_MS = 2000;
+
 export async function apiFetch(path, options = {}) {
   const authHeaders = await getAuthHeaders();
+  const t0 = Date.now();
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
@@ -32,6 +35,10 @@ export async function apiFetch(path, options = {}) {
       ...(options.headers || {}),
     },
   });
+  const elapsed = Date.now() - t0;
+  if (elapsed > SLOW_CALL_THRESHOLD_MS) {
+    console.warn(`[FAP] Slow API call: ${path} took ${elapsed}ms`);
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Request failed: ${res.status}`);
@@ -48,7 +55,12 @@ async function request(method, path, body) {
   if (body !== undefined) {
     options.body = JSON.stringify(body);
   }
+  const t0 = Date.now();
   const res = await fetch(`${API_BASE_URL}${path}`, options);
+  const elapsed = Date.now() - t0;
+  if (elapsed > SLOW_CALL_THRESHOLD_MS) {
+    console.warn(`[FAP] Slow API call: ${method} ${path} took ${elapsed}ms`);
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `Request failed: ${res.status}`);

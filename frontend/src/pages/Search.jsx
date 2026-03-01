@@ -245,7 +245,19 @@ export default function Search() {
         <p style={styles.empty}>No flights found. Try different dates or airports.</p>
       )}
 
-      {results.length > 0 && (
+      {loading && (
+        <div style={styles.results}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} style={{ ...styles.card, ...styles.skeleton }}>
+              <div style={{ ...styles.skeletonLine, width: '40%' }} />
+              <div style={{ ...styles.skeletonLine, width: '60%', marginTop: '0.5rem' }} />
+              <div style={{ ...styles.skeletonLine, width: '25%', marginTop: '0.5rem' }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && results.length > 0 && (
         <div style={styles.results}>
           <div style={styles.resultsHeader}>
             <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
@@ -332,6 +344,8 @@ const styles = {
   currencySelect: { padding: '0.25rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', background: '#fff', cursor: 'pointer' },
   originalPrice: { fontSize: '0.8rem', color: '#9ca3af', fontWeight: '400' },
   card: { background: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: '0.375rem' },
+  skeleton: { animation: 'fap-pulse 1.5s ease-in-out infinite' },
+  skeletonLine: { height: '1rem', background: '#e5e7eb', borderRadius: '4px' },
   route: { fontSize: '1.25rem', fontWeight: '700' },
   iata: { color: '#1d4ed8' },
   arrow: { color: '#6b7280' },
