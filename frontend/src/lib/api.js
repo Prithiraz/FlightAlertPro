@@ -95,3 +95,7 @@ export function searchAirlines(query, { limit = 20 } = {}) {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   return apiFetch(`/api/metadata/airlines?${params}`);
 }
+
+export function getCurrencyRates(base = 'USD') {
+  return apiFetch(`/api/currency/rates?base=${encodeURIComponent(base)}`);
+}

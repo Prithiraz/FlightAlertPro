@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchFlights } from '../lib/api';
+import { searchFlights, getCurrencyRates } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'SGD', 'AED'];
 
 export default function Search() {
   const navigate = useNavigate();
@@ -21,10 +22,28 @@ export default function Search() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
+  const [displayCurrency, setDisplayCurrency] = useState('USD');
+  const [fxRates, setFxRates] = useState(null); // rates relative to USD, USD key added as 1
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Fetch FX rates once on mount (backend caches Frankfurter rates for 1 hour)
+  useEffect(() => {
+    getCurrencyRates('USD')
+      .then((data) => setFxRates({ USD: 1, ...data.rates }))
+      .catch(() => setFxRates(null));
+  }, []);
+
+  const convertPrice = (price, offerCurrency) => {
+    if (!fxRates || price == null) return Number(price);
+    const from = (offerCurrency || 'USD').toUpperCase();
+    const to = displayCurrency;
+    if (from === to) return Number(price);
+    const usdAmount = fxRates[from] ? Number(price) / fxRates[from] : Number(price);
+    return fxRates[to] ? usdAmount * fxRates[to] : usdAmount;
   };
 
   const handleSubmit = async (e) => {
@@ -174,7 +193,21 @@ export default function Search() {
 
       {results.length > 0 && (
         <div style={styles.results}>
-          <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
+          <div style={styles.resultsHeader}>
+            <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
+            <div style={styles.currencyRow}>
+              <label style={styles.currencyLabel}>Display in:</label>
+              <select
+                value={displayCurrency}
+                onChange={(e) => setDisplayCurrency(e.target.value)}
+                style={styles.currencySelect}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           {results.map((offer, idx) => (
             <div key={offer.id ?? idx} style={styles.card}>
               <div style={styles.route}>
@@ -194,7 +227,12 @@ export default function Search() {
                 </div>
               )}
               <div style={styles.price}>
-                {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
+                {displayCurrency} {convertPrice(offer.price, offer.currency).toFixed(2)}
+                {fxRates && (offer.currency || 'USD').toUpperCase() !== displayCurrency && (
+                  <span style={styles.originalPrice}>
+                    {' '}(orig. {offer.currency || 'USD'} {Number(offer.price).toFixed(2)})
+                  </span>
+                )}
               </div>
               {offer.booking_link ? (
                 <a
@@ -231,7 +269,12 @@ const styles = {
   error: { color: '#dc2626', fontSize: '0.875rem' },
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '2rem' },
   results: { display: 'flex', flexDirection: 'column', gap: '1rem' },
-  resultsHeading: { fontSize: '1.25rem', marginBottom: '0.5rem', color: '#374151' },
+  resultsHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' },
+  resultsHeading: { fontSize: '1.25rem', marginBottom: 0, color: '#374151' },
+  currencyRow: { display: 'flex', alignItems: 'center', gap: '0.5rem' },
+  currencyLabel: { fontSize: '0.875rem', fontWeight: '600', color: '#374151' },
+  currencySelect: { padding: '0.25rem 0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', background: '#fff', cursor: 'pointer' },
+  originalPrice: { fontSize: '0.8rem', color: '#9ca3af', fontWeight: '400' },
   card: { background: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: '0.375rem' },
   route: { fontSize: '1.25rem', fontWeight: '700' },
   iata: { color: '#1d4ed8' },
