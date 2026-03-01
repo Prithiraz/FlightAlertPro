@@ -19,6 +19,9 @@ class ProfileUpdate(BaseModel):
     default_channels: Optional[List[str]] = None
     onboarded: Optional[bool] = None
     lifecycle_emails_opt_in: Optional[bool] = None
+    locale: Optional[str] = None
+    timezone: Optional[str] = None
+    preferred_date_format: Optional[str] = None
 
 
 @router.get("/profile")
@@ -41,6 +44,9 @@ async def get_profile(user: CurrentUser = Depends(get_current_user)):
             "home_currency": "USD",
             "default_channels": ["email"],
             "onboarded": False,
+            "locale": "en-US",
+            "timezone": "UTC",
+            "preferred_date_format": None,
         }
     except Exception as exc:
         logger.warning("Could not fetch profile for %s: %s", user.user_id, exc)
@@ -50,6 +56,9 @@ async def get_profile(user: CurrentUser = Depends(get_current_user)):
             "home_currency": "USD",
             "default_channels": ["email"],
             "onboarded": False,
+            "locale": "en-US",
+            "timezone": "UTC",
+            "preferred_date_format": None,
         }
 
 
@@ -65,6 +74,12 @@ async def upsert_profile(body: ProfileUpdate, user: CurrentUser = Depends(get_cu
         update_data["onboarded"] = body.onboarded
     if body.lifecycle_emails_opt_in is not None:
         update_data["lifecycle_emails_opt_in"] = body.lifecycle_emails_opt_in
+    if body.locale is not None:
+        update_data["locale"] = body.locale
+    if body.timezone is not None:
+        update_data["timezone"] = body.timezone
+    if body.preferred_date_format is not None:
+        update_data["preferred_date_format"] = body.preferred_date_format
     try:
         result = (
             supabase.table("user_profiles")

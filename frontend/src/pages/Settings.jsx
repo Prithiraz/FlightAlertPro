@@ -1,8 +1,55 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../App';
+import { usePreferences } from '../lib/PreferencesContext';
 import { getProfile, updateProfile, subscribePush, unsubscribePush } from '../lib/api';
+import { t } from '../i18n';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+
+const HOME_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'SGD', 'AED', 'CHF', 'NZD', 'ZAR'];
+
+const LOCALES = [
+  { value: 'en-US', label: 'English (US)' },
+  { value: 'en-GB', label: 'English (UK)' },
+  { value: 'en-AU', label: 'English (AU)' },
+  { value: 'en-CA', label: 'English (CA)' },
+  { value: 'en-IN', label: 'English (IN)' },
+  { value: 'de-DE', label: 'Deutsch (DE)' },
+  { value: 'fr-FR', label: 'Français (FR)' },
+  { value: 'es-ES', label: 'Español (ES)' },
+  { value: 'pt-BR', label: 'Português (BR)' },
+  { value: 'ja-JP', label: '日本語 (JP)' },
+  { value: 'zh-CN', label: '中文 (CN)' },
+];
+
+// Common IANA timezone list
+const TIMEZONES = [
+  'UTC',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'Europe/Amsterdam',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Sao_Paulo',
+  'America/Mexico_City',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Asia/Shanghai',
+  'Asia/Seoul',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+  'Africa/Johannesburg',
+];
 
 function urlBase64ToUint8Array(base64String) {
   // Add padding to make the length a multiple of 4 (required for atob)
@@ -14,9 +61,17 @@ function urlBase64ToUint8Array(base64String) {
 
 export default function Settings() {
   const { user } = useAuth();
+  const { setPreferences } = usePreferences();
   const [lifecycleEmails, setLifecycleEmails] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Display preferences
+  const [homeCurrency, setHomeCurrency] = useState('USD');
+  const [locale, setLocale] = useState('en-US');
+  const [timezone, setTimezone] = useState('UTC');
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [prefSaved, setPrefSaved] = useState(false);
 
   // Install prompt
   const [installPrompt, setInstallPrompt] = useState(null);
@@ -35,6 +90,9 @@ export default function Settings() {
         if (profile.lifecycle_emails_opt_in !== undefined) {
           setLifecycleEmails(profile.lifecycle_emails_opt_in !== false);
         }
+        if (profile.home_currency) setHomeCurrency(profile.home_currency);
+        if (profile.locale) setLocale(profile.locale);
+        if (profile.timezone) setTimezone(profile.timezone);
       })
       .catch(() => {});
   }, []);
@@ -94,6 +152,21 @@ export default function Settings() {
     }
   };
 
+  const handleSavePreferences = async () => {
+    setPrefSaving(true);
+    setPrefSaved(false);
+    try {
+      await updateProfile({ home_currency: homeCurrency, locale, timezone });
+      setPreferences({ homeCurrency, locale, timezone });
+      setPrefSaved(true);
+      setTimeout(() => setPrefSaved(false), 2000);
+    } catch {
+      // ignore
+    } finally {
+      setPrefSaving(false);
+    }
+  };
+
   const handlePushToggle = async () => {
     if (!pushSupported) return;
     setPushLoading(true);
@@ -140,15 +213,66 @@ export default function Settings() {
 
   return (
     <div style={styles.page}>
-      <h2 style={styles.heading}>Settings</h2>
+      <h2 style={styles.heading}>{t('settings.title')}</h2>
       <div style={styles.card}>
-        <h3 style={styles.subHeading}>Account</h3>
-        <p style={styles.label}>Email</p>
+        <h3 style={styles.subHeading}>{t('settings.account')}</h3>
+        <p style={styles.label}>{t('settings.email')}</p>
         <p style={styles.value}>{user?.email ?? '—'}</p>
       </div>
 
+      {/* Display Preferences */}
       <div style={styles.card}>
-        <h3 style={styles.subHeading}>Email Preferences</h3>
+        <h3 style={styles.subHeading}>{t('settings.preferences')}</h3>
+        <div style={styles.prefRow}>
+          <div style={styles.prefField}>
+            <label style={styles.label}>{t('settings.homeCurrency')}</label>
+            <select
+              value={homeCurrency}
+              onChange={(e) => setHomeCurrency(e.target.value)}
+              style={styles.select}
+            >
+              {HOME_CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div style={styles.prefField}>
+            <label style={styles.label}>{t('settings.locale')}</label>
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value)}
+              style={styles.select}
+            >
+              {LOCALES.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={styles.prefField}>
+            <label style={styles.label}>{t('settings.timezone')}</label>
+            <select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              style={styles.select}
+            >
+              {TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>{tz}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <button
+          onClick={handleSavePreferences}
+          disabled={prefSaving}
+          style={styles.saveBtn}
+        >
+          {prefSaving ? t('settings.saving') : t('settings.savePreferences')}
+        </button>
+        {prefSaved && <p style={styles.savedMsg}>{t('settings.saved')}</p>}
+      </div>
+
+      <div style={styles.card}>
+        <h3 style={styles.subHeading}>{t('settings.emailPrefs')}</h3>
         <label style={styles.checkboxRow}>
           <input
             type="checkbox"
@@ -158,18 +282,18 @@ export default function Settings() {
             style={styles.checkbox}
           />
           <span style={styles.checkboxLabel}>
-            Email me tips, product updates, and re-engagement nudges
+            {t('settings.lifecycleEmails')}
           </span>
         </label>
-        {saved && <p style={styles.savedMsg}>✓ Saved</p>}
+        {saved && <p style={styles.savedMsg}>{t('settings.saved')}</p>}
         <p style={styles.note}>
-          You will always receive transactional emails (price alerts, account security). This setting only controls marketing and lifecycle emails.
+          {t('settings.lifecycleNote')}
         </p>
       </div>
 
       {/* Push Notifications */}
       <div style={styles.card}>
-        <h3 style={styles.subHeading}>Push Notifications</h3>
+        <h3 style={styles.subHeading}>{t('settings.pushNotifs')}</h3>
         {pushSupported ? (
           <>
             <label style={styles.checkboxRow}>
@@ -181,7 +305,7 @@ export default function Settings() {
                 style={styles.checkbox}
               />
               <span style={styles.checkboxLabel}>
-                Enable browser push notifications for price alerts
+                {t('settings.pushEnable')}
               </span>
             </label>
             {pushMsg && (
@@ -190,12 +314,12 @@ export default function Settings() {
               </p>
             )}
             <p style={styles.note}>
-              Receive instant push notifications when a price alert triggers, even when the app is not open.
+              {t('settings.pushNote')}
             </p>
           </>
         ) : (
           <p style={styles.note}>
-            Push notifications are not supported in your current browser. Please use a modern browser (Chrome, Edge, Firefox) to enable this feature.
+            {t('settings.pushUnsupported')}
           </p>
         )}
       </div>
@@ -203,17 +327,17 @@ export default function Settings() {
       {/* Install App */}
       {!isInstalled && (
         <div style={styles.card}>
-          <h3 style={styles.subHeading}>Install App</h3>
+          <h3 style={styles.subHeading}>{t('settings.installApp')}</h3>
           <p style={styles.note}>
-            Install FlightAlertPro on your device for a native-app experience — works offline and adds to your home screen.
+            {t('settings.installNote')}
           </p>
           {installPrompt ? (
             <button onClick={handleInstall} style={styles.installBtn}>
-              📲 Install App
+              {t('settings.installBtn')}
             </button>
           ) : (
             <p style={styles.note}>
-              To install, use your browser's "Add to Home Screen" option (usually in the address bar or share menu).
+              {t('settings.installManual')}
             </p>
           )}
         </div>
@@ -235,10 +359,14 @@ const styles = {
   subHeading: { fontSize: '1.125rem', fontWeight: '700', marginBottom: '1rem', color: '#374151' },
   label: { fontSize: '0.875rem', fontWeight: '600', color: '#374151', margin: '0 0 0.25rem' },
   value: { fontSize: '1rem', color: '#111827', margin: '0 0 1rem' },
+  prefRow: { display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' },
+  prefField: { flex: '1', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '0.25rem' },
+  select: { padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.9rem', background: '#fff' },
+  saveBtn: { padding: '0.5rem 1.25rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer' },
   checkboxRow: { display: 'flex', alignItems: 'flex-start', gap: '0.625rem', cursor: 'pointer', marginBottom: '0.75rem' },
   checkbox: { marginTop: '0.15rem', flexShrink: 0, width: '1rem', height: '1rem', cursor: 'pointer' },
   checkboxLabel: { fontSize: '0.9rem', color: '#111827', lineHeight: 1.5 },
-  savedMsg: { fontSize: '0.8rem', color: '#16a34a', margin: '0 0 0.5rem', fontWeight: '600' },
+  savedMsg: { fontSize: '0.8rem', color: '#16a34a', margin: '0.5rem 0 0', fontWeight: '600' },
   note: { fontSize: '0.8rem', color: '#9ca3af', margin: '0.5rem 0 0', lineHeight: 1.5 },
   installBtn: {
     marginTop: '0.75rem',

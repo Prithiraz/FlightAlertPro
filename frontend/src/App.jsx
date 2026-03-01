@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import { getProfile } from './lib/api';
+import { PreferencesProvider } from './lib/PreferencesContext';
 import Header from './components/Header';
 import OfflineBanner from './components/OfflineBanner';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -64,6 +65,7 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
+      <PreferencesProvider user={user}>
       <BrowserRouter>
         <OfflineBanner />
         {user && onboarded && <Header />}
@@ -171,6 +173,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </PreferencesProvider>
     </AuthContext.Provider>
   );
 }

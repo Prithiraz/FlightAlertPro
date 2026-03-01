@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getNotificationHistory } from '../lib/api';
+import { usePreferences } from '../lib/PreferencesContext';
+import { formatDateTime } from '../lib/datetime';
 
 const CHANNELS = ['all', 'email', 'whatsapp', 'telegram', 'sms'];
 const STATUSES = ['all', 'sent', 'failed'];
 
 export default function Notifications() {
+  const { locale, timezone } = usePreferences();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,7 +84,7 @@ export default function Notifications() {
                 <div style={styles.itemMeta}>
                   {payload.route ? <span>{payload.route}</span> : null}
                   {payload.price ? <span> · {payload.price}</span> : null}
-                  {sentAt ? <span style={styles.time}> · {new Date(sentAt).toLocaleString()}</span> : null}
+                  {sentAt ? <span style={styles.time}> · {formatDateTime(sentAt, { locale, timezone })}</span> : null}
                 </div>
                 {n.error && <div style={styles.itemError}>Error: {n.error}</div>}
                 <button onClick={() => copyDetails(n)} style={styles.copyBtn} title="Copy details">📋</button>

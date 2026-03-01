@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
-import { searchFlights, listAlerts, getCurrencyRates, getMe, saveSearch } from '../lib/api';
+import { usePreferences } from '../lib/PreferencesContext';
+import { searchFlights, listAlerts, getMe, saveSearch } from '../lib/api';
+import { convert, formatCurrency } from '../lib/currency';
+import { formatDate } from '../lib/datetime';
+import { t } from '../i18n';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 import UpgradeBanner from '../components/UpgradeBanner';
@@ -12,6 +16,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'SGD', 'AED
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { locale, timezone, homeCurrency } = usePreferences();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,8 +46,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
-  const [displayCurrency, setDisplayCurrency] = useState('USD');
-  const [fxRates, setFxRates] = useState(null);
+  const [displayCurrency, setDisplayCurrency] = useState(null);
+  // converted prices: Map<offerIndex, convertedAmount|null>
+  const [convertedPrices, setConvertedPrices] = useState({});
 
   const [myAlerts, setMyAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
@@ -130,21 +136,28 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch FX rates once on mount (backend caches Frankfurter rates for 1 hour)
+  // Sync displayCurrency with user's home currency preference (initialize only)
   useEffect(() => {
-    getCurrencyRates('USD')
-      .then((data) => setFxRates({ USD: 1, ...data.rates }))
-      .catch(() => setFxRates(null));
-  }, []);
+    setDisplayCurrency((prev) => prev || homeCurrency);
+  }, [homeCurrency]);
 
-  const convertPrice = (price, offerCurrency) => {
-    if (!fxRates || price == null) return Number(price);
-    const from = (offerCurrency || 'USD').toUpperCase();
-    const to = displayCurrency;
-    if (from === to) return Number(price);
-    const usdAmount = fxRates[from] ? Number(price) / fxRates[from] : Number(price);
-    return fxRates[to] ? usdAmount * fxRates[to] : usdAmount;
-  };
+  // When results come in, convert prices to displayCurrency using Frankfurter
+  useEffect(() => {
+    if (!results.length || !displayCurrency) return;
+    let cancelled = false;
+    setConvertedPrices({});
+    results.forEach((offer, idx) => {
+      const offerCurrency = (offer.currency || 'USD').toUpperCase();
+      if (offerCurrency === displayCurrency) {
+        setConvertedPrices((prev) => ({ ...prev, [idx]: Number(offer.price) }));
+        return;
+      }
+      convert(Number(offer.price), offerCurrency, displayCurrency).then((val) => {
+        if (!cancelled) setConvertedPrices((prev) => ({ ...prev, [idx]: val }));
+      });
+    });
+    return () => { cancelled = true; };
+  }, [results, displayCurrency]);
 
   return (
     <div style={styles.page}>
@@ -154,18 +167,18 @@ export default function Dashboard() {
         )}
         {/* Flight Search */}
         <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>Search Flights</h2>
+          <h2 style={styles.sectionTitle}>{t('dashboard.searchFlights')}</h2>
           <form onSubmit={handleSearch} style={styles.form}>
             <div style={styles.row}>
               <AirportAutocomplete
-                label="From"
+                label={t('common.from')}
                 placeholder="City, airport or IATA (e.g. London)"
                 value={form.from_iata}
                 onChange={(v) => setForm((p) => ({ ...p, from_iata: v }))}
                 required
               />
               <AirportAutocomplete
-                label="To"
+                label={t('common.to')}
                 placeholder="City, airport or IATA (e.g. JFK)"
                 value={form.to_iata}
                 onChange={(v) => setForm((p) => ({ ...p, to_iata: v }))}
@@ -241,25 +254,25 @@ export default function Dashboard() {
             {error && <p style={styles.error}>{error}</p>}
 
             <button type="submit" disabled={loading} style={styles.button}>
-              {loading ? 'Searching...' : 'Search Flights'}
+              {loading ? t('dashboard.searching') : t('dashboard.searchBtn')}
             </button>
           </form>
 
           {/* Results */}
-          {loading && <p style={styles.empty}>Searching for flights...</p>}
+          {loading && <p style={styles.empty}>{t('dashboard.searching')}</p>}
           {searched && !loading && results.length === 0 && !error && (
-            <p style={styles.empty}>No flights found. Try different dates or airports.</p>
+            <p style={styles.empty}>{t('dashboard.noResults')}</p>
           )}
           {results.length > 0 && (
             <div style={styles.results}>
               <div style={styles.resultsHeader}>
-                <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
+                <h3 style={styles.resultsHeading}>{t('dashboard.flightsFound', { n: results.length })}</h3>
                 <div style={styles.currencyRow}>
-                  <button onClick={handleSaveSearch} style={styles.saveSearchBtn}>💾 Save Search</button>
+                  <button onClick={handleSaveSearch} style={styles.saveSearchBtn}>{t('dashboard.saveSearch')}</button>
                   {saveSearchMsg && <span style={styles.saveSearchMsg}>{saveSearchMsg}</span>}
-                  <label style={styles.currencyLabel}>Display in:</label>
+                  <label style={styles.currencyLabel}>{t('dashboard.displayIn')}</label>
                   <select
-                    value={displayCurrency}
+                    value={displayCurrency || homeCurrency}
                     onChange={(e) => setDisplayCurrency(e.target.value)}
                     style={styles.currencySelect}
                   >
@@ -269,29 +282,36 @@ export default function Dashboard() {
                   </select>
                 </div>
               </div>
-              {results.map((offer, idx) => (
-                <div key={offer.id ?? idx} style={styles.card}>
-                  <div style={styles.route}>
-                    <span style={styles.iata}>{offer.from_iata}</span>
-                    <span style={styles.arrow}> → </span>
-                    <span style={styles.iata}>{offer.to_iata}</span>
-                  </div>
-                  {(offer.source || offer.provider) && (
-                    <div style={styles.meta}>Provider: {offer.source || offer.provider}</div>
-                  )}
-                  <div style={styles.price}>
-                    {displayCurrency} {convertPrice(offer.price, offer.currency).toFixed(2)}
-                    {fxRates && (offer.currency || 'USD').toUpperCase() !== displayCurrency && (
-                      <span style={styles.originalPrice}>
-                        {' '}(orig. {offer.currency || 'USD'} {Number(offer.price).toFixed(2)})
-                      </span>
+              {results.map((offer, idx) => {
+                const converted = convertedPrices[idx];
+                const offerCurrency = (offer.currency || 'USD').toUpperCase();
+                const activeCurrency = displayCurrency || homeCurrency;
+                return (
+                  <div key={offer.id ?? idx} style={styles.card}>
+                    <div style={styles.route}>
+                      <span style={styles.iata}>{offer.from_iata}</span>
+                      <span style={styles.arrow}> → </span>
+                      <span style={styles.iata}>{offer.to_iata}</span>
+                    </div>
+                    {(offer.source || offer.provider) && (
+                      <div style={styles.meta}>Provider: {offer.source || offer.provider}</div>
                     )}
+                    <div style={styles.price}>
+                      {converted != null
+                        ? formatCurrency(converted, activeCurrency, locale)
+                        : formatCurrency(Number(offer.price), offerCurrency, locale)}
+                      {offerCurrency !== activeCurrency && converted != null && (
+                        <span style={styles.originalPrice}>
+                          {' '}(orig. {formatCurrency(Number(offer.price), offerCurrency, locale)})
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
+                      {t('dashboard.createAlert')}
+                    </button>
                   </div>
-                  <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
-                    Create alert
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -299,15 +319,15 @@ export default function Dashboard() {
         {/* My Alerts Summary */}
         <section style={styles.section}>
           <div style={styles.alertsHeader}>
-            <h2 style={styles.sectionTitle}>My Alerts</h2>
-            <Link to="/alerts" style={styles.manageLink}>Manage alerts →</Link>
+            <h2 style={styles.sectionTitle}>{t('dashboard.myAlerts')}</h2>
+            <Link to="/alerts" style={styles.manageLink}>{t('dashboard.manageAlerts')}</Link>
           </div>
           {alertsLoading ? (
             <p style={styles.empty}>Loading alerts...</p>
           ) : alertsError ? (
             <p style={styles.error}>{alertsError}</p>
           ) : myAlerts.length === 0 ? (
-            <p style={styles.empty}>No alerts yet. <Link to="/alerts" style={styles.inlineLink}>Create one</Link>.</p>
+            <p style={styles.empty}>{t('dashboard.noAlerts')} <Link to="/alerts" style={styles.inlineLink}>{t('dashboard.createOne')}</Link>.</p>
           ) : (
             <div style={styles.alertList}>
               {myAlerts.slice(0, 5).map((alert) => (
@@ -316,8 +336,8 @@ export default function Dashboard() {
                   <span style={styles.arrow}> → </span>
                   <span style={styles.iata}>{alert.to_iata}</span>
                   <span style={styles.alertMeta}>
-                    &nbsp;· Max: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
-                    {alert.departure_date && ` · Dep: ${alert.departure_date}`}
+                    &nbsp;· Max: {formatCurrency(Number(alert.max_price), alert.currency || 'USD', locale)}
+                    {alert.departure_date && ` · Dep: ${formatDate(alert.departure_date, { locale, timezone })}`}
                   </span>
                 </div>
               ))}
