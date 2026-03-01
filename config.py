@@ -1,7 +1,9 @@
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Load .env from parent directory in development; no-op when file is absent (staging/prod).
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path)
 
@@ -37,12 +39,13 @@ class Config:
     SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
 
     # Comma-separated list of allowed CORS origins.
+    # FRONTEND_ORIGINS (preferred) or ALLOWED_ORIGINS (legacy alias).
     # Must be explicit (not "*") when allow_credentials=True.
     ALLOWED_ORIGINS = [
         o.strip()
         for o in os.getenv(
-            'ALLOWED_ORIGINS',
-            'http://localhost:5173,http://localhost:3000'
+            'FRONTEND_ORIGINS',
+            os.getenv('ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:3000')
         ).split(',')
         if o.strip()
     ]
@@ -81,5 +84,37 @@ class Config:
 
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_RETENTION_DAYS = int(os.getenv('LOG_RETENTION_DAYS', '7'))
+
+    @classmethod
+    def validate(cls) -> None:
+        """Fail fast with a readable error if required env vars are missing.
+
+        In staging/production all Supabase and JWT vars must be present.
+        In development only a warning is emitted so local startup is frictionless.
+        """
+        required_always = {
+            'VITE_SUPABASE_URL': cls.SUPABASE_URL,
+            'VITE_SUPABASE_ANON_KEY': cls.SUPABASE_ANON_KEY,
+        }
+        required_non_dev = {
+            'SUPABASE_JWT_SECRET': cls.SUPABASE_JWT_SECRET,
+        }
+
+        missing = [k for k, v in required_always.items() if not v]
+
+        if cls.ENVIRONMENT != 'development':
+            missing += [k for k, v in required_non_dev.items() if not v]
+
+        if missing:
+            msg = (
+                f"[config] Missing required environment variables: {', '.join(missing)}. "
+                "Set them in your platform environment or in ../.env (development only)."
+            )
+            if cls.ENVIRONMENT == 'development':
+                import logging as _log
+                _log.getLogger(__name__).warning(msg)
+            else:
+                print(msg, file=sys.stderr)
+                sys.exit(1)
 
 config = Config()
