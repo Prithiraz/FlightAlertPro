@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createAlert, listAlerts, deleteAlert } from '../lib/api';
 import { useAuth } from '../App';
+import AirportAutocomplete from '../components/AirportAutocomplete';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'whatsapp', 'telegram'];
@@ -126,30 +127,20 @@ export default function Alerts() {
         <h3 style={styles.subHeading}>Create New Alert</h3>
         <form onSubmit={handleCreate} style={styles.form}>
           <div style={styles.row}>
-            <div style={styles.field}>
-              <label style={styles.label}>From (IATA)</label>
-              <input
-                name="from_iata"
-                value={form.from_iata}
-                onChange={handleChange}
-                maxLength={3}
-                placeholder="LAX"
-                required
-                style={styles.input}
-              />
-            </div>
-            <div style={styles.field}>
-              <label style={styles.label}>To (IATA)</label>
-              <input
-                name="to_iata"
-                value={form.to_iata}
-                onChange={handleChange}
-                maxLength={3}
-                placeholder="JFK"
-                required
-                style={styles.input}
-              />
-            </div>
+            <AirportAutocomplete
+              label="From"
+              placeholder="City, airport or IATA (e.g. London)"
+              value={form.from_iata}
+              onChange={(v) => setForm((p) => ({ ...p, from_iata: v }))}
+              required
+            />
+            <AirportAutocomplete
+              label="To"
+              placeholder="City, airport or IATA (e.g. JFK)"
+              value={form.to_iata}
+              onChange={(v) => setForm((p) => ({ ...p, to_iata: v }))}
+              required
+            />
           </div>
 
           <div style={styles.row}>
