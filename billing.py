@@ -23,6 +23,9 @@ async def create_checkout(
     user: CurrentUser = Depends(get_current_user),
 ):
     """Create a Stripe Checkout session for the requested plan."""
+    if config.DISABLE_BILLING:
+        raise HTTPException(status_code=503, detail="Billing is temporarily disabled")
+
     if not payments_service.enabled:
         raise HTTPException(status_code=503, detail="Payment service unavailable")
 
@@ -55,6 +58,9 @@ async def billing_portal(
     user: CurrentUser = Depends(get_current_user),
 ):
     """Return a Stripe Billing Portal URL for self-service subscription management."""
+    if config.DISABLE_BILLING:
+        raise HTTPException(status_code=503, detail="Billing is temporarily disabled")
+
     if not payments_service.enabled:
         raise HTTPException(status_code=503, detail="Payment service unavailable")
 

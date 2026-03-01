@@ -511,3 +511,87 @@ Verify cache is working after deployment:
 ```
 
 The script runs the same search twice and asserts `cache_hit=true` on the second call.
+
+---
+
+## Security
+
+### How to store secrets
+
+All secrets must be stored as **server-side environment variables only**.  Never commit real values to the repository.
+
+| Rule | Detail |
+|---|---|
+| Backend secrets | Set in Railway/Render/etc. Environment Variables. Never in `frontend/.env`. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Must never appear in any `VITE_*` variable.** The app validates this at startup and logs an error if found. |
+| `STRIPE_SECRET_KEY` | Backend only. `STRIPE_PUBLISHABLE_KEY` is safe to expose to the frontend. |
+| JWT secret (`SUPABASE_JWT_SECRET`) | Backend only. Never expose to the browser. |
+
+### How to rotate keys
+
+1. **Supabase JWT secret** – rotate in Supabase Dashboard → Project Settings → API → JWT Secret. Update `SUPABASE_JWT_SECRET` in Railway and redeploy. Existing sessions will be invalidated.
+2. **Stripe keys** – generate new restricted keys in Stripe Dashboard, update env vars, redeploy.
+3. **Webhook secret** (`STRIPE_WEBHOOK_KEY`) – regenerate in Stripe → Webhooks, update env var, redeploy. The old secret becomes invalid immediately.
+
+### Webhook secret handling
+
+The Stripe webhook endpoint (`POST /webhook/stripe`) verifies the `Stripe-Signature` header against `STRIPE_WEBHOOK_KEY` before processing any event.  Requests with missing or invalid signatures return `400`.
+
+Webhook idempotency is enforced: duplicate event IDs are ignored (stored in cache with a 24 h TTL).
+
+### CORS
+
+`allow_credentials=True` requires explicit origins — wildcard `*` is rejected.  Configure `FRONTEND_ORIGINS` with your exact frontend URL(s):
+
+```
+FRONTEND_ORIGINS=https://app.yourdomain.com
+```
+
+The startup config validator logs an error if `*` is found in `ALLOWED_ORIGINS`.
+
+### Kill switches
+
+| Variable | Effect |
+|---|---|
+| `DISABLE_SEARCH=true` | Returns `503` for all flight searches |
+| `DISABLE_NOTIFICATIONS=true` | Skips all notification sends |
+| `DISABLE_BILLING=true` | Returns `503` for checkout and portal requests |
+| `DISABLE_PROVIDER_DUFFEL=true` | Skips Duffel as a search provider |
+
+### Audit log
+
+All sensitive actions (alert create/delete, plan upgrade/downgrade/cancel) are written to the `audit_log` table.  Admin users can query it via:
+
+```bash
+GET /api/admin/audit?action=alert.create&limit=100
+GET /api/admin/audit?user_id=<uuid>&date_from=2026-01-01T00:00:00
+```
+
+IP addresses are one-way hashed (SHA-256, truncated to 16 hex chars) before storage for GDPR compliance.
+
+### Security smoke tests
+
+```bash
+# Run all security checks against a local or remote server:
+SMOKE_BASE_URL=http://localhost:8000 bash scripts/security_smoke.sh
+
+# With auth tokens for full coverage:
+SMOKE_BASE_URL=http://localhost:8000 \
+  USER_TOKEN=<regular-user-jwt> \
+  ADMIN_TOKEN=<admin-jwt> \
+  bash scripts/security_smoke.sh
+```
+
+The script verifies:
+- Unauthenticated calls to auth-protected endpoints return `401`
+- Admin-only endpoints return `401`/`403` for non-admin callers
+- Per-IP rate limiting triggers a `429` on `/api/search` after 35 rapid requests
+- Required security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Content-Security-Policy`) are present
+
+### Known limitations and next improvements
+
+- **Audit log** is best-effort: a failed Supabase write is logged but does not fail the request.
+- **Rate limiting** uses in-memory state — blocked IPs are not shared across multiple workers/processes. For multi-process deployments, configure `REDIS_URL` so the shared Redis cache is used.
+- **GDPR deletion** – the audit log stores hashed IPs but retains email addresses; add a retention policy (e.g. delete rows older than 90 days) in Supabase.
+- **2FA / MFA** – authentication delegates entirely to Supabase; enable MFA in the Supabase project settings.
+- **WAF / DDoS protection** – add Cloudflare or similar in front of the API for volumetric attack protection.

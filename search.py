@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt as _jose_jwt
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 import asyncio
@@ -10,15 +10,15 @@ import logging
 import hashlib
 import time
 
+from auth_deps import require_admin, CurrentUser
 from supabase import create_client as _create_supabase_client
 from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
 from duffel_service import duffel_service
 from config import config
 from entitlements import get_plan_limits
 from rate_limiter import rate_limiter
-from cache import cache_service
 
-logger = logging.getLogger(__name__)
+from cache import cache_service
 
 router = APIRouter(prefix="/api", tags=["search"])
 
@@ -63,8 +63,22 @@ class FlightSegment(BaseModel):
     departure_date: str  # YYYY-MM-DD format
     airline_filter: Optional[str] = None
 
+    @model_validator(mode='after')
+    def validate_departure_date(self):
+        try:
+            dt = datetime.strptime(self.departure_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise ValueError("departure_date must be in YYYY-MM-DD format")
+        now = datetime.now(timezone.utc)
+        if dt < now - timedelta(days=1):
+            raise ValueError("departure_date cannot be in the past")
+        max_future = now + timedelta(days=365)
+        if dt > max_future:
+            raise ValueError("departure_date cannot be more than 1 year in the future")
+        return self
+
 class SearchRequest(BaseModel):
-    segments: List[FlightSegment] = Field(..., min_items=1, max_items=6)
+    segments: List[FlightSegment] = Field(..., min_items=1, max_items=2)
     passengers: PassengerCount = PassengerCount()
     cabin_class: str = Field("economy", pattern="^(economy|premium_economy|business|first)$")
     baggage_min_kg: Optional[int] = Field(None, ge=0, le=100)
@@ -490,8 +504,8 @@ async def search_flights(
     return response
 
 @router.get("/search/circuit-breaker-status")
-async def get_circuit_breaker_status():
-    """Get current circuit breaker states"""
+async def get_circuit_breaker_status(admin: CurrentUser = Depends(require_admin)):
+    """Get current circuit breaker states (admin only)"""
     return {
         "circuit_breakers": CIRCUIT_BREAKER,
         "threshold": CIRCUIT_THRESHOLD,
@@ -499,8 +513,8 @@ async def get_circuit_breaker_status():
     }
 
 @router.get("/metrics")
-async def get_metrics():
-    """Expose performance metrics: search counts, cache hit ratio, per-provider latency."""
+async def get_metrics(admin: CurrentUser = Depends(require_admin)):
+    """Expose performance metrics (admin only)."""
     total = _metrics["search_total"]
     hits = _metrics["search_cache_hits"]
     cache_hit_ratio = round(hits / total, 4) if total > 0 else 0.0

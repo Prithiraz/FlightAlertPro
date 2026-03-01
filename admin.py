@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from supabase import create_client
 from config import config
 from auth_deps import CurrentUser, require_admin
+from audit_log import audit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -539,4 +540,36 @@ async def create_experiment(name: str, variants: Dict, admin: CurrentUser = Depe
     except Exception as e:
         logger.error(f"Error creating experiment: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 – Audit log endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/audit")
+async def get_audit_log(
+    user_id: Optional[str] = Query(None),
+    action: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None, description="ISO 8601 date-time, e.g. 2026-01-01T00:00:00"),
+    date_to: Optional[str] = Query(None, description="ISO 8601 date-time, e.g. 2026-12-31T23:59:59"),
+    limit: int = Query(100, ge=1, le=1000),
+    admin: CurrentUser = Depends(require_admin),
+):
+    """Return audit log entries with optional filters (admin only)."""
+    supabase = _get_supabase()
+    try:
+        query = supabase.table("audit_log").select("*")
+        if user_id:
+            query = query.eq("user_id", user_id)
+        if action:
+            query = query.eq("action", action)
+        if date_from:
+            query = query.gte("created_at", date_from)
+        if date_to:
+            query = query.lte("created_at", date_to)
+        result = query.order("created_at", desc=True).limit(limit).execute()
+        return {"entries": result.data or [], "count": len(result.data or [])}
+    except Exception as exc:
+        logger.error("Could not fetch audit log: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to retrieve audit log")
 
