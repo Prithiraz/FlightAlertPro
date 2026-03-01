@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
+import { useWorkspace } from '../lib/WorkspaceContext';
 import { getAdminMe } from '../lib/api';
 import { t } from '../i18n';
 import MobileMenu from './MobileMenu';
@@ -12,6 +13,7 @@ const BASE_LINKS = [
   { to: '/alerts', label: t('nav.alerts') },
   { to: '/saved', label: t('nav.saved') },
   { to: '/notifications', label: t('nav.notifications') },
+  { to: '/workspace', label: 'Team' },
   { to: '/billing', label: t('nav.billing') },
   { to: '/settings', label: t('nav.settings') },
 ];
@@ -24,6 +26,7 @@ const ADMIN_LINKS = [
 export default function Header() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { workspaces, currentWorkspace, setCurrentWorkspace } = useWorkspace();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
 
@@ -61,6 +64,27 @@ export default function Header() {
           {allLinks.map(({ to, label }) => (
             <NavLink key={to} to={to} style={navLinkStyle}>{label}</NavLink>
           ))}
+
+          {/* Workspace switcher */}
+          {workspaces.length > 1 && (
+            <select
+              style={styles.wsSwitcher}
+              value={currentWorkspace?.id || ''}
+              onChange={(e) => {
+                const ws = workspaces.find((w) => w.id === e.target.value);
+                if (ws) setCurrentWorkspace(ws);
+              }}
+              title="Switch workspace"
+            >
+              {workspaces.map((ws) => (
+                <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </select>
+          )}
+          {workspaces.length === 1 && currentWorkspace && (
+            <span style={styles.wsName} title="Current workspace">{currentWorkspace.name}</span>
+          )}
+
           {user?.email && <span style={styles.userEmail}>{user.email}</span>}
           <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
         </nav>
@@ -120,5 +144,26 @@ const styles = {
     cursor: 'pointer',
     fontWeight: '500',
     fontSize: '0.875rem',
+  },
+  wsSwitcher: {
+    background: 'rgba(255,255,255,0.15)',
+    border: '1px solid rgba(255,255,255,0.5)',
+    color: '#fff',
+    padding: '0.3rem 0.5rem',
+    borderRadius: '4px',
+    fontSize: '0.8rem',
+    cursor: 'pointer',
+    maxWidth: '150px',
+  },
+  wsName: {
+    fontSize: '0.8rem',
+    opacity: 0.85,
+    background: 'rgba(255,255,255,0.15)',
+    padding: '0.25rem 0.5rem',
+    borderRadius: '4px',
+    maxWidth: '150px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
 };

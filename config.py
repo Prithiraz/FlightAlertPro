@@ -87,6 +87,9 @@ class Config:
     RAPIDAPI_RATE_LIMIT = int(os.getenv('RAPIDAPI_RATE_LIMIT', '30'))
     DUFFEL_RATE_LIMIT = int(os.getenv('DUFFEL_RATE_LIMIT', '20'))
 
+    # Metered billing (Stripe usage-based) — disabled by default
+    ENABLE_METERED_BILLING = os.getenv('ENABLE_METERED_BILLING', 'false').lower() == 'true'
+
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_RETENTION_DAYS = int(os.getenv('LOG_RETENTION_DAYS', '7'))
 

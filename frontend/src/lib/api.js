@@ -247,3 +247,38 @@ export function unsubscribePush() {
   return request('DELETE', '/api/push/unsubscribe');
 }
 
+// Workspaces (Business tier)
+export function listWorkspaces() {
+  return request('GET', '/api/workspaces');
+}
+export function createWorkspace(name) {
+  return request('POST', '/api/workspaces', { name });
+}
+export function getWorkspaceMembers(workspaceId) {
+  return request('GET', `/api/workspaces/${encodeURIComponent(workspaceId)}/members`);
+}
+export function inviteMember(workspaceId, email, role = 'member') {
+  return request('POST', `/api/workspaces/${encodeURIComponent(workspaceId)}/invite`, { email, role });
+}
+export function acceptInvite(token) {
+  return request('POST', '/api/workspaces/invites/accept', { token });
+}
+export function updateMemberRole(workspaceId, memberId, role) {
+  return request('PATCH', `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`, { role });
+}
+export function removeMember(workspaceId, memberId) {
+  return request('DELETE', `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(memberId)}`);
+}
+export function listApiKeys(workspaceId) {
+  return request('GET', `/api/workspaces/${encodeURIComponent(workspaceId)}/api-keys`);
+}
+export function createApiKey(workspaceId, name) {
+  return request('POST', `/api/workspaces/${encodeURIComponent(workspaceId)}/api-keys`, { name });
+}
+export function revokeApiKey(workspaceId, keyId) {
+  return request('DELETE', `/api/workspaces/${encodeURIComponent(workspaceId)}/api-keys/${encodeURIComponent(keyId)}`);
+}
+export function getWorkspaceUsage(workspaceId, range = '7d') {
+  return request('GET', `/api/workspaces/${encodeURIComponent(workspaceId)}/usage?range=${encodeURIComponent(range)}`);
+}
+

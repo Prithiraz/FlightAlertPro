@@ -573,3 +573,49 @@ async def get_audit_log(
         logger.error("Could not fetch audit log: %s", exc)
         raise HTTPException(status_code=500, detail="Failed to retrieve audit log")
 
+
+# ---------------------------------------------------------------------------
+# Admin usage summary (Phase 5 – workspace metering)
+# ---------------------------------------------------------------------------
+
+@router.get("/usage")
+async def admin_usage_summary(
+    days: int = Query(7, ge=1, le=90),
+    admin: CurrentUser = Depends(require_admin),
+):
+    """Return workspace-level usage aggregates for the last N days (admin only)."""
+    supabase = _get_supabase()
+    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+
+    # Aggregate by workspace and event type
+    workspace_usage: Dict[str, Dict[str, int]] = {}
+    try:
+        r = (
+            supabase.table("usage_events")
+            .select("workspace_id, type")
+            .gte("ts", since)
+            .not_.is_("workspace_id", "null")
+            .execute()
+        )
+        for row in (r.data or []):
+            ws_id = row.get("workspace_id") or "unknown"
+            ev_type = row.get("type") or "unknown"
+            if ws_id not in workspace_usage:
+                workspace_usage[ws_id] = {}
+            workspace_usage[ws_id][ev_type] = workspace_usage[ws_id].get(ev_type, 0) + 1
+    except Exception as exc:
+        logger.debug("Could not aggregate workspace usage: %s", exc)
+
+    summary = [
+        {"workspace_id": ws_id, **counts}
+        for ws_id, counts in workspace_usage.items()
+    ]
+
+    return {
+        "days": days,
+        "since": since,
+        "workspaces": summary,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+

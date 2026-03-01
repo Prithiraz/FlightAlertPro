@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../App';
 import { usePreferences } from '../lib/PreferencesContext';
-import { getProfile, updateProfile, subscribePush, unsubscribePush } from '../lib/api';
+import { useWorkspace } from '../lib/WorkspaceContext';
+import { getProfile, updateProfile, subscribePush, unsubscribePush, getMe } from '../lib/api';
 import { t } from '../i18n';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
@@ -62,9 +63,11 @@ function urlBase64ToUint8Array(base64String) {
 export default function Settings() {
   const { user } = useAuth();
   const { setPreferences } = usePreferences();
+  const { currentWorkspace } = useWorkspace();
   const [lifecycleEmails, setLifecycleEmails] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [plan, setPlan] = useState('free');
 
   // Display preferences
   const [homeCurrency, setHomeCurrency] = useState('USD');
@@ -94,6 +97,9 @@ export default function Settings() {
         if (profile.locale) setLocale(profile.locale);
         if (profile.timezone) setTimezone(profile.timezone);
       })
+      .catch(() => {});
+    getMe()
+      .then((me) => { if (me?.plan) setPlan(me.plan); })
       .catch(() => {});
   }, []);
 
@@ -342,6 +348,35 @@ export default function Settings() {
           )}
         </div>
       )}
+
+      {/* Team — Business plan */}
+      <div style={styles.card}>
+        <h3 style={styles.subHeading}>Team &amp; Workspace</h3>
+        {plan === 'business' || plan === 'elite' ? (
+          <>
+            <p style={styles.note}>
+              Manage your team, invite members, and configure API keys from the Workspace page.
+            </p>
+            {currentWorkspace && (
+              <p style={styles.note}>
+                Current workspace: <strong>{currentWorkspace.name}</strong> ({currentWorkspace.plan})
+              </p>
+            )}
+            <a href="/workspace" style={styles.teamLink}>
+              Go to Workspace →
+            </a>
+          </>
+        ) : (
+          <>
+            <p style={styles.note}>
+              Team workspaces, member roles, and API keys are available on the <strong>Business</strong> plan.
+            </p>
+            <a href="/billing" style={styles.teamLink}>
+              Upgrade to Business →
+            </a>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -379,5 +414,13 @@ const styles = {
     fontWeight: '600',
     cursor: 'pointer',
     width: '100%',
+  },
+  teamLink: {
+    display: 'inline-block',
+    marginTop: '0.75rem',
+    color: '#1d4ed8',
+    fontWeight: '600',
+    fontSize: '0.9rem',
+    textDecoration: 'underline',
   },
 };

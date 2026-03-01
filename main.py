@@ -32,6 +32,7 @@ from admin import router as admin_router
 from events import router as events_router
 from referral import router as referral_router
 from push_notifications import router as push_router
+from workspaces import router as workspaces_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -72,6 +73,27 @@ async def security_headers_middleware(request: Request, call_next):
 
 
 @app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    """Accept X-API-Key header for /api/ routes as an alternative to JWT auth.
+    Only validated when no Authorization header is present."""
+    x_api_key = request.headers.get("x-api-key")
+    has_auth_header = bool(request.headers.get("authorization"))
+    if x_api_key and not has_auth_header and request.url.path.startswith("/api/"):
+        from workspaces import validate_workspace_api_key
+        key_data = validate_workspace_api_key(x_api_key)
+        if key_data:
+            # Attach workspace_id to request state for downstream handlers
+            request.state.api_key_workspace_id = key_data.get("workspace_id")
+        else:
+            from fastapi.responses import JSONResponse as _JSONResponse
+            return _JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or revoked API key"},
+            )
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def ip_rate_limit_middleware(request: Request, call_next):
     """Per-IP rate limit on /api/search to prevent scraping/abuse."""
     if request.url.path == "/api/search" and request.method == "POST":
@@ -104,6 +126,7 @@ app.include_router(admin_router)
 app.include_router(events_router)
 app.include_router(referral_router)
 app.include_router(push_router)
+app.include_router(workspaces_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str
