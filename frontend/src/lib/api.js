@@ -80,3 +80,18 @@ export function listAlerts(userEmail) {
 export function deleteAlert(alertId, userEmail) {
   return request('DELETE', `/api/alerts/${alertId}?user_email=${encodeURIComponent(userEmail)}`);
 }
+
+export function searchAirports(query, { grouped = true, commercial_only = true, limit = 10 } = {}) {
+  const params = new URLSearchParams({
+    q: query,
+    grouped: String(grouped),
+    commercial_only: String(commercial_only),
+    limit: String(limit),
+  });
+  return apiFetch(`/api/metadata/airports?${params}`);
+}
+
+export function searchAirlines(query, { limit = 20 } = {}) {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  return apiFetch(`/api/metadata/airlines?${params}`);
+}

@@ -22,6 +22,7 @@ from search import router as search_router
 from currency import router as currency_router
 from alerts import router as alerts_router
 from systemcheck import router as systemcheck_router
+from webhooks import router as webhooks_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -40,7 +41,7 @@ app = FastAPI(title="FlightAlertPro API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,6 +53,7 @@ app.include_router(search_router)
 app.include_router(currency_router)
 app.include_router(alerts_router)
 app.include_router(systemcheck_router)
+app.include_router(webhooks_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str
@@ -60,15 +62,6 @@ class SimpleSearchRequest(BaseModel):
     return_date: Optional[str] = None
     passengers: int = 1
     cabin_class: str = "economy"
-
-class AlertRequest(BaseModel):
-    user_email: str
-    from_iata: str
-    to_iata: str
-    max_price: float
-    departure_date: Optional[str] = None
-    channels: List[str] = ["email"]
-    phone: Optional[str] = None
 
 @app.on_event("startup")
 async def startup_event():
@@ -183,18 +176,6 @@ async def convert_currency(amount: float, from_currency: str, to_currency: str):
         "converted_amount": round(converted, 2)
     }
 
-@app.post("/api/alerts")
-async def create_alert(alert: AlertRequest):
-    logger.info(f"Creating alert for {alert.user_email}: {alert.from_iata} -> {alert.to_iata}")
-
-    return {
-        "status": "created",
-        "alert_id": f"alert_{datetime.utcnow().timestamp()}",
-        "user_email": alert.user_email,
-        "route": f"{alert.from_iata} -> {alert.to_iata}",
-        "max_price": alert.max_price
-    }
-
 @app.post("/api/notifications/send")
 async def send_notification(user_email: str, message: str, channels: List[str],
                            phone: Optional[str] = None, telegram_chat_id: Optional[str] = None):
@@ -222,32 +203,6 @@ async def create_checkout(user_email: str, success_url: str, cancel_url: str, pl
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
     return session
-
-@app.post("/webhook/stripe")
-async def stripe_webhook(request: Request):
-    payload = await request.body()
-    sig_header = request.headers.get('stripe-signature')
-
-    if not sig_header:
-        raise HTTPException(status_code=400, detail="Missing signature")
-
-    event = stripe_service.verify_webhook_signature(payload, sig_header)
-
-    if not event:
-        raise HTTPException(status_code=400, detail="Invalid signature")
-
-    event_type = event.get('type')
-    data = event.get('data', {}).get('object', {})
-
-    if event_type == 'checkout.session.completed':
-        result = stripe_service.handle_checkout_completed(data)
-        logger.info(f"Checkout completed: {result}")
-
-    elif event_type == 'invoice.paid':
-        result = stripe_service.handle_invoice_paid(data)
-        logger.info(f"Invoice paid: {result}")
-
-    return JSONResponse(content={"status": "success"}, status_code=200)
 
 if __name__ == "__main__":
     import uvicorn

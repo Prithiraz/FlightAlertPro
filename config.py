@@ -34,6 +34,20 @@ class Config:
     DATABASE_URL = os.getenv('DATABASE_URL', os.getenv('VITE_SUPABASE_URL'))
     SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
     SUPABASE_ANON_KEY = os.getenv('VITE_SUPABASE_ANON_KEY')
+    SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
+
+    # Comma-separated list of allowed CORS origins.
+    # Must be explicit (not "*") when allow_credentials=True.
+    ALLOWED_ORIGINS = [
+        o.strip()
+        for o in os.getenv(
+            'ALLOWED_ORIGINS',
+            'http://localhost:5173,http://localhost:3000'
+        ).split(',')
+        if o.strip()
+    ]
+
+    MAX_ALERTS_PER_USER = int(os.getenv('MAX_ALERTS_PER_USER', '10'))
 
     REDIS_URL = os.getenv('REDIS_URL')
 
