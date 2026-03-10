@@ -2,8 +2,23 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-env_path = Path(__file__).parent.parent / '.env'
-load_dotenv(env_path)
+# Try to load .env from (1) repo root, (2) parent directory, (3) cwd – first match wins.
+_candidate_paths = [
+    Path(__file__).parent / '.env',
+    Path(__file__).parent.parent / '.env',
+    Path.cwd() / '.env',
+]
+
+_loaded_env_path = None
+for _p in _candidate_paths:
+    if _p.exists():
+        load_dotenv(_p)
+        _loaded_env_path = _p
+        break
+
+# print() is intentional here: config.py is imported before logging is configured,
+# so logger calls would be silently dropped.
+print(f"[config] .env loaded from: {_loaded_env_path}" if _loaded_env_path else "[config] No .env file found; using environment variables")
 
 class Config:
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
