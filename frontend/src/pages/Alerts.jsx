@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createAlert, listAlerts, deleteAlert } from '../lib/api';
 import { useAuth } from '../App';
+import AirportInput from '../components/AirportInput';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'whatsapp', 'telegram'];
@@ -66,6 +67,11 @@ export default function Alerts() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Used by AirportInput to update IATA fields
+  const handleAirportChange = (name, iata) => {
+    setForm((prev) => ({ ...prev, [name]: iata }));
+  };
+
   const toggleChannel = (channel) => {
     setForm((prev) => ({
       ...prev,
@@ -126,30 +132,20 @@ export default function Alerts() {
         <h3 style={styles.subHeading}>Create New Alert</h3>
         <form onSubmit={handleCreate} style={styles.form}>
           <div style={styles.row}>
-            <div style={styles.field}>
-              <label style={styles.label}>From (IATA)</label>
-              <input
-                name="from_iata"
-                value={form.from_iata}
-                onChange={handleChange}
-                maxLength={3}
-                placeholder="LAX"
-                required
-                style={styles.input}
-              />
-            </div>
-            <div style={styles.field}>
-              <label style={styles.label}>To (IATA)</label>
-              <input
-                name="to_iata"
-                value={form.to_iata}
-                onChange={handleChange}
-                maxLength={3}
-                placeholder="JFK"
-                required
-                style={styles.input}
-              />
-            </div>
+            <AirportInput
+              name="from_iata"
+              value={form.from_iata}
+              onChange={handleAirportChange}
+              placeholder="City, airport or IATA"
+              label="From"
+            />
+            <AirportInput
+              name="to_iata"
+              value={form.to_iata}
+              onChange={handleAirportChange}
+              placeholder="City, airport or IATA"
+              label="To"
+            />
           </div>
 
           <div style={styles.row}>
