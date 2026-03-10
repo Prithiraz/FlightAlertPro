@@ -11,8 +11,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 
-# Initialize Supabase client
-supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+# Lazy Supabase client — created on first use so missing env vars raise a 503
+# instead of crashing the whole app at import time.
+_supabase_client: Optional[Client] = None
+
+
+def _get_supabase() -> Client:
+    """Return the module-level Supabase client, or raise 503 if not configured."""
+    global _supabase_client
+    if _supabase_client is None:
+        if not config.SUPABASE_URL or not config.SUPABASE_ANON_KEY:
+            raise HTTPException(
+                status_code=503,
+                detail="Database not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the backend environment"
+            )
+        _supabase_client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+    return _supabase_client
 
 class CreateAlertRequest(BaseModel):
     user_email: EmailStr
@@ -47,6 +61,7 @@ async def create_alert(alert: CreateAlertRequest):
                 )
 
         # Insert into Supabase
+        supabase = _get_supabase()
         result = supabase.table('price_alerts').insert({
             'user_email': alert.user_email,
             'from_iata': alert.from_iata.upper(),
@@ -82,6 +97,7 @@ async def list_alerts(
 ):
     """List user's price alerts"""
     try:
+        supabase = _get_supabase()
         query = supabase.table('price_alerts').select('*').eq('user_email', user_email)
 
         if active_only:
@@ -102,6 +118,7 @@ async def list_alerts(
 async def delete_alert(alert_id: str, user_email: str):
     """Deactivate a price alert"""
     try:
+        supabase = _get_supabase()
         # Verify ownership
         existing = supabase.table('price_alerts').select('*').eq('id', alert_id).eq('user_email', user_email).execute()
 
@@ -127,6 +144,7 @@ async def delete_alert(alert_id: str, user_email: str):
 async def get_alert_stats():
     """Get alert statistics"""
     try:
+        supabase = _get_supabase()
         total = supabase.table('price_alerts').select('id', count='exact').execute()
         active = supabase.table('price_alerts').select('id', count='exact').eq('active', True).execute()
         triggered = supabase.table('price_alerts').select('id', count='exact').not_.is_('triggered_at', 'null').execute()

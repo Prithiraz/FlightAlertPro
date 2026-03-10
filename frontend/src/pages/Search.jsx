@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchFlights } from '../lib/api';
+import AirportInput from '../components/AirportInput';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -22,6 +23,11 @@ export default function Search() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Used by AirportInput to update IATA fields
+  const handleAirportChange = (name, iata) => {
+    setForm((prev) => ({ ...prev, [name]: iata }));
   };
 
   const handleSubmit = async (e) => {
@@ -77,30 +83,20 @@ export default function Search() {
 
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.row}>
-          <div style={styles.field}>
-            <label style={styles.label}>From (IATA)</label>
-            <input
-              name="from_iata"
-              value={form.from_iata}
-              onChange={handleChange}
-              maxLength={3}
-              placeholder="LAX"
-              required
-              style={styles.input}
-            />
-          </div>
-          <div style={styles.field}>
-            <label style={styles.label}>To (IATA)</label>
-            <input
-              name="to_iata"
-              value={form.to_iata}
-              onChange={handleChange}
-              maxLength={3}
-              placeholder="JFK"
-              required
-              style={styles.input}
-            />
-          </div>
+          <AirportInput
+            name="from_iata"
+            value={form.from_iata}
+            onChange={handleAirportChange}
+            placeholder="City, airport or IATA"
+            label="From"
+          />
+          <AirportInput
+            name="to_iata"
+            value={form.to_iata}
+            onChange={handleAirportChange}
+            placeholder="City, airport or IATA"
+            label="To"
+          />
         </div>
 
         <div style={styles.row}>
