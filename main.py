@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -36,11 +37,29 @@ if config.SENTRY_DSN:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def _build_allowed_origins() -> list[str]:
+    """Build the list of allowed CORS origins from FRONTEND_ORIGINS env var or sensible defaults."""
+    raw = config.FRONTEND_ORIGINS
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+
+    origins = ["http://localhost:5173"]
+
+    # Add the current Codespaces preview URL when running inside GitHub Codespaces
+    codespace_name = os.environ.get("CODESPACE_NAME")
+    if codespace_name:
+        domain = os.environ.get("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN", "app.github.dev")
+        origins.append(f"https://{codespace_name}-5173.{domain}")
+
+    return origins
+
 app = FastAPI(title="FlightAlertPro API", version="2.0.0")
+
+_allowed_origins = _build_allowed_origins()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,6 +92,7 @@ class AlertRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     logger.info("FlightAlertPro API Starting...")
+    logger.info(f"Allowed CORS origins: {_allowed_origins}")
     print(secrets_manager.get_report())
     logger.info("API Ready")
 
