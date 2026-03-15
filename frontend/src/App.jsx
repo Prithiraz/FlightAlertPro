@@ -9,6 +9,8 @@ import Dashboard from './pages/Dashboard';
 import Search from './pages/Search';
 import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
+import Explore from './pages/Explore';
+import Plans from './pages/Plans';
 
 const AuthContext = createContext(null);
 
@@ -72,6 +74,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/explore"
+            element={
+              <ProtectedRoute>
+                <Explore />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/plans"
+            element={
+              <ProtectedRoute>
+                <Plans />
               </ProtectedRoute>
             }
           />

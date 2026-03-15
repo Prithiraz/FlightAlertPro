@@ -104,6 +104,31 @@ export default function Dashboard() {
   return (
     <div style={styles.page}>
       <div style={styles.content}>
+
+        {/* Quick action cards */}
+        <div style={styles.quickCards}>
+          <Link to="/search" style={styles.qcard}>
+            <span style={styles.qicon}>🔍</span>
+            <span style={styles.qcardLabel}>Search Flights</span>
+            <span style={styles.qcardSub}>Sort by price, stops, duration</span>
+          </Link>
+          <Link to="/explore" style={styles.qcard}>
+            <span style={styles.qicon}>🌍</span>
+            <span style={styles.qcardLabel}>Explore</span>
+            <span style={styles.qcardSub}>Find destinations within budget</span>
+          </Link>
+          <Link to="/alerts" style={styles.qcard}>
+            <span style={styles.qicon}>🔔</span>
+            <span style={styles.qcardLabel}>Price Alerts</span>
+            <span style={styles.qcardSub}>Get notified when prices drop</span>
+          </Link>
+          <Link to="/plans" style={{ ...styles.qcard, background: '#f5f3ff', borderColor: '#7c3aed' }}>
+            <span style={styles.qicon}>⚡</span>
+            <span style={{ ...styles.qcardLabel, color: '#7c3aed' }}>Upgrade Plan</span>
+            <span style={styles.qcardSub}>Unlock Pro &amp; Elite features</span>
+          </Link>
+        </div>
+
         {/* Flight Search */}
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>Search Flights</h2>
@@ -261,6 +286,11 @@ export default function Dashboard() {
 }
 
 const styles = {
+  quickCards: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' },
+  qcard: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.375rem', textDecoration: 'none', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: 'transform 0.1s' },
+  qicon: { fontSize: '1.75rem' },
+  qcardLabel: { fontSize: '1rem', fontWeight: '700', color: '#111827' },
+  qcardSub: { fontSize: '0.8rem', color: '#6b7280' },
   page: { minHeight: '100vh', background: '#f3f4f6' },
   content: { maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' },
   section: {
