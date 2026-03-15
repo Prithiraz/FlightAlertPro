@@ -48,6 +48,10 @@ class SearchRequest(BaseModel):
     baggage_max_kg: Optional[int] = Field(None, ge=0, le=100)
     currency: str = Field("USD", min_length=3, max_length=3)
     max_stops: Optional[int] = Field(None, ge=0, le=3)
+    sort_by: str = Field("price", pattern="^(price|duration|stops|departure|arrival)$")
+    max_price: Optional[float] = Field(None, gt=0, description="Filter results above this price")
+    departure_from: Optional[str] = Field(None, description="Earliest departure time HH:MM")
+    departure_to: Optional[str] = Field(None, description="Latest departure time HH:MM")
 
 class FlightOffer(BaseModel):
     id: str
@@ -306,6 +310,9 @@ async def search_flights(request: SearchRequest):
                 if request.max_stops is not None and normalized.stops > request.max_stops:
                     continue
 
+                if request.max_price is not None and normalized.price > request.max_price:
+                    continue
+
                 if segment.airline_filter:
                     if normalized.airline_iata.upper() != segment.airline_filter.upper():
                         continue
@@ -320,9 +327,32 @@ async def search_flights(request: SearchRequest):
 
                 all_offers.append(normalized)
 
-    # Dedupe and sort by price
+    # Dedupe and sort by requested field
     unique_offers = dedupe_offers(all_offers)
-    sorted_offers = sorted(unique_offers, key=lambda x: x.price)
+
+    sort_key_map = {
+        "price": lambda x: x.price,
+        "duration": lambda x: (x.duration_minutes or 9999),
+        "stops": lambda x: x.stops,
+        "departure": lambda x: x.departure_time or "",
+        "arrival": lambda x: x.arrival_time or "",
+    }
+    sort_key = sort_key_map.get(request.sort_by, lambda x: x.price)
+    sorted_offers = sorted(unique_offers, key=sort_key)
+
+    # Record cheapest price in history (fire-and-forget; do not block response)
+    if sorted_offers:
+        try:
+            from price_history import record_price
+            record_price(
+                segment.from_iata,
+                segment.to_iata,
+                sorted_offers[0].price,
+                currency=request.currency,
+                source="search",
+            )
+        except Exception:
+            pass
 
     response = {
         "query": {

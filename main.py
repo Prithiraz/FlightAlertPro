@@ -22,6 +22,10 @@ from search import router as search_router
 from currency import router as currency_router
 from alerts import router as alerts_router
 from systemcheck import router as systemcheck_router
+from flexible_search import router as flexible_search_router
+from explore import router as explore_router
+from price_history import router as price_history_router
+from referrals import router as referrals_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -52,6 +56,10 @@ app.include_router(search_router)
 app.include_router(currency_router)
 app.include_router(alerts_router)
 app.include_router(systemcheck_router)
+app.include_router(flexible_search_router)
+app.include_router(explore_router)
+app.include_router(price_history_router)
+app.include_router(referrals_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str

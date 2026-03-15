@@ -34,6 +34,7 @@ class Config:
     DATABASE_URL = os.getenv('DATABASE_URL', os.getenv('VITE_SUPABASE_URL'))
     SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
     SUPABASE_ANON_KEY = os.getenv('VITE_SUPABASE_ANON_KEY')
+    SUPABASE_KEY = os.getenv('VITE_SUPABASE_ANON_KEY')  # alias for SUPABASE_ANON_KEY
 
     REDIS_URL = os.getenv('REDIS_URL')
 

@@ -80,3 +80,38 @@ export function listAlerts(userEmail) {
 export function deleteAlert(alertId, userEmail) {
   return request('DELETE', `/api/alerts/${alertId}?user_email=${encodeURIComponent(userEmail)}`);
 }
+
+export function flexibleSearch(params) {
+  return request('POST', '/api/search/flexible', params);
+}
+
+export function exploreDestinations({ from_iata, budget, tags, limit } = {}) {
+  const qs = new URLSearchParams({ from_iata });
+  if (budget != null) qs.append('budget', budget);
+  if (tags) qs.append('tags', tags);
+  if (limit != null) qs.append('limit', limit);
+  return request('GET', `/api/explore?${qs}`);
+}
+
+export function getPriceHistory({ from_iata, to_iata, currency = 'USD', days = 30 } = {}) {
+  const qs = new URLSearchParams({ from_iata, to_iata, currency, days });
+  return request('GET', `/api/price-history?${qs}`);
+}
+
+export function generateReferralCode(userEmail) {
+  return request('POST', '/api/referrals/generate', { user_email: userEmail });
+}
+
+export function getReferralStats(userEmail) {
+  return request('GET', `/api/referrals/stats?user_email=${encodeURIComponent(userEmail)}`);
+}
+
+export function createCheckoutSession({ userEmail, plan, successUrl, cancelUrl }) {
+  const qs = new URLSearchParams({
+    user_email: userEmail,
+    plan,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  });
+  return request('POST', `/api/payments/checkout?${qs}`);
+}
