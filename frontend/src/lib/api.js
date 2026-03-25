@@ -80,3 +80,8 @@ export function listAlerts(userEmail) {
 export function deleteAlert(alertId, userEmail) {
   return request('DELETE', `/api/alerts/${alertId}?user_email=${encodeURIComponent(userEmail)}`);
 }
+
+export async function searchAirports(q) {
+  if (!q || q.length < 2) return [];
+  return apiFetch(`/api/airports/search?q=${encodeURIComponent(q)}`);
+}

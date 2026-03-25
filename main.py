@@ -17,7 +17,7 @@ from notifications import notification_service
 from stripe_service import stripe_service
 
 # Import new routes
-from metadata import router as metadata_router
+from metadata import router as metadata_router, airports_router
 from search import router as search_router
 from currency import router as currency_router
 from alerts import router as alerts_router
@@ -48,6 +48,7 @@ app.add_middleware(
 
 # Include new routers
 app.include_router(metadata_router)
+app.include_router(airports_router)
 app.include_router(search_router)
 app.include_router(currency_router)
 app.include_router(alerts_router)
