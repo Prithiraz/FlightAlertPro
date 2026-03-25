@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchFlights } from '../lib/api';
+import AirportAutocomplete from '../components/AirportAutocomplete';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -30,6 +31,12 @@ export default function Search() {
     setError('');
     setResults([]);
     setSearched(false);
+
+    if (!form.from_iata || !form.to_iata) {
+      setError('Please select an origin and destination airport.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const payload = {
@@ -78,27 +85,19 @@ export default function Search() {
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.row}>
           <div style={styles.field}>
-            <label style={styles.label}>From (IATA)</label>
-            <input
-              name="from_iata"
+            <label style={styles.label}>From</label>
+            <AirportAutocomplete
+              placeholder="LAX – Los Angeles"
               value={form.from_iata}
-              onChange={handleChange}
-              maxLength={3}
-              placeholder="LAX"
-              required
-              style={styles.input}
+              onChange={(iata) => setForm((prev) => ({ ...prev, from_iata: iata }))}
             />
           </div>
           <div style={styles.field}>
-            <label style={styles.label}>To (IATA)</label>
-            <input
-              name="to_iata"
+            <label style={styles.label}>To</label>
+            <AirportAutocomplete
+              placeholder="JFK – New York"
               value={form.to_iata}
-              onChange={handleChange}
-              maxLength={3}
-              placeholder="JFK"
-              required
-              style={styles.input}
+              onChange={(iata) => setForm((prev) => ({ ...prev, to_iata: iata }))}
             />
           </div>
         </div>
