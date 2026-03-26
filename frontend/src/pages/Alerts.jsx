@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { createAlert, listAlerts, deleteAlert } from '../lib/api';
 import { useAuth } from '../App';
+import AirportAutocomplete from '../components/AirportAutocomplete';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'whatsapp', 'telegram'];
@@ -81,6 +82,12 @@ export default function Alerts() {
     setError('');
     setSuccess('');
 
+    if (!form.from_iata || !form.to_iata) {
+      setError('Please select an origin and destination airport.');
+      setCreating(false);
+      return;
+    }
+
     try {
       const payload = {
         user_email: user.email,
@@ -127,27 +134,19 @@ export default function Alerts() {
         <form onSubmit={handleCreate} style={styles.form}>
           <div style={styles.row}>
             <div style={styles.field}>
-              <label style={styles.label}>From (IATA)</label>
-              <input
-                name="from_iata"
+              <label style={styles.label}>From</label>
+              <AirportAutocomplete
+                placeholder="City or airport"
                 value={form.from_iata}
-                onChange={handleChange}
-                maxLength={3}
-                placeholder="LAX"
-                required
-                style={styles.input}
+                onChange={(iata) => setForm((prev) => ({ ...prev, from_iata: iata }))}
               />
             </div>
             <div style={styles.field}>
-              <label style={styles.label}>To (IATA)</label>
-              <input
-                name="to_iata"
+              <label style={styles.label}>To</label>
+              <AirportAutocomplete
+                placeholder="City or airport"
                 value={form.to_iata}
-                onChange={handleChange}
-                maxLength={3}
-                placeholder="JFK"
-                required
-                style={styles.input}
+                onChange={(iata) => setForm((prev) => ({ ...prev, to_iata: iata }))}
               />
             </div>
           </div>
