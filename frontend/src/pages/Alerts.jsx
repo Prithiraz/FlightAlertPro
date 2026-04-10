@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { createAlert, listAlerts, deleteAlert } from '../lib/api';
 import { useAuth } from '../App';
 import AirportAutocomplete from '../components/AirportAutocomplete';
+import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'whatsapp', 'telegram'];
@@ -14,6 +15,7 @@ const emptyForm = {
   currency: 'USD',
   departure_date: '',
   notification_channels: ['email'],
+  airline: '',
 };
 
 export default function Alerts() {
@@ -189,6 +191,14 @@ export default function Alerts() {
               value={form.departure_date}
               onChange={handleChange}
               style={{ ...styles.input, maxWidth: '240px' }}
+            />
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>Airline (optional)</label>
+            <AirlineAutocomplete
+              value={form.airline}
+              onChange={(iata) => setForm((prev) => ({ ...prev, airline: iata }))}
             />
           </div>
 

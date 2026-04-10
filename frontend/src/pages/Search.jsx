@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchFlights } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
+import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -14,6 +15,7 @@ export default function Search() {
     return_date: '',
     passengers: 1,
     cabin_class: 'economy',
+    airline: '',
   });
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -154,6 +156,16 @@ export default function Search() {
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div style={styles.row}>
+          <div style={styles.field}>
+            <label style={styles.label}>Airline (optional)</label>
+            <AirlineAutocomplete
+              value={form.airline}
+              onChange={(iata) => setForm((prev) => ({ ...prev, airline: iata }))}
+            />
           </div>
         </div>
 
