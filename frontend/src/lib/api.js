@@ -85,3 +85,8 @@ export async function searchAirports(q) {
   if (!q || q.length < 2) return [];
   return apiFetch(`/api/airports/search?q=${encodeURIComponent(q)}`);
 }
+
+export async function searchAirlines(q) {
+  if (!q || q.length < 2) return [];
+  return apiFetch(`/api/airlines/search?q=${encodeURIComponent(q)}`);
+}
