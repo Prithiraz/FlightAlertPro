@@ -103,7 +103,7 @@ export default function AirlineAutocomplete({ placeholder = 'Airline name or cod
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, styles.itemBase)}
             >
               <div style={styles.itemLeft}>
-                <span style={styles.name}>{item.name}, {item.country}</span>
+                <span style={styles.label}>{item.name}, {item.country}</span>
               </div>
               <span style={styles.badge}>{item.iata}</span>
             </button>
@@ -176,7 +176,7 @@ const styles = {
     flex: 1,
     overflow: 'hidden',
   },
-  name: {
+  label: {
     fontWeight: '600',
     fontSize: '0.9rem',
     color: '#111827',
