@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 airports_router = APIRouter(prefix="/api/airports", tags=["airports"])
+airlines_router = APIRouter(prefix="/api/airlines", tags=["airlines"])
 
 # Load data at module level (singleton)
 _data_candidate = Path(__file__).parent / "data"
@@ -279,6 +280,45 @@ async def airport_autocomplete_search(q: str = Query("", description="Search que
         elif iata.startswith(q_lower) or city.startswith(q_lower) or name.startswith(q_lower):
             prefix_matches.append(entry)
         elif q_lower in iata or q_lower in city or q_lower in name:
+            substring_matches.append(entry)
+
+    results = exact_iata + prefix_matches + substring_matches
+    return results[:10]
+
+
+@airlines_router.get("/search")
+async def airline_autocomplete_search(q: str = Query("", description="Search query (min 2 chars)")):
+    """
+    Lightweight airline autocomplete search.
+    Returns up to 10 results matched against IATA code or airline name.
+    """
+    if len(q) < 2:
+        return []
+
+    q_lower = q.lower().strip()
+
+    exact_iata = []
+    prefix_matches = []
+    substring_matches = []
+
+    for airline in AIRLINES:
+        iata = airline.get('iata', '').lower()
+        name = airline.get('name', '').lower()
+
+        if not iata:
+            continue
+
+        entry = {
+            "iata": airline.get('iata', ''),
+            "name": airline.get('name', ''),
+            "country": airline.get('country', ''),
+        }
+
+        if iata == q_lower:
+            exact_iata.append(entry)
+        elif iata.startswith(q_lower) or name.startswith(q_lower):
+            prefix_matches.append(entry)
+        elif q_lower in iata or q_lower in name:
             substring_matches.append(entry)
 
     results = exact_iata + prefix_matches + substring_matches
