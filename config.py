@@ -1,9 +1,24 @@
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
-env_path = Path(__file__).parent.parent / '.env'
-load_dotenv(env_path)
+def _load_dotenv() -> str:
+    """Try repo root, then parent directory, then cwd for .env. Returns the path that was loaded."""
+    candidates = [
+        Path(__file__).parent / '.env',
+        Path(__file__).parent.parent / '.env',
+        Path.cwd() / '.env',
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            load_dotenv(candidate)
+            return str(candidate)
+    # No .env file found; fall back to environment variables already set
+    return "(none found)"
+
+_loaded_env_path = _load_dotenv()
+logging.getLogger(__name__).debug("config: loaded .env from %s", _loaded_env_path)
 
 class Config:
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
@@ -34,6 +49,9 @@ class Config:
     DATABASE_URL = os.getenv('DATABASE_URL', os.getenv('VITE_SUPABASE_URL'))
     SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
     SUPABASE_ANON_KEY = os.getenv('VITE_SUPABASE_ANON_KEY')
+    SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
+
+    FRONTEND_ORIGINS = os.getenv('FRONTEND_ORIGINS')
 
     REDIS_URL = os.getenv('REDIS_URL')
 

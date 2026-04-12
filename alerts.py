@@ -1,10 +1,11 @@
 """Price alerts management with Supabase"""
-from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel, Field, EmailStr
+from fastapi import APIRouter, HTTPException, Header, Depends
+from pydantic import BaseModel, Field
 from pydantic.functional_validators import model_validator
 from typing import List, Optional
 from supabase import create_client, Client
 from config import config
+from jose import jwt, JWTError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,8 +15,34 @@ router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 # Initialize Supabase client
 supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
 
+
+def _get_verified_email(authorization: Optional[str] = Header(default=None)) -> str:
+    """Validate Supabase Bearer JWT and return the authenticated user's email."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+
+    token = authorization.split(" ", 1)[1]
+
+    if not config.SUPABASE_JWT_SECRET:
+        raise HTTPException(status_code=500, detail="Server misconfiguration: JWT secret not set")
+
+    try:
+        payload = jwt.decode(
+            token,
+            config.SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from None
+
+    email = payload.get("email")
+    if not email:
+        raise HTTPException(status_code=401, detail="Token does not contain an email claim")
+
+    return email
+
 class CreateAlertRequest(BaseModel):
-    user_email: EmailStr
     from_iata: str = Field(..., min_length=3, max_length=3)
     to_iata: str = Field(..., min_length=3, max_length=3)
     max_price: float = Field(..., gt=0)
@@ -35,7 +62,10 @@ class CreateAlertRequest(BaseModel):
         return data
 
 @router.post("/create", status_code=201)
-async def create_alert(alert: CreateAlertRequest):
+async def create_alert(
+    alert: CreateAlertRequest,
+    user_email: str = Depends(_get_verified_email),
+):
     """Create a new price alert"""
     try:
         # Validate phone if SMS/WhatsApp selected
@@ -48,7 +78,7 @@ async def create_alert(alert: CreateAlertRequest):
 
         # Insert into Supabase
         result = supabase.table('price_alerts').insert({
-            'user_email': alert.user_email,
+            'user_email': user_email,
             'from_iata': alert.from_iata.upper(),
             'to_iata': alert.to_iata.upper(),
             'max_price': alert.max_price,
@@ -60,7 +90,7 @@ async def create_alert(alert: CreateAlertRequest):
         }).execute()
 
         if result.data:
-            logger.info(f"Created alert {result.data[0]['id']} for {alert.user_email}")
+            logger.info(f"Created alert {result.data[0]['id']} for {user_email}")
             return {
                 "success": True,
                 "alert_id": result.data[0]['id'],
@@ -77,8 +107,8 @@ async def create_alert(alert: CreateAlertRequest):
 
 @router.get("/list")
 async def list_alerts(
-    user_email: str,
-    active_only: bool = True
+    active_only: bool = True,
+    user_email: str = Depends(_get_verified_email),
 ):
     """List user's price alerts"""
     try:
@@ -94,12 +124,17 @@ async def list_alerts(
             "alerts": result.data
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to list alerts: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve alerts: {str(e)}")
 
 @router.delete("/{alert_id}")
-async def delete_alert(alert_id: str, user_email: str):
+async def delete_alert(
+    alert_id: str,
+    user_email: str = Depends(_get_verified_email),
+):
     """Deactivate a price alert"""
     try:
         # Verify ownership
