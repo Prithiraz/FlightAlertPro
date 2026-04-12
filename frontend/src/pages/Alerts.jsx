@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { createAlert, listAlerts, deleteAlert } from '../lib/api';
 import { useAuth } from '../App';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
-const CHANNELS = ['email', 'whatsapp', 'telegram'];
+const CHANNELS = ['email', 'telegram'];
 
 const emptyForm = {
   from_iata: '',
@@ -28,6 +28,9 @@ export default function Alerts() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [prefillApplied, setPrefillApplied] = useState(false);
+
+  const isPro = user?.user_metadata?.is_pro || user?.app_metadata?.is_pro;
+  const atFreeLimit = !isPro && alerts.length >= 1;
 
   useEffect(() => {
     const prefill = location.state?.prefill;
@@ -205,23 +208,48 @@ export default function Alerts() {
           <div style={styles.field}>
             <label style={styles.label}>Notification Channels</label>
             <div style={styles.channels}>
-              {CHANNELS.map((ch) => (
-                <label key={ch} style={styles.checkLabel}>
-                  <input
-                    type="checkbox"
-                    checked={form.notification_channels.includes(ch)}
-                    onChange={() => toggleChannel(ch)}
-                  />
-                  {' '}{ch.charAt(0).toUpperCase() + ch.slice(1)}
-                </label>
-              ))}
+              {CHANNELS.map((ch) => {
+                const isTelegramLocked = ch === 'telegram' && !isPro;
+                return (
+                  <label
+                    key={ch}
+                    style={{
+                      ...styles.checkLabel,
+                      ...(isTelegramLocked ? styles.checkLabelDisabled : {}),
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.notification_channels.includes(ch)}
+                      onChange={() => !isTelegramLocked && toggleChannel(ch)}
+                      disabled={isTelegramLocked}
+                    />
+                    {' '}{ch.charAt(0).toUpperCase() + ch.slice(1)}
+                    {isTelegramLocked && (
+                      <span style={styles.proBadge}>Pro Only</span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
           </div>
+
+          {atFreeLimit && (
+            <div style={styles.paywallBox}>
+              <p style={styles.paywallText}>
+                ⚠️ You have reached your free limit. Upgrade to Pro to monitor additional routes.
+              </p>
+              <Link to="/pricing" style={styles.paywallLink}>Upgrade to Pro →</Link>
+            </div>
+          )}
 
           {error && <p style={styles.error}>{error}</p>}
           {success && <p style={styles.success}>{success}</p>}
 
-          <button type="submit" disabled={creating} style={styles.button}>
+          <button type="submit" disabled={creating || atFreeLimit} style={{
+            ...styles.button,
+            ...(atFreeLimit ? styles.buttonDisabled : {}),
+          }}>
             {creating ? 'Creating...' : 'Create Alert'}
           </button>
         </form>
@@ -284,6 +312,7 @@ const styles = {
   channels: { display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.25rem' },
   checkLabel: { display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', fontSize: '0.95rem' },
   button: { alignSelf: 'flex-start', marginTop: '0.25rem', padding: '0.625rem 1.5rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer' },
+  buttonDisabled: { background: '#9ca3af', cursor: 'not-allowed' },
   error: { color: '#dc2626', fontSize: '0.875rem', margin: 0 },
   success: { color: '#16a34a', fontSize: '0.875rem', margin: 0 },
   empty: { color: '#6b7280', textAlign: 'center', padding: '2rem 0' },
@@ -294,4 +323,9 @@ const styles = {
   arrow: { color: '#6b7280' },
   alertMeta: { fontSize: '0.875rem', color: '#6b7280' },
   deactivateBtn: { alignSelf: 'flex-start', marginTop: '0.5rem', padding: '0.375rem 0.875rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
+  checkLabelDisabled: { opacity: 0.5, cursor: 'not-allowed' },
+  proBadge: { marginLeft: '0.375rem', background: '#ede9fe', color: '#7c3aed', fontSize: '0.7rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  paywallBox: { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' },
+  paywallText: { color: '#92400e', fontWeight: '600', fontSize: '0.925rem', margin: 0 },
+  paywallLink: { color: '#1d4ed8', fontWeight: '700', fontSize: '0.925rem', textDecoration: 'none' },
 };
