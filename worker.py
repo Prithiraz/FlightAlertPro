@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime, timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from config import config
@@ -11,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 class AlertWorker:
     def __init__(self):
-        self.scheduler = BlockingScheduler()
         self.use_redis = config.REDIS_URL is not None
 
     def acquire_lock(self, lock_key: str, timeout: int = 300) -> bool:
@@ -108,19 +108,19 @@ class AlertWorker:
         departure_date = alert.get('departure_date')
         user_email = alert.get('user_email')
         
-        logger.info(f"Processing alert {alert_id}: {from_iata} -> {to_iata}, max_price: {max_price} {currency}")
-        
+        logger.info(f"Checking alert for {from_iata}->{to_iata} (id={alert_id}, threshold={max_price} {currency})")
+
         try:
             # Import search functionality
             import asyncio
             from datetime import timezone
             from search import search_flights, SearchRequest, FlightSegment, PassengerCount
-            
+
             # Build search request
             if not departure_date:
                 # If no specific date, search for next 7 days
                 departure_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
-            
+
             search_request = SearchRequest(
                 segments=[FlightSegment(
                     from_iata=from_iata,
@@ -131,7 +131,7 @@ class AlertWorker:
                 cabin_class="economy",
                 currency=currency
             )
-            
+
             # Run the search (need to run async function in sync context)
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -139,39 +139,39 @@ class AlertWorker:
                 search_result = loop.run_until_complete(search_flights(search_request))
             finally:
                 loop.close()
-            
+
             offers = search_result.get('offers', [])
-            
+
             if not offers:
-                logger.info(f"No offers found for alert {alert_id}")
+                logger.info(f"Checking alert for {from_iata}->{to_iata}... No offers found, skipping")
                 return
-            
+
             # Find lowest price (offers list is guaranteed non-empty here)
             lowest_price = min(offer['price'] for offer in offers)
-            logger.info(f"Alert {alert_id}: Lowest price found: {lowest_price} {currency}")
-            
+            logger.info(f"Checking alert for {from_iata}->{to_iata}... Current price {lowest_price:.2f} {currency}... Threshold {max_price:.2f} {currency}")
+
             # Check if price meets threshold
             if lowest_price > max_price:
-                logger.info(f"Alert {alert_id}: Price {lowest_price} exceeds threshold {max_price}, skipping")
+                logger.info(f"Checking alert for {from_iata}->{to_iata}... Current price {lowest_price:.2f} {currency} is above threshold {max_price:.2f} {currency}, skipping")
                 return
-            
+
             # Check deduplication - avoid sending alert for same or higher price
             last_triggered_price = alert.get('last_triggered_price')
             if last_triggered_price is not None and lowest_price >= last_triggered_price:
-                logger.info(f"Alert {alert_id}: Price {lowest_price} not lower than last triggered price {last_triggered_price}, skipping")
+                logger.info(f"Checking alert for {from_iata}->{to_iata}... Current price {lowest_price:.2f} {currency} not lower than last triggered price {last_triggered_price:.2f} {currency}, skipping")
                 return
-            
+
             # Price drop detected! Send notification
-            logger.info(f"Alert {alert_id}: Price drop detected! {lowest_price} <= {max_price}")
-            
+            logger.info(f"Checking alert for {from_iata}->{to_iata}... Current price {lowest_price:.2f} {currency}... Threshold {max_price:.2f} {currency}... Triggering notification")
+
             # Get notification channels
             channels = alert.get('channels') or alert.get('notification_channels', ['email'])
             phone = alert.get('phone')
-            
+
             # Send notification using existing notification service
             route = f"{from_iata} → {to_iata}"
             old_price = last_triggered_price if last_triggered_price else max_price
-            
+
             notification_result = notification_service.send_price_alert(
                 user_email=user_email,
                 route=route,
@@ -180,7 +180,7 @@ class AlertWorker:
                 channels=channels,
                 phone=phone
             )
-            
+
             logger.info(f"Alert {alert_id}: Notification sent - {notification_result}")
             
             # Update alert in database
@@ -200,23 +200,42 @@ class AlertWorker:
         except Exception as e:
             logger.error(f"Error processing alert {alert_id}: {str(e)}", exc_info=True)
 
-    def start(self, interval_minutes: int = 5):
-        logger.info(f"Starting alert worker (interval: {interval_minutes} minutes)")
+    def start(self, interval_hours: int = 6):
+        """Start the worker as a standalone blocking process."""
+        logger.info(f"Starting alert worker (interval: {interval_hours} hours)")
 
-        self.scheduler.add_job(
+        scheduler = BlockingScheduler()
+        scheduler.add_job(
             self.check_alerts,
-            trigger=IntervalTrigger(minutes=interval_minutes),
+            trigger=IntervalTrigger(hours=interval_hours),
             id='check_alerts',
             name='Check price alerts',
             replace_existing=True
         )
 
         logger.info("Worker started")
-        self.scheduler.start()
+        scheduler.start()
+
+    def start_background(self, interval_hours: int = 6) -> BackgroundScheduler:
+        """Start the worker as a non-blocking background scheduler for use with FastAPI."""
+        logger.info(f"Starting background alert worker (interval: {interval_hours} hours)")
+
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(
+            self.check_alerts,
+            trigger=IntervalTrigger(hours=interval_hours),
+            id='check_alerts',
+            name='Check price alerts',
+            replace_existing=True
+        )
+        scheduler.start()
+
+        logger.info("Background worker started")
+        return scheduler
 
 if __name__ == "__main__":
     from logging_config import setup_logging
     setup_logging()
 
     worker = AlertWorker()
-    worker.start(interval_minutes=5)
+    worker.start(interval_hours=config.ALERT_CHECK_INTERVAL_HOURS)

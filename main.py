@@ -15,6 +15,7 @@ from currency_service import currency_service
 from prediction_service import prediction_service
 from notifications import notification_service
 from stripe_service import stripe_service
+from worker import AlertWorker
 
 # Import new routes
 from metadata import router as metadata_router, airports_router, airlines_router
@@ -76,7 +77,20 @@ class AlertRequest(BaseModel):
 async def startup_event():
     logger.info("FlightAlertPro API Starting...")
     print(secrets_manager.get_report())
+
+    interval = config.ALERT_CHECK_INTERVAL_HOURS
+    app.state.alert_worker = AlertWorker()
+    app.state.bg_scheduler = app.state.alert_worker.start_background(interval_hours=interval)
+    logger.info(f"Alert worker scheduled every {interval} hour(s)")
+
     logger.info("API Ready")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler = getattr(app.state, "bg_scheduler", None)
+    if scheduler and scheduler.running:
+        scheduler.shutdown(wait=True)
+        logger.info("Background alert worker stopped")
 
 @app.get("/")
 async def root():
