@@ -1,7 +1,9 @@
 import stripe
 import logging
+from datetime import datetime
 from typing import Optional, Dict
 from config import config
+from supabase import create_client, Client
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,15 @@ class StripeService:
 
         if self.enabled:
             stripe.api_key = self.api_key
+
+        # Use service role key for server-side DB writes; fall back to anon key
+        supabase_key = config.SUPABASE_SERVICE_KEY or config.SUPABASE_ANON_KEY
+        self._supabase: Optional[Client] = None
+        if config.SUPABASE_URL and supabase_key:
+            self._supabase = create_client(config.SUPABASE_URL, supabase_key)
+
+    def _get_supabase(self) -> Optional[Client]:
+        return self._supabase
 
     def create_checkout_session(self, user_email: str, plan: str, success_url: str,
                                cancel_url: str) -> Optional[Dict]:
@@ -70,16 +81,69 @@ class StripeService:
             logger.error(f"Webhook signature verification failed: {str(e)}")
             return None
 
-    def handle_checkout_completed(self, session: Dict) -> Dict:
-        user_email = session.get('customer_email') or session.get('metadata', {}).get('user_email')
-        subscription_id = session.get('subscription')
+    def _upgrade_user_in_db(self, user_email: str, stripe_customer_id: Optional[str],
+                            subscription_id: Optional[str], plan: str) -> bool:
+        """Update user subscription fields in Supabase. Returns True on success."""
+        supabase = self._get_supabase()
+        if not supabase:
+            logger.warning("Supabase client not configured – skipping DB upgrade for %s", user_email)
+            return False
 
-        logger.info(f"Checkout completed for {user_email}, subscription: {subscription_id}")
+        profile_data: Dict = {
+            'email': user_email,
+            'is_pro': True,
+            'plan': plan,
+            'subscription_status': 'active',
+            'updated_at': datetime.utcnow().isoformat(),
+        }
+        if stripe_customer_id:
+            profile_data['stripe_customer_id'] = stripe_customer_id
+        if subscription_id:
+            profile_data['subscription_id'] = subscription_id
+
+        try:
+            result = supabase.table('user_profiles').upsert(
+                profile_data, on_conflict='email'
+            ).execute()
+            if result.data:
+                logger.info(
+                    "Stripe Webhook received: Upgrade successful for user %s (plan=%s)",
+                    user_email, plan
+                )
+                return True
+            logger.error("DB upsert for user %s returned no data", user_email)
+            return False
+        except Exception as exc:
+            logger.error("Failed to upgrade user %s in DB: %s", user_email, str(exc))
+            return False
+
+    def handle_checkout_completed(self, session: Dict) -> Dict:
+        user_email = (
+            session.get('customer_email')
+            or session.get('metadata', {}).get('user_email')
+        )
+        stripe_customer_id = session.get('customer')
+        subscription_id = session.get('subscription')
+        plan = session.get('metadata', {}).get('plan', 'pro')
+
+        logger.info(
+            "Checkout completed for %s, plan=%s, subscription=%s",
+            user_email, plan, subscription_id
+        )
+
+        db_updated = False
+        if user_email:
+            db_updated = self._upgrade_user_in_db(
+                user_email, stripe_customer_id, subscription_id, plan
+            )
 
         return {
             'user_email': user_email,
+            'stripe_customer_id': stripe_customer_id,
             'subscription_id': subscription_id,
-            'status': 'active'
+            'plan': plan,
+            'status': 'active',
+            'db_updated': db_updated,
         }
 
     def handle_invoice_paid(self, invoice: Dict) -> Dict:
