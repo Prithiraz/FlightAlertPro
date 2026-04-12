@@ -52,4 +52,6 @@ class Config:
 
     ALERT_CHECK_INTERVAL_HOURS = int(os.getenv('ALERT_CHECK_INTERVAL_HOURS', '6'))
 
+    CRON_SECRET = os.getenv('CRON_SECRET')
+
 config = Config()
