@@ -49,4 +49,6 @@ class Config:
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_RETENTION_DAYS = int(os.getenv('LOG_RETENTION_DAYS', '7'))
 
+    ALERT_CHECK_INTERVAL_HOURS = int(os.getenv('ALERT_CHECK_INTERVAL_HOURS', '6'))
+
 config = Config()
