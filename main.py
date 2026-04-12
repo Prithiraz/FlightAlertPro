@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
@@ -77,20 +77,9 @@ class AlertRequest(BaseModel):
 async def startup_event():
     logger.info("FlightAlertPro API Starting...")
     print(secrets_manager.get_report())
-
-    interval = config.ALERT_CHECK_INTERVAL_HOURS
-    app.state.alert_worker = AlertWorker()
-    app.state.bg_scheduler = app.state.alert_worker.start_background(interval_hours=interval)
-    logger.info(f"Alert worker scheduled every {interval} hour(s)")
-
+    if not config.CRON_SECRET:
+        logger.warning("CRON_SECRET is not configured — /api/cron/run-worker endpoint will be disabled")
     logger.info("API Ready")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    scheduler = getattr(app.state, "bg_scheduler", None)
-    if scheduler and scheduler.running:
-        scheduler.shutdown(wait=True)
-        logger.info("Background alert worker stopped")
 
 @app.get("/")
 async def root():
@@ -128,6 +117,21 @@ async def integrations_health():
     status_code = 200 if all_ok else 503
 
     return JSONResponse(content=integrations, status_code=status_code)
+
+@app.post("/api/cron/run-worker")
+async def run_worker(authorization: Optional[str] = Header(default=None, alias="Authorization")):
+    cron_secret = config.CRON_SECRET
+    if not cron_secret:
+        raise HTTPException(status_code=500, detail="CRON_SECRET not configured")
+    if authorization != f"Bearer {cron_secret}":
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        worker = AlertWorker()
+        worker.check_alerts()
+        return {"status": "ok", "message": "Worker run completed"}
+    except Exception as e:
+        logger.error(f"Worker run failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Worker run failed: {str(e)}")
 
 @app.post("/api/search/simple")
 async def search_flights_simple(request: SimpleSearchRequest):
