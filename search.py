@@ -8,11 +8,18 @@ import logging
 import hashlib
 import time
 
+import openai
 from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
 from duffel_service import duffel_service
 from serpapi_service import serpapi_service
+from config import config
 
 logger = logging.getLogger(__name__)
+
+# Module-level OpenAI client (initialized once; None when API key is absent)
+_openai_client: Optional[openai.OpenAI] = (
+    openai.OpenAI(api_key=config.OPENAI_API_KEY) if config.OPENAI_API_KEY else None
+)
 
 router = APIRouter(prefix="/api", tags=["search"])
 
@@ -154,10 +161,16 @@ async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[
         return []
 
     try:
-        # Note: duffel_service.search_flights is synchronous, but we need to call it from async context
-        # For now, just skip Duffel integration - it would need proper async wrapper
-        logger.info("Duffel integration requires async wrapper - skipping")
-        return []
+        results = await asyncio.to_thread(
+            duffel_service.fetch_raw_offers,
+            segment.from_iata,
+            segment.to_iata,
+            segment.departure_date,
+            passengers=request.passengers.adults,
+            cabin_class=request.cabin_class,
+        )
+        record_success('duffel')
+        return results or []
     except Exception as e:
         logger.error(f"Duffel search failed: {e}")
         record_failure('duffel')
@@ -306,6 +319,46 @@ def dedupe_offers(offers: List[FlightOffer]) -> List[FlightOffer]:
 
     return unique
 
+async def generate_flight_insight(top_flights: List[FlightOffer]) -> Optional[str]:
+    """Generate an AI-powered recommendation for the top flights using OpenAI."""
+    if not _openai_client or not top_flights:
+        return None
+
+    try:
+        flights_to_analyze = top_flights[:3]
+        flight_summaries = []
+        for i, flight in enumerate(flights_to_analyze, 1):
+            duration_str = f"{flight.duration_minutes} min" if flight.duration_minutes else "unknown duration"
+            stops_str = f"{flight.stops} stop(s)"
+            flight_summaries.append(
+                f"Flight {i}: {flight.airline_name}, "
+                f"${flight.price:.2f} {flight.currency}, "
+                f"{duration_str}, {stops_str}"
+            )
+        flights_text = "\n".join(flight_summaries)
+
+        response = _openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "You are an expert travel agent. Look at these 3 flights:\n\n"
+                        f"{flights_text}\n\n"
+                        "In one short sentence, tell the user which one is the actual best value "
+                        "considering price and duration."
+                    )
+                }
+            ],
+            max_tokens=100,
+            temperature=0.3,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"OpenAI insight generation failed: {e}")
+        return None
+
+
 @router.post("/search")
 async def search_flights(request: SearchRequest):
     """
@@ -372,6 +425,9 @@ async def search_flights(request: SearchRequest):
     unique_offers = dedupe_offers(all_offers)
     sorted_offers = sorted(unique_offers, key=lambda x: x.price)
 
+    # Generate AI insight for the top 3 cheapest flights
+    ai_insight = await generate_flight_insight(sorted_offers)
+
     response = {
         "query": {
             "from": segment.from_iata,
@@ -382,7 +438,8 @@ async def search_flights(request: SearchRequest):
         "total_offers": len(sorted_offers),
         "offers": [offer.dict() for offer in sorted_offers[:50]],  # Max 50 results
         "sources_queried": ['aerodatabox', 'airscraper', 'duffel', 'serpapi'],
-        "search_time_ms": int((time.time() - start_time) * 1000)
+        "search_time_ms": int((time.time() - start_time) * 1000),
+        "ai_insight": ai_insight,
     }
 
     # Cache result
