@@ -61,9 +61,10 @@ class DuffelService:
                 logger.error(f"Duffel request failed after {self.MAX_RETRIES} retries: {str(e)}")
                 return None
 
-    def search_flights(self, from_iata: str, to_iata: str, departure_date: str,
-                      return_date: Optional[str] = None, passengers: int = 1,
-                      cabin_class: str = "economy") -> List[Dict[str, Any]]:
+    def fetch_raw_offers(self, from_iata: str, to_iata: str, departure_date: str,
+                        return_date: Optional[str] = None, passengers: int = 1,
+                        cabin_class: str = "economy") -> List[Dict[str, Any]]:
+        """Fetch raw offers from Duffel API without normalization"""
         if not self.enabled:
             logger.info("Duffel adapter disabled (no API key)")
             return []
@@ -103,7 +104,16 @@ class DuffelService:
         if not offers_result or "data" not in offers_result:
             return []
 
-        return self._normalize_offers(offers_result["data"])
+        return offers_result["data"]
+
+    def search_flights(self, from_iata: str, to_iata: str, departure_date: str,
+                      return_date: Optional[str] = None, passengers: int = 1,
+                      cabin_class: str = "economy") -> List[Dict[str, Any]]:
+        raw_offers = self.fetch_raw_offers(
+            from_iata, to_iata, departure_date,
+            return_date=return_date, passengers=passengers, cabin_class=cabin_class
+        )
+        return self._normalize_offers(raw_offers)
 
     def _normalize_offers(self, duffel_offers: List[Dict]) -> List[Dict[str, Any]]:
         normalized = []
