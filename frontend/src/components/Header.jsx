@@ -24,6 +24,7 @@ export default function Header() {
         <NavLink to="/search" style={navLinkStyle}>Search</NavLink>
         <NavLink to="/alerts" style={navLinkStyle}>Alerts</NavLink>
         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
+        <NavLink to="/pricing" style={navLinkStyle}>Upgrade</NavLink>
         {user?.email && <span style={styles.userEmail}>{user.email}</span>}
         <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
       </nav>
