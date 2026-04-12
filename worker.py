@@ -74,29 +74,236 @@ class AlertWorker:
             return
 
         try:
-            logger.info("Starting alert check...")
-
-            from supabase import create_client
-            supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
-
-            result = supabase.table('price_alerts').select('*').eq('active', True).execute()
-
-            alerts = result.data
-            logger.info(f"Found {len(alerts)} active alerts")
-
-            for alert in alerts:
-                try:
-                    self._process_alert(alert)
-                except Exception as e:
-                    logger.error(f"Error processing alert {alert.get('id')}: {str(e)}")
-
-            logger.info("Alert check completed")
-
+            self.process_active_alerts()
         except Exception as e:
             logger.error(f"Error in check_alerts: {str(e)}")
-
         finally:
             self.release_lock(lock_key)
+
+    # ------------------------------------------------------------------
+    # Route-batching + caching entry point
+    # ------------------------------------------------------------------
+
+    def process_active_alerts(self):
+        """Fetch all active alerts, group them by route/date, apply cache
+        logic so that only ONE external API call is made per unique route,
+        then notify each user whose max_price threshold is met."""
+        import asyncio
+        from datetime import timezone
+        from supabase import create_client
+        from search import search_flights, SearchRequest, FlightSegment, PassengerCount
+
+        logger.info("Starting alert check...")
+
+        supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+
+        result = supabase.table('price_alerts').select('*').eq('active', True).execute()
+        alerts = result.data
+        logger.info(f"Found {len(alerts)} active alerts")
+
+        if not alerts:
+            logger.info("No active alerts — nothing to do")
+            return
+
+        # --- Group by (from_iata, to_iata, departure_date) ---
+        groups: dict[tuple, list] = {}
+        for alert in alerts:
+            dep_date = alert.get('departure_date')
+            if not dep_date:
+                dep_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%Y-%m-%d')
+            key = (alert.get('from_iata'), alert.get('to_iata'), dep_date)
+            groups.setdefault(key, []).append(alert)
+
+        logger.info(f"Grouped into {len(groups)} unique route/date combinations")
+
+        for (from_iata, to_iata, departure_date), group_alerts in groups.items():
+            route_label = f"{from_iata}->{to_iata}"
+            try:
+                # Use currency from the first alert in the group (alerts on the
+                # same route should have the same currency in practice).
+                currency = group_alerts[0].get('currency', 'USD')
+
+                # 1. Check cache
+                cached = self._get_cached_price(supabase, from_iata, to_iata, departure_date)
+
+                if cached is not None:
+                    logger.info(f"CACHE HIT: {route_label} {departure_date} (Skipping API call)")
+                    lowest_price = cached['lowest_price']
+                    api_response = cached['api_response_json']
+                else:
+                    logger.info(f"CACHE MISS: {route_label} {departure_date} (Calling external API)")
+
+                    # 2. Call external API once for this route/date
+                    search_request = SearchRequest(
+                        segments=[FlightSegment(
+                            from_iata=from_iata,
+                            to_iata=to_iata,
+                            departure_date=departure_date
+                        )],
+                        passengers=PassengerCount(adults=1, children=0, infants=0),
+                        cabin_class="economy",
+                        currency=currency
+                    )
+
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        search_result = loop.run_until_complete(search_flights(search_request))
+                    finally:
+                        loop.close()
+
+                    offers = search_result.get('offers', [])
+                    if not offers:
+                        logger.info(f"{route_label} {departure_date}: No offers found, skipping group")
+                        continue
+
+                    lowest_price = min(offer['price'] for offer in offers)
+                    api_response = search_result
+
+                    # 3. Save result to cache
+                    self._save_price_cache(
+                        supabase, from_iata, to_iata, departure_date,
+                        lowest_price, api_response
+                    )
+
+                # 4. Process each user in this route group
+                for alert in group_alerts:
+                    try:
+                        self._process_user_alert(supabase, alert, lowest_price, currency)
+                    except Exception as e:
+                        logger.error(
+                            f"Error processing alert {alert.get('id')} "
+                            f"for {route_label}: {str(e)}"
+                        )
+
+            except Exception as e:
+                logger.error(f"Error processing route group {route_label} {departure_date}: {str(e)}", exc_info=True)
+
+        logger.info("Alert check completed")
+
+    # ------------------------------------------------------------------
+    # Cache helpers
+    # ------------------------------------------------------------------
+
+    def _get_cached_price(self, supabase, from_iata: str, to_iata: str, departure_date: str):
+        """Return cached row if it exists and is less than 6 hours old, else None."""
+        from datetime import timezone
+
+        try:
+            result = (
+                supabase.table('flight_price_cache')
+                .select('*')
+                .eq('origin', from_iata)
+                .eq('destination', to_iata)
+                .eq('departure_date', departure_date)
+                .execute()
+            )
+            if not result.data:
+                return None
+
+            row = result.data[0]
+            updated_at_str = row.get('updated_at')
+            if not updated_at_str:
+                return None
+
+            updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+            age_hours = (datetime.now(timezone.utc) - updated_at).total_seconds() / 3600
+            if age_hours < 6:
+                return row
+            return None
+
+        except Exception as e:
+            logger.error(f"Error checking flight_price_cache: {str(e)}")
+            return None
+
+    def _save_price_cache(self, supabase, from_iata: str, to_iata: str,
+                          departure_date: str, lowest_price: float, api_response: dict):
+        """Upsert a price result into the flight_price_cache table."""
+        import json
+        from datetime import timezone
+
+        try:
+            supabase.table('flight_price_cache').upsert({
+                'origin': from_iata,
+                'destination': to_iata,
+                'departure_date': departure_date,
+                'lowest_price': lowest_price,
+                'api_response_json': api_response,
+                'updated_at': datetime.now(timezone.utc).isoformat(),
+            }).execute()
+        except Exception as e:
+            logger.error(f"Error saving to flight_price_cache: {str(e)}")
+
+    # ------------------------------------------------------------------
+    # Per-user notification logic
+    # ------------------------------------------------------------------
+
+    def _process_user_alert(self, supabase, alert: dict, lowest_price: float, currency: str):
+        """Compare cached lowest_price against a single user's threshold and
+        send a notification if the price is low enough."""
+        from datetime import timezone
+
+        alert_id = alert.get('id')
+        from_iata = alert.get('from_iata')
+        to_iata = alert.get('to_iata')
+        max_price = alert.get('max_price')
+        user_email = alert.get('user_email')
+
+        logger.info(
+            f"Checking alert for {from_iata}->{to_iata} "
+            f"(id={alert_id}, threshold={max_price} {currency})"
+        )
+
+        if lowest_price > max_price:
+            logger.info(
+                f"Checking alert for {from_iata}->{to_iata}... "
+                f"Current price {lowest_price:.2f} {currency} is above "
+                f"threshold {max_price:.2f} {currency}, skipping"
+            )
+            return
+
+        # Deduplication — don't re-notify for the same or higher price
+        last_triggered_price = alert.get('last_triggered_price')
+        if last_triggered_price is not None and lowest_price >= last_triggered_price:
+            logger.info(
+                f"Checking alert for {from_iata}->{to_iata}... "
+                f"Current price {lowest_price:.2f} {currency} not lower than "
+                f"last triggered price {last_triggered_price:.2f} {currency}, skipping"
+            )
+            return
+
+        logger.info(
+            f"Checking alert for {from_iata}->{to_iata}... "
+            f"Current price {lowest_price:.2f} {currency}... "
+            f"Threshold {max_price:.2f} {currency}... Triggering notification"
+        )
+
+        channels = alert.get('channels') or alert.get('notification_channels', ['email'])
+        phone = alert.get('phone')
+        route = f"{from_iata} → {to_iata}"
+        old_price = last_triggered_price if last_triggered_price else max_price
+
+        notification_result = notification_service.send_price_alert(
+            user_email=user_email,
+            route=route,
+            old_price=old_price,
+            new_price=lowest_price,
+            channels=channels,
+            phone=phone
+        )
+
+        logger.info(f"Alert {alert_id}: Notification sent - {notification_result}")
+
+        supabase.table('price_alerts').update({
+            'triggered_at': datetime.now(timezone.utc).isoformat(),
+            'last_triggered_price': lowest_price,
+        }).eq('id', alert_id).execute()
+
+        logger.info(f"Alert {alert_id}: Processing completed successfully")
+
+    # ------------------------------------------------------------------
+    # Legacy single-alert helper (kept for backward compatibility / tests)
+    # ------------------------------------------------------------------
 
     def _process_alert(self, alert: dict):
         """Process a single price alert by searching for flights and triggering notifications if needed"""
