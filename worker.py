@@ -10,6 +10,9 @@ from notifications import notification_service
 
 logger = logging.getLogger(__name__)
 
+# Default number of days ahead to search when an alert has no departure_date
+_DEFAULT_ALERT_DAYS_AHEAD = 7
+
 class AlertWorker:
     def __init__(self):
         self.use_redis = config.REDIS_URL is not None
@@ -110,7 +113,7 @@ class AlertWorker:
         for alert in alerts:
             dep_date = alert.get('departure_date')
             if not dep_date:
-                dep_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%Y-%m-%d')
+                dep_date = (datetime.now(timezone.utc) + timedelta(days=_DEFAULT_ALERT_DAYS_AHEAD)).strftime('%Y-%m-%d')
             key = (alert.get('from_iata'), alert.get('to_iata'), dep_date)
             groups.setdefault(key, []).append(alert)
 
@@ -248,11 +251,6 @@ class AlertWorker:
         to_iata = alert.get('to_iata')
         max_price = alert.get('max_price')
         user_email = alert.get('user_email')
-
-        logger.info(
-            f"Checking alert for {from_iata}->{to_iata} "
-            f"(id={alert_id}, threshold={max_price} {currency})"
-        )
 
         if lowest_price > max_price:
             logger.info(
