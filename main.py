@@ -11,6 +11,7 @@ from secrets import secrets_manager
 from duffel_service import duffel_service
 from aerodatabox_service import aerodatabox_service
 from airscraper_service import airscraper_service
+from serpapi_service import serpapi_service
 from currency_service import currency_service
 from prediction_service import prediction_service
 from notifications import notification_service
@@ -106,6 +107,7 @@ async def integrations_health():
         "duffel": {"enabled": duffel_service.enabled, "status": "ok" if duffel_service.enabled else "disabled"},
         "rapidapi": {"enabled": config.RAPIDAPI_KEY is not None, "status": "ok" if config.RAPIDAPI_KEY else "disabled"},
         "flightapi": {"enabled": config.FLIGHTAPI_KEY is not None, "status": "ok" if config.FLIGHTAPI_KEY else "disabled"},
+        "serpapi": {"enabled": serpapi_service.enabled, "status": "ok" if serpapi_service.enabled else "disabled"},
         "openai": {"enabled": config.OPENAI_API_KEY is not None, "status": "ok" if config.OPENAI_API_KEY else "disabled"},
         "stripe": {"enabled": payments_service.enabled, "status": "ok" if payments_service.enabled else "disabled"},
         "ycloud": {"enabled": ycloud_whatsapp_service.enabled, "status": "ok" if ycloud_whatsapp_service.enabled else "disabled"},

@@ -9,6 +9,7 @@ class Config:
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
     FLIGHTAPI_KEY = os.getenv('FLIGHTAPI_KEY')
     DUFFEL_API_KEY = os.getenv('DUFFEL_API_KEY')
+    FLIGHT_API_KEY = os.getenv('FLIGHT_API_KEY')
 
     YCLOUD_API_KEY = os.getenv('YCLOUD_API_KEY')
     WABA_ACCESS_TOKEN = os.getenv('WABA_ACCESS_TOKEN')
