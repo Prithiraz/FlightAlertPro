@@ -10,6 +10,7 @@ import time
 
 from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
 from duffel_service import duffel_service
+from serpapi_service import serpapi_service
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,8 @@ router = APIRouter(prefix="/api", tags=["search"])
 CIRCUIT_BREAKER = {
     'aerodatabox': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
     'airscraper': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
-    'duffel': {'failures': 0, 'last_failure': 0, 'state': 'closed'}
+    'duffel': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
+    'serpapi': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
 }
 
 CIRCUIT_THRESHOLD = 5
@@ -161,6 +163,32 @@ async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[
         record_failure('duffel')
         return []
 
+async def search_serpapi(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
+    """Search via SerpApi Google Flights engine"""
+    if not check_circuit_breaker('serpapi'):
+        return []
+
+    if not serpapi_service or not serpapi_service.enabled:
+        return []
+
+    try:
+        return_date = None
+        if len(request.segments) > 1:
+            return_date = request.segments[1].departure_date
+
+        results = serpapi_service.search_flights(
+            segment.from_iata,
+            segment.to_iata,
+            segment.departure_date,
+            return_date=return_date,
+        )
+        record_success('serpapi')
+        return results or []
+    except Exception as e:
+        logger.error(f"SerpApi search failed: {e}")
+        record_failure('serpapi')
+        return []
+
 def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
     """Normalize offer from different suppliers to common format"""
     try:
@@ -230,6 +258,25 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
                 booking_url=None
             )
 
+        elif source == 'serpapi':
+            return FlightOffer(
+                id=f"serpapi-{raw_offer.get('id', 'unknown')}",
+                source='serpapi',
+                airline_iata=raw_offer.get('airline', 'XX'),
+                airline_name=raw_offer.get('airline_name', 'Unknown'),
+                from_iata=raw_offer.get('from_iata', ''),
+                to_iata=raw_offer.get('to_iata', ''),
+                departure_time=raw_offer.get('departure', ''),
+                arrival_time=raw_offer.get('arrival', ''),
+                duration_minutes=raw_offer.get('duration_minutes'),
+                stops=raw_offer.get('stops', 0),
+                price=float(raw_offer.get('price', 0)),
+                currency=raw_offer.get('currency', 'USD'),
+                cabin_class=raw_offer.get('cabin_class', 'economy'),
+                baggage_kg=None,
+                booking_url=raw_offer.get('booking_link'),
+            )
+
         return None
     except Exception as e:
         logger.error(f"Failed to normalize {source} offer: {e}")
@@ -284,7 +331,8 @@ async def search_flights(request: SearchRequest):
     tasks = [
         search_aerodatabox(segment, request),
         search_airscraper(segment, request),
-        search_duffel(segment, request)
+        search_duffel(segment, request),
+        search_serpapi(segment, request),
     ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -297,7 +345,7 @@ async def search_flights(request: SearchRequest):
             logger.error(f"Supplier {idx} raised exception: {result}")
             continue
 
-        source = ['aerodatabox', 'airscraper', 'duffel'][idx]
+        source = ['aerodatabox', 'airscraper', 'duffel', 'serpapi'][idx]
 
         for raw_offer in result:
             normalized = normalize_offer(raw_offer, source)
@@ -333,7 +381,7 @@ async def search_flights(request: SearchRequest):
         },
         "total_offers": len(sorted_offers),
         "offers": [offer.dict() for offer in sorted_offers[:50]],  # Max 50 results
-        "sources_queried": ['aerodatabox', 'airscraper', 'duffel'],
+        "sources_queried": ['aerodatabox', 'airscraper', 'duffel', 'serpapi'],
         "search_time_ms": int((time.time() - start_time) * 1000)
     }
 
