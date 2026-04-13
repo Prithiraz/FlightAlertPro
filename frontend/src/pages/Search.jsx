@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { searchFlights } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
+import FlightResultCard from '../components/FlightResultCard';
+import FlightCardSkeleton from '../components/FlightCardSkeleton';
+import Toast from '../components/Toast';
+
+const SKELETON_COUNT = 4;
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -20,6 +25,7 @@ export default function Search() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
   const [searched, setSearched] = useState(false);
 
   const handleChange = (e) => {
@@ -59,7 +65,9 @@ export default function Search() {
       const sorted = [...offers].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
       setResults(sorted);
     } catch (err) {
-      setError(err.message || 'Search failed');
+      const msg = err.message || 'Search failed';
+      setError(msg);
+      setToast(msg);
     } finally {
       setLoading(false);
       setSearched(true);
@@ -176,53 +184,34 @@ export default function Search() {
         </button>
       </form>
 
-      {searched && results.length === 0 && !error && (
-        <p style={styles.empty}>No flights found. Try different dates or airports.</p>
-      )}
-
-      {results.length > 0 && (
+      {/* Skeleton loaders while fetching */}
+      {loading && (
         <div style={styles.results}>
-          <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
-          {results.map((offer, idx) => (
-            <div key={offer.id ?? idx} style={styles.card}>
-              <div style={styles.route}>
-                <span style={styles.iata}>{offer.from_iata}</span>
-                <span style={styles.arrow}> → </span>
-                <span style={styles.iata}>{offer.to_iata}</span>
-              </div>
-              <div style={styles.meta}>
-                {offer.airline_name || offer.airline || '—'} &nbsp;|&nbsp;
-                {offer.stops ?? 0} stop(s) &nbsp;|&nbsp;
-                {offer.cabin_class || form.cabin_class}
-              </div>
-              {offer.departure && (
-                <div style={styles.meta}>
-                  Dep: {new Date(offer.departure).toLocaleString()}
-                  {offer.arrival && ` · Arr: ${new Date(offer.arrival).toLocaleString()}`}
-                </div>
-              )}
-              <div style={styles.price}>
-                {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
-              </div>
-              {offer.booking_link ? (
-                <a
-                  href={offer.booking_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={styles.bookLink}
-                >
-                  Book Now
-                </a>
-              ) : (
-                <span style={styles.noBook}>Contact airline</span>
-              )}
-              <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
-                Create alert
-              </button>
-            </div>
+          {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+            <FlightCardSkeleton key={`skeleton-${i}`} />
           ))}
         </div>
       )}
+
+      {!loading && searched && results.length === 0 && !error && (
+        <p style={styles.empty}>No flights found. Try different dates or airports.</p>
+      )}
+
+      {!loading && results.length > 0 && (
+        <div style={styles.results}>
+          <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
+          {results.map((offer, idx) => (
+            <FlightResultCard
+              key={offer.id ?? idx}
+              offer={offer}
+              cabinClass={form.cabin_class}
+              onCreateAlert={handleCreateAlert}
+            />
+          ))}
+        </div>
+      )}
+
+      <Toast message={toast} onClose={() => setToast('')} />
     </div>
   );
 }
@@ -240,13 +229,4 @@ const styles = {
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '2rem' },
   results: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   resultsHeading: { fontSize: '1.25rem', marginBottom: '0.5rem', color: '#374151' },
-  card: { background: '#fff', borderRadius: '8px', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', gap: '0.375rem' },
-  route: { fontSize: '1.25rem', fontWeight: '700' },
-  iata: { color: '#1d4ed8' },
-  arrow: { color: '#6b7280' },
-  meta: { fontSize: '0.875rem', color: '#6b7280' },
-  price: { fontSize: '1.5rem', fontWeight: '700', color: '#16a34a', marginTop: '0.25rem' },
-  bookLink: { alignSelf: 'flex-start', marginTop: '0.5rem', background: '#1d4ed8', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontWeight: '600', fontSize: '0.875rem' },
-  noBook: { fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' },
-  createAlertBtn: { alignSelf: 'flex-start', marginTop: '0.5rem', padding: '0.375rem 0.875rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem' },
 };
