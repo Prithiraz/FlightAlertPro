@@ -475,7 +475,9 @@ class AlertWorker:
                 old_price=old_price,
                 new_price=lowest_price,
                 channels=channels,
-                phone=phone
+                phone=phone,
+                destination_city=to_iata,
+                arrival_date=departure_date,
             )
 
             logger.info(f"Alert {alert_id}: Notification sent - {notification_result}")

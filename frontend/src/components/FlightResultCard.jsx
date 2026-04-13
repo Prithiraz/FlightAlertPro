@@ -1,4 +1,14 @@
+import { buildHotelUrl } from '../lib/hotelAffiliate';
+
 export default function FlightResultCard({ offer, cabinClass, onCreateAlert }) {
+  const destination = offer.to_iata || '';
+  const checkinDate = offer.arrival
+    ? new Date(offer.arrival).toISOString().slice(0, 10)
+    : offer.departure
+      ? new Date(offer.departure).toISOString().slice(0, 10)
+      : '';
+  const hotelUrl = buildHotelUrl(destination, checkinDate);
+
   return (
     <div className="bg-white rounded-lg p-5 shadow-md flex flex-col gap-1.5">
       <div className="flex items-center gap-2 text-xl font-bold">
@@ -43,6 +53,14 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert }) {
         >
           Create alert
         </button>
+        <a
+          href={hotelUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md text-sm font-semibold hover:bg-amber-100 transition"
+        >
+          🏨 View Hotels in {destination}
+        </a>
       </div>
     </div>
   );

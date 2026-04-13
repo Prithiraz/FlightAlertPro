@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchFlights, getPreferences } from '../lib/api';
 import { useAuth } from '../App';
+import { buildHotelUrl } from '../lib/hotelAffiliate';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 import FlightResultCard from '../components/FlightResultCard';
@@ -9,8 +10,57 @@ import FlightCardSkeleton from '../components/FlightCardSkeleton';
 import Toast from '../components/Toast';
 
 const SKELETON_COUNT = 4;
+const AD_INSERTION_INDEX = 1;
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
+
+function AncillaryAdCard({ destination, checkinDate }) {
+  const hotelUrl = buildHotelUrl(destination, checkinDate);
+  return (
+    <div style={adCardStyles.card}>
+      <span style={adCardStyles.emoji}>🏨</span>
+      <div style={adCardStyles.body}>
+        <p style={adCardStyles.headline}>
+          Unlock 15% off hotels in <strong>{destination}</strong> when you book today
+        </p>
+        <a
+          href={hotelUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={adCardStyles.cta}
+        >
+          View Hotel Deals →
+        </a>
+      </div>
+    </div>
+  );
+}
+
+const adCardStyles = {
+  card: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+    background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+    border: '1px solid #fcd34d',
+    borderRadius: '8px',
+    padding: '1rem 1.25rem',
+  },
+  emoji: { fontSize: '2rem', lineHeight: 1 },
+  body: { display: 'flex', flexDirection: 'column', gap: '0.35rem' },
+  headline: { margin: 0, fontSize: '0.95rem', color: '#92400e' },
+  cta: {
+    display: 'inline-block',
+    padding: '0.4rem 1rem',
+    background: '#f59e0b',
+    color: '#fff',
+    borderRadius: '6px',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    textDecoration: 'none',
+    width: 'fit-content',
+  },
+};
 
 export default function Search() {
   const navigate = useNavigate();
@@ -219,12 +269,19 @@ export default function Search() {
         <div style={styles.results}>
           <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
           {results.map((offer, idx) => (
-            <FlightResultCard
-              key={offer.id ?? idx}
-              offer={offer}
-              cabinClass={form.cabin_class}
-              onCreateAlert={handleCreateAlert}
-            />
+            <Fragment key={offer.id ?? idx}>
+              <FlightResultCard
+                offer={offer}
+                cabinClass={form.cabin_class}
+                onCreateAlert={handleCreateAlert}
+              />
+              {idx === AD_INSERTION_INDEX && (
+                <AncillaryAdCard
+                  destination={form.to_iata.toUpperCase()}
+                  checkinDate={form.departure_date}
+                />
+              )}
+            </Fragment>
           ))}
         </div>
       )}
