@@ -14,6 +14,8 @@ const emptyForm = {
   max_price: '',
   currency: 'USD',
   departure_date: '',
+  departure_start_date: '',
+  departure_end_date: '',
   notification_channels: ['email'],
   airline: '',
 };
@@ -23,6 +25,8 @@ export default function Alerts() {
   const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [form, setForm] = useState(emptyForm);
+  const [flexibleDates, setFlexibleDates] = useState(false);
+  const [toast, setToast] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
@@ -35,6 +39,13 @@ export default function Alerts() {
   const atLimit = alerts.length >= alertLimit;
   const isPaidTier = tier !== 'free';
   const isPro = isPaidTier;
+  // Flexible Dates is an Elite/Business feature
+  const canUseFlexibleDates = tier === 'elite' || tier === 'business';
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 4000);
+  };
 
   useEffect(() => {
     const prefill = location.state?.prefill;
@@ -106,13 +117,20 @@ export default function Alerts() {
         currency: form.currency,
         notification_channels: form.notification_channels,
       };
-      if (form.departure_date) {
+
+      if (flexibleDates && canUseFlexibleDates) {
+        if (form.departure_start_date) payload.departure_start_date = form.departure_start_date;
+        if (form.departure_end_date)   payload.departure_end_date   = form.departure_end_date;
+        // Also set departure_date to start for backward compat
+        if (form.departure_start_date) payload.departure_date = form.departure_start_date;
+      } else if (form.departure_date) {
         payload.departure_date = form.departure_date;
       }
 
       await createAlert(payload);
       setSuccess('Alert created successfully!');
       setForm(emptyForm);
+      setFlexibleDates(false);
       await fetchAlerts();
     } catch (err) {
       setError(err.message || 'Failed to create alert');
@@ -135,6 +153,11 @@ export default function Alerts() {
 
   return (
     <div style={styles.page}>
+      {toast && (
+        <div style={styles.toast}>
+          🔒 {toast}
+        </div>
+      )}
       <h2 style={styles.heading}>Price Alerts</h2>
 
       {/* Create Alert Form */}
@@ -191,14 +214,74 @@ export default function Alerts() {
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>Departure Date (optional)</label>
-            <input
-              type="date"
-              name="departure_date"
-              value={form.departure_date}
-              onChange={handleChange}
-              style={{ ...styles.input, maxWidth: '240px' }}
-            />
+            {/* Flexible Dates toggle */}
+            <div style={styles.toggleRow}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canUseFlexibleDates) {
+                    showToast('Flexible Dates is an Elite feature. Upgrade to unlock.');
+                  } else {
+                    setFlexibleDates((v) => !v);
+                  }
+                }}
+                style={{
+                  ...styles.toggleBtn,
+                  ...(flexibleDates && canUseFlexibleDates ? styles.toggleBtnActive : {}),
+                  ...(canUseFlexibleDates ? {} : styles.toggleBtnLocked),
+                }}
+                title={canUseFlexibleDates ? '' : 'Upgrade to Elite to use Flexible Dates'}
+              >
+                {flexibleDates && canUseFlexibleDates ? '📅 Flexible Dates (On)' : '📅 Flexible Dates'}
+                {!canUseFlexibleDates && <span style={styles.eliteBadge}>Elite</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFlexibleDates(false)}
+                style={{
+                  ...styles.toggleBtn,
+                  ...(!flexibleDates ? styles.toggleBtnActive : {}),
+                }}
+              >
+                Exact Date
+              </button>
+            </div>
+
+            {flexibleDates && canUseFlexibleDates ? (
+              <div style={styles.row}>
+                <div style={styles.field}>
+                  <label style={styles.label}>Earliest Departure</label>
+                  <input
+                    type="date"
+                    name="departure_start_date"
+                    value={form.departure_start_date}
+                    onChange={handleChange}
+                    style={{ ...styles.input, maxWidth: '200px' }}
+                  />
+                </div>
+                <div style={styles.field}>
+                  <label style={styles.label}>Latest Departure</label>
+                  <input
+                    type="date"
+                    name="departure_end_date"
+                    value={form.departure_end_date}
+                    onChange={handleChange}
+                    style={{ ...styles.input, maxWidth: '200px' }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label style={styles.label}>Departure Date (optional)</label>
+                <input
+                  type="date"
+                  name="departure_date"
+                  value={form.departure_date}
+                  onChange={handleChange}
+                  style={{ ...styles.input, maxWidth: '240px' }}
+                />
+              </div>
+            )}
           </div>
 
           <div style={styles.field}>
@@ -282,7 +365,10 @@ export default function Alerts() {
                 </div>
                 <div style={styles.alertMeta}>
                   Max: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
-                  {alert.departure_date && ` · Dep: ${alert.departure_date}`}
+                  {alert.departure_start_date && alert.departure_end_date && alert.departure_start_date !== alert.departure_end_date
+                    ? ` · Dates: ${alert.departure_start_date} → ${alert.departure_end_date}`
+                    : (alert.departure_date || alert.departure_start_date)
+                      && ` · Dep: ${alert.departure_date || alert.departure_start_date}`}
                 </div>
                 <div style={styles.alertMeta}>
                   Channels: {(alert.notification_channels || alert.channels || []).join(', ') || '—'}
@@ -336,4 +422,12 @@ const styles = {
   paywallBox: { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' },
   paywallText: { color: '#92400e', fontWeight: '600', fontSize: '0.925rem', margin: 0 },
   paywallLink: { color: '#1d4ed8', fontWeight: '700', fontSize: '0.925rem', textDecoration: 'none' },
+  // Flexible dates toggle
+  toggleRow: { display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' },
+  toggleBtn: { padding: '0.375rem 0.875rem', border: '1px solid #d1d5db', borderRadius: '6px', background: '#f9fafb', color: '#374151', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.35rem' },
+  toggleBtnActive: { background: '#dbeafe', borderColor: '#3b82f6', color: '#1d4ed8', fontWeight: '700' },
+  toggleBtnLocked: { opacity: 0.7, cursor: 'pointer' },
+  eliteBadge: { marginLeft: '0.375rem', background: '#fef3c7', color: '#92400e', fontSize: '0.68rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' },
+  // Toast notification
+  toast: { position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', color: '#fff', padding: '0.75rem 1.5rem', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', zIndex: 9999, boxShadow: '0 4px 12px rgba(0,0,0,0.25)', whiteSpace: 'nowrap' },
 };
