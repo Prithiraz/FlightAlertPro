@@ -102,3 +102,7 @@ export function getPreferences(userEmail) {
 export function updatePreferences(userEmail, prefs) {
   return request('PUT', `/api/users/me/preferences?user_email=${encodeURIComponent(userEmail)}`, prefs);
 }
+
+export function exploreFlights(origin) {
+  return request('GET', `/api/flights/explore?origin=${encodeURIComponent(origin)}`);
+}

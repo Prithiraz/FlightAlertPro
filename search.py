@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import asyncio
 import logging
 import hashlib
@@ -446,6 +446,112 @@ async def search_flights(request: SearchRequest):
     SEARCH_CACHE[cache_key] = (response, time.time())
 
     return response
+
+# Popular global tourist destinations for Explore Anywhere feature
+EXPLORE_DESTINATIONS = [
+    {"iata": "NRT", "city": "Tokyo Narita"},
+    {"iata": "CDG", "city": "Paris"},
+    {"iata": "LHR", "city": "London"},
+    {"iata": "CUN", "city": "Cancun"},
+    {"iata": "DXB", "city": "Dubai"},
+    {"iata": "BKK", "city": "Bangkok"},
+    {"iata": "SYD", "city": "Sydney"},
+    {"iata": "FCO", "city": "Rome"},
+    {"iata": "BCN", "city": "Barcelona"},
+    {"iata": "AMS", "city": "Amsterdam"},
+    {"iata": "SIN", "city": "Singapore"},
+    {"iata": "GRU", "city": "Sao Paulo"},
+    {"iata": "JNB", "city": "Johannesburg"},
+    {"iata": "MEX", "city": "Mexico City"},
+    {"iata": "ICN", "city": "Seoul"},
+    {"iata": "HND", "city": "Tokyo Haneda"},
+    {"iata": "DEL", "city": "New Delhi"},
+    {"iata": "LIS", "city": "Lisbon"},
+    {"iata": "YYZ", "city": "Toronto"},
+    {"iata": "MNL", "city": "Manila"},
+]
+
+
+async def _search_cheapest_for_destination(
+    origin: str, dest: dict, departure_date: str
+) -> Optional[dict]:
+    """Search for the cheapest flight from origin to a single destination."""
+    segment = FlightSegment(
+        from_iata=origin,
+        to_iata=dest["iata"],
+        departure_date=departure_date,
+    )
+    stub_request = SearchRequest(
+        segments=[segment],
+        passengers=PassengerCount(adults=1),
+        cabin_class="economy",
+        currency="USD",
+    )
+
+    tasks = [
+        search_serpapi(segment, stub_request),
+        search_airscraper(segment, stub_request),
+        search_duffel(segment, stub_request),
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    all_offers = []
+    for idx, result in enumerate(results):
+        if isinstance(result, Exception):
+            continue
+        source = ["serpapi", "airscraper", "duffel"][idx]
+        for raw in result:
+            normalized = normalize_offer(raw, source)
+            if normalized:
+                all_offers.append(normalized)
+
+    if not all_offers:
+        return None
+
+    cheapest = min(all_offers, key=lambda o: o.price)
+    return {
+        "iata": dest["iata"],
+        "city": dest["city"],
+        "price": cheapest.price,
+        "currency": cheapest.currency,
+        "airline_name": cheapest.airline_name,
+        "departure_time": cheapest.departure_time,
+        "stops": cheapest.stops,
+        "booking_url": cheapest.booking_url,
+    }
+
+
+@router.get("/flights/explore")
+async def explore_flights(origin: str):
+    """
+    Return the cheapest one-way flight from *origin* to each of the
+    20 popular global destinations, searching departures ~14 days out.
+    Results are sorted by price ascending.
+    """
+    origin = origin.upper().strip()
+    if len(origin) != 3:
+        raise HTTPException(status_code=400, detail="origin must be a 3-letter IATA code")
+
+    departure_date = (datetime.now(timezone.utc) + timedelta(days=14)).strftime("%Y-%m-%d")
+
+    tasks = [
+        _search_cheapest_for_destination(origin, dest, departure_date)
+        for dest in EXPLORE_DESTINATIONS
+        if dest["iata"] != origin
+    ]
+    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    results = [r for r in raw_results if r and not isinstance(r, Exception)]
+
+    # Sort by price ascending; destinations with no results are already excluded
+    results.sort(key=lambda x: x["price"])
+
+    return {
+        "origin": origin,
+        "departure_date": departure_date,
+        "destinations": results,
+    }
+
 
 @router.get("/search/circuit-breaker-status")
 async def get_circuit_breaker_status():
