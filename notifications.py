@@ -69,9 +69,30 @@ class NotificationService:
         return results
 
     def send_price_alert(self, user_email: str, route: str, old_price: float,
-                        new_price: float, channels: List[str], **kwargs) -> dict:
+                        new_price: float, channels: List[str],
+                        best_date: Optional[str] = None, **kwargs) -> dict:
         savings = old_price - new_price
-        message = f"""🎉 Price Drop Alert!
+
+        if best_date:
+            # Format "2026-10-14" as "Oct 14th"
+            try:
+                dt = datetime.strptime(best_date, '%Y-%m-%d')
+                day = dt.day
+                suffix = 'th' if 11 <= day <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+                formatted_date = dt.strftime(f'%b {day}{suffix}')
+            except ValueError:
+                formatted_date = best_date
+
+            message = f"""🎉 Deal Found!
+
+Route: {route}
+Cheapest day to fly: {formatted_date} at ${new_price:.2f}
+You Save: ${savings:.2f} vs your target of ${old_price:.2f}
+
+Book now: https://flightalertpro.com/book"""
+            subject = f"Deal Found! {route} – Fly {formatted_date} for ${new_price:.2f}"
+        else:
+            message = f"""🎉 Price Drop Alert!
 
 Route: {route}
 Old Price: ${old_price:.2f}
@@ -79,8 +100,7 @@ New Price: ${new_price:.2f}
 You Save: ${savings:.2f}
 
 Book now: https://flightalertpro.com/book"""
-
-        subject = f"Price Drop: {route} - Save ${savings:.2f}"
+            subject = f"Price Drop: {route} - Save ${savings:.2f}"
 
         return self.send_notification(
             user_email=user_email,

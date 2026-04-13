@@ -108,74 +108,141 @@ class AlertWorker:
             logger.info("No active alerts — nothing to do")
             return
 
-        # --- Group by (from_iata, to_iata, departure_date) ---
+        # --- Group by (from_iata, to_iata, departure_start_date, departure_end_date) ---
+        # For backward-compat, alerts with only departure_date treat it as an exact range.
         groups: dict[tuple, list] = {}
         for alert in alerts:
-            dep_date = alert.get('departure_date')
-            if not dep_date:
-                dep_date = (datetime.now(timezone.utc) + timedelta(days=_DEFAULT_ALERT_DAYS_AHEAD)).strftime('%Y-%m-%d')
-            key = (alert.get('from_iata'), alert.get('to_iata'), dep_date)
+            start_date = alert.get('departure_start_date') or alert.get('departure_date')
+            end_date   = alert.get('departure_end_date')   or alert.get('departure_date')
+            if not start_date:
+                start_date = (datetime.now(timezone.utc) + timedelta(days=_DEFAULT_ALERT_DAYS_AHEAD)).strftime('%Y-%m-%d')
+            if not end_date:
+                end_date = start_date
+            key = (alert.get('from_iata'), alert.get('to_iata'), start_date, end_date)
             groups.setdefault(key, []).append(alert)
 
-        logger.info(f"Grouped into {len(groups)} unique route/date combinations")
+        logger.info(f"Grouped into {len(groups)} unique route/date-range combinations")
 
-        for (from_iata, to_iata, departure_date), group_alerts in groups.items():
+        for (from_iata, to_iata, start_date, end_date), group_alerts in groups.items():
             route_label = f"{from_iata}->{to_iata}"
+            is_flexible = start_date != end_date
             try:
-                # Use currency from the first alert in the group (alerts on the
-                # same route should have the same currency in practice).
                 currency = group_alerts[0].get('currency', 'USD')
 
-                # 1. Check cache
-                cached = self._get_cached_price(supabase, from_iata, to_iata, departure_date)
+                if not is_flexible:
+                    # --- Exact-date path (original logic, with caching) ---
+                    departure_date = start_date
+                    cached = self._get_cached_price(supabase, from_iata, to_iata, departure_date)
 
-                if cached is not None:
-                    logger.info(f"CACHE HIT: {route_label} {departure_date} (Skipping API call)")
-                    lowest_price = cached['lowest_price']
-                    api_response = cached['api_response_json']
+                    if cached is not None:
+                        logger.info(f"CACHE HIT: {route_label} {departure_date} (Skipping API call)")
+                        lowest_price = cached['lowest_price']
+                        best_date = departure_date
+                    else:
+                        logger.info(f"CACHE MISS: {route_label} {departure_date} (Calling external API)")
+                        search_request = SearchRequest(
+                            segments=[FlightSegment(
+                                from_iata=from_iata,
+                                to_iata=to_iata,
+                                departure_date=departure_date
+                            )],
+                            passengers=PassengerCount(adults=1, children=0, infants=0),
+                            cabin_class="economy",
+                            currency=currency
+                        )
+
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            search_result = loop.run_until_complete(search_flights(search_request))
+                        finally:
+                            loop.close()
+
+                        offers = search_result.get('offers', [])
+                        if not offers:
+                            logger.info(f"{route_label} {departure_date}: No offers found, skipping group")
+                            continue
+
+                        lowest_price = min(offer['price'] for offer in offers)
+                        best_date = departure_date
+
+                        self._save_price_cache(
+                            supabase, from_iata, to_iata, departure_date,
+                            lowest_price, search_result
+                        )
+                        self._log_price_history(supabase, from_iata, to_iata, lowest_price)
+
                 else:
-                    logger.info(f"CACHE MISS: {route_label} {departure_date} (Calling external API)")
+                    # --- Flexible-date path: check every day in the range ---
+                    logger.info(f"FLEXIBLE: {route_label} {start_date}→{end_date} (checking all dates)")
+                    lowest_price = None
+                    best_date = None
 
-                    # 2. Call external API once for this route/date
-                    search_request = SearchRequest(
-                        segments=[FlightSegment(
-                            from_iata=from_iata,
-                            to_iata=to_iata,
-                            departure_date=departure_date
-                        )],
-                        passengers=PassengerCount(adults=1, children=0, infants=0),
-                        cabin_class="economy",
-                        currency=currency
-                    )
+                    current = datetime.strptime(start_date, '%Y-%m-%d')
+                    end_dt   = datetime.strptime(end_date,   '%Y-%m-%d')
 
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        search_result = loop.run_until_complete(search_flights(search_request))
-                    finally:
-                        loop.close()
+                    while current <= end_dt:
+                        dep_str = current.strftime('%Y-%m-%d')
 
-                    offers = search_result.get('offers', [])
-                    if not offers:
-                        logger.info(f"{route_label} {departure_date}: No offers found, skipping group")
+                        # Honour cache per individual date
+                        cached = self._get_cached_price(supabase, from_iata, to_iata, dep_str)
+                        if cached is not None:
+                            day_price = cached['lowest_price']
+                            logger.info(f"CACHE HIT: {route_label} {dep_str} → {day_price:.2f}")
+                        else:
+                            logger.info(f"CACHE MISS: {route_label} {dep_str} (Calling external API)")
+                            search_request = SearchRequest(
+                                segments=[FlightSegment(
+                                    from_iata=from_iata,
+                                    to_iata=to_iata,
+                                    departure_date=dep_str
+                                )],
+                                passengers=PassengerCount(adults=1, children=0, infants=0),
+                                cabin_class="economy",
+                                currency=currency
+                            )
+
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            try:
+                                search_result = loop.run_until_complete(search_flights(search_request))
+                            finally:
+                                loop.close()
+
+                            offers = search_result.get('offers', [])
+                            if not offers:
+                                logger.info(f"{route_label} {dep_str}: No offers found, skipping date")
+                                current += timedelta(days=1)
+                                continue
+
+                            day_price = min(offer['price'] for offer in offers)
+                            self._save_price_cache(
+                                supabase, from_iata, to_iata, dep_str,
+                                day_price, search_result
+                            )
+                            self._log_price_history(supabase, from_iata, to_iata, day_price)
+
+                        if lowest_price is None or day_price < lowest_price:
+                            lowest_price = day_price
+                            best_date = dep_str
+
+                        current += timedelta(days=1)
+
+                    if lowest_price is None:
+                        logger.info(f"{route_label} {start_date}→{end_date}: No offers found across range, skipping")
                         continue
 
-                    lowest_price = min(offer['price'] for offer in offers)
-                    api_response = search_result
-
-                    # 3. Save result to cache
-                    self._save_price_cache(
-                        supabase, from_iata, to_iata, departure_date,
-                        lowest_price, api_response
+                    logger.info(
+                        f"FLEXIBLE BEST: {route_label} best date={best_date} price={lowest_price:.2f} {currency}"
                     )
-
-                    # 3b. Log price history for trend visualisation
-                    self._log_price_history(supabase, from_iata, to_iata, lowest_price)
 
                 # 4. Process each user in this route group
                 for alert in group_alerts:
                     try:
-                        self._process_user_alert(supabase, alert, lowest_price, currency)
+                        self._process_user_alert(
+                            supabase, alert, lowest_price, currency,
+                            best_date=best_date if is_flexible else None
+                        )
                     except Exception as e:
                         logger.error(
                             f"Error processing alert {alert.get('id')} "
@@ -183,7 +250,7 @@ class AlertWorker:
                         )
 
             except Exception as e:
-                logger.error(f"Error processing route group {route_label} {departure_date}: {str(e)}", exc_info=True)
+                logger.error(f"Error processing route group {route_label} {start_date}→{end_date}: {str(e)}", exc_info=True)
 
         logger.info("Alert check completed")
 
@@ -259,9 +326,15 @@ class AlertWorker:
     # Per-user notification logic
     # ------------------------------------------------------------------
 
-    def _process_user_alert(self, supabase, alert: dict, lowest_price: float, currency: str):
+    def _process_user_alert(self, supabase, alert: dict, lowest_price: float, currency: str,
+                            best_date: str | None = None):
         """Compare cached lowest_price against a single user's threshold and
-        send a notification if the price is low enough."""
+        send a notification if the price is low enough.
+
+        Args:
+            best_date: For flexible-date alerts, the specific departure date that
+                       produced the lowest price.  None for exact-date alerts.
+        """
         from datetime import timezone
 
         alert_id = alert.get('id')
@@ -305,7 +378,8 @@ class AlertWorker:
             old_price=old_price,
             new_price=lowest_price,
             channels=channels,
-            phone=phone
+            phone=phone,
+            best_date=best_date
         )
 
         logger.info(f"Alert {alert_id}: Notification sent - {notification_result}")

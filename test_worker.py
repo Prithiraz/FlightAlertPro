@@ -352,6 +352,206 @@ def test_deduplication_skips_same_price():
 
 
 # ---------------------------------------------------------------------------
+# Flexible date range tests
+# ---------------------------------------------------------------------------
+
+def test_flexible_date_range_checks_all_days():
+    """Alerts with a date range must result in one API call per day in the range."""
+    logger.info("=" * 70)
+    logger.info("TEST: flexible dates — 3-day range → three API calls")
+    logger.info("=" * 70)
+
+    worker = AlertWorker()
+
+    # Alert uses departure_start_date / departure_end_date (3-day window)
+    alert = {
+        'id': 'f1',
+        'user_email': 'alice@example.com',
+        'from_iata': 'LHR',
+        'to_iata': 'JFK',
+        'max_price': 500,
+        'currency': 'USD',
+        'departure_date': None,
+        'departure_start_date': '2026-12-10',
+        'departure_end_date': '2026-12-12',
+        'active': True,
+        'channels': ['email'],
+        'phone': None,
+        'last_triggered_price': None,
+    }
+
+    api_call_count = {'n': 0}
+    prices_by_date = {
+        '2026-12-10': 480.0,
+        '2026-12-11': 320.0,
+        '2026-12-12': 410.0,
+    }
+
+    # Real-enough fakes so departure_date is accessible inside fake_search_fn
+    class FakeSegment:
+        def __init__(self, from_iata, to_iata, departure_date):
+            self.departure_date = departure_date
+
+    class FakeSearchRequest:
+        def __init__(self, segments, passengers, cabin_class, currency):
+            self.segments = segments
+
+    async def fake_search_fn(req):
+        api_call_count['n'] += 1
+        dep = req.segments[0].departure_date
+        return {'offers': [{'price': prices_by_date.get(dep, 999.0)}]}
+
+    mock_search_mod = MagicMock()
+    mock_search_mod.search_flights = fake_search_fn
+    mock_search_mod.FlightSegment = FakeSegment
+    mock_search_mod.SearchRequest = FakeSearchRequest
+
+    mock_supabase = MagicMock()
+    # No cache entries
+    mock_supabase.table.return_value.select.return_value \
+        .eq.return_value.eq.return_value.eq.return_value \
+        .execute.return_value.data = []
+    # Active alerts query
+    mock_supabase.table.return_value.select.return_value \
+        .eq.return_value.execute.return_value.data = [alert]
+
+    notification_mock = MagicMock()
+    notification_mock.send_price_alert.return_value = {'success': True}
+
+    with patch.dict(sys.modules, {'search': mock_search_mod, 'fastapi': MagicMock()}), \
+         patch('supabase.create_client', return_value=mock_supabase), \
+         patch('worker.notification_service', notification_mock):
+
+        worker.process_active_alerts()
+
+    if api_call_count['n'] == 3:
+        logger.info("✅ Three API calls made for 3-day flexible range")
+        return True
+    else:
+        logger.error(f"❌ Expected 3 API calls, got {api_call_count['n']}")
+        return False
+
+
+def test_flexible_date_range_finds_cheapest_day():
+    """The worker must notify with best_date=cheapest day in the range."""
+    logger.info("=" * 70)
+    logger.info("TEST: flexible dates — notification includes best date")
+    logger.info("=" * 70)
+
+    worker = AlertWorker()
+
+    alert = {
+        'id': 'f2',
+        'user_email': 'bob@example.com',
+        'from_iata': 'CDG',
+        'to_iata': 'JFK',
+        'max_price': 400,
+        'currency': 'USD',
+        'departure_date': None,
+        'departure_start_date': '2026-11-05',
+        'departure_end_date': '2026-11-07',
+        'active': True,
+        'channels': ['email'],
+        'phone': None,
+        'last_triggered_price': None,
+    }
+
+    prices_by_date = {
+        '2026-11-05': 390.0,
+        '2026-11-06': 310.0,   # cheapest — should be best_date
+        '2026-11-07': 380.0,
+    }
+
+    class FakeSegment:
+        def __init__(self, from_iata, to_iata, departure_date):
+            self.departure_date = departure_date
+
+    class FakeSearchRequest:
+        def __init__(self, segments, passengers, cabin_class, currency):
+            self.segments = segments
+
+    async def fake_search_fn(req):
+        dep = req.segments[0].departure_date
+        return {'offers': [{'price': prices_by_date.get(dep, 999.0)}]}
+
+    mock_search_mod = MagicMock()
+    mock_search_mod.search_flights = fake_search_fn
+    mock_search_mod.FlightSegment = FakeSegment
+    mock_search_mod.SearchRequest = FakeSearchRequest
+
+    mock_supabase = MagicMock()
+    mock_supabase.table.return_value.select.return_value \
+        .eq.return_value.eq.return_value.eq.return_value \
+        .execute.return_value.data = []
+    mock_supabase.table.return_value.select.return_value \
+        .eq.return_value.execute.return_value.data = [alert]
+
+    notification_mock = MagicMock()
+    notification_mock.send_price_alert.return_value = {'success': True}
+
+    with patch.dict(sys.modules, {'search': mock_search_mod, 'fastapi': MagicMock()}), \
+         patch('supabase.create_client', return_value=mock_supabase), \
+         patch('worker.notification_service', notification_mock):
+
+        worker.process_active_alerts()
+
+    if not notification_mock.send_price_alert.called:
+        logger.error("❌ Notification was NOT sent")
+        return False
+
+    call_kwargs = notification_mock.send_price_alert.call_args
+    best_date = call_kwargs.kwargs.get('best_date') or (
+        call_kwargs.args[5] if len(call_kwargs.args) > 5 else None
+    )
+    if best_date == '2026-11-06':
+        logger.info(f"✅ Notification sent with correct best_date={best_date}")
+        return True
+    else:
+        logger.error(f"❌ Expected best_date='2026-11-06', got best_date={best_date!r}")
+        return False
+
+
+def test_flexible_notification_message_includes_best_date():
+    """send_price_alert with best_date must mention the specific departure day."""
+    logger.info("=" * 70)
+    logger.info("TEST: notification message includes cheapest date for flexible alert")
+    logger.info("=" * 70)
+
+    from notifications import NotificationService
+    from unittest.mock import MagicMock
+
+    svc = NotificationService()
+    captured = {}
+
+    def capture_send(user_email, email_subject, message):
+        captured['subject'] = email_subject
+        captured['message'] = message
+        return True
+
+    svc.email = MagicMock()
+    svc.email.send_email.side_effect = capture_send
+
+    svc.send_price_alert(
+        user_email='test@example.com',
+        route='LHR → JFK',
+        old_price=400.0,
+        new_price=310.0,
+        channels=['email'],
+        best_date='2026-10-14',
+    )
+
+    msg = captured.get('message', '')
+    subj = captured.get('subject', '')
+
+    if 'Oct 14th' in msg and 'Oct 14th' in subj and '$310.00' in msg:
+        logger.info("✅ Notification message correctly references Oct 14th and the price")
+        return True
+    else:
+        logger.error(f"❌ Message/subject did not contain expected content.\nSubject: {subj}\nMessage: {msg}")
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -366,6 +566,9 @@ if __name__ == "__main__":
         test_user_notified_when_price_below_threshold,
         test_user_not_notified_when_price_above_threshold,
         test_deduplication_skips_same_price,
+        test_flexible_date_range_checks_all_days,
+        test_flexible_date_range_finds_cheapest_day,
+        test_flexible_notification_message_includes_best_date,
     ]
 
     passed = 0

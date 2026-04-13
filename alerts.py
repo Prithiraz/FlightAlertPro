@@ -20,7 +20,11 @@ class CreateAlertRequest(BaseModel):
     to_iata: str = Field(..., min_length=3, max_length=3)
     max_price: float = Field(..., gt=0)
     currency: str = Field("USD", min_length=3, max_length=3)
+    # Legacy exact-date field (kept for backward compatibility)
     departure_date: Optional[str] = None
+    # Flexible-date range fields (Elite/Business tier)
+    departure_start_date: Optional[str] = None
+    departure_end_date: Optional[str] = None
     notification_channels: List[str] = Field(default=["email"])
     phone: Optional[str] = None
 
@@ -54,6 +58,8 @@ async def create_alert(alert: CreateAlertRequest):
             'max_price': alert.max_price,
             'currency': alert.currency.upper(),
             'departure_date': alert.departure_date,
+            'departure_start_date': alert.departure_start_date,
+            'departure_end_date': alert.departure_end_date,
             'notification_channels': alert.notification_channels,
             'phone': alert.phone,
             'active': True
