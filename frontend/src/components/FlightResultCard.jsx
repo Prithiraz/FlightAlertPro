@@ -1,12 +1,4 @@
-function buildHotelUrl(destination, checkinDate) {
-  const base = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_HOTEL_AFFILIATE_BASE_URL)
-    || 'https://www.booking.com/searchresults.html';
-  const affiliateId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_HOTEL_AFFILIATE_ID) || '';
-  const params = new URLSearchParams({ ss: destination });
-  if (checkinDate) params.set('checkin', checkinDate);
-  if (affiliateId) params.set('aid', affiliateId);
-  return `${base}?${params.toString()}`;
-}
+import { buildHotelUrl } from '../lib/hotelAffiliate';
 
 export default function FlightResultCard({ offer, cabinClass, onCreateAlert }) {
   const destination = offer.to_iata || '';

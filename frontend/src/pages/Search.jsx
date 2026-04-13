@@ -2,6 +2,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { searchFlights, getPreferences } from '../lib/api';
 import { useAuth } from '../App';
+import { buildHotelUrl } from '../lib/hotelAffiliate';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 import FlightResultCard from '../components/FlightResultCard';
@@ -9,18 +10,9 @@ import FlightCardSkeleton from '../components/FlightCardSkeleton';
 import Toast from '../components/Toast';
 
 const SKELETON_COUNT = 4;
+const AD_INSERTION_INDEX = 1;
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
-
-function buildHotelUrl(destination, checkinDate) {
-  const base = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_HOTEL_AFFILIATE_BASE_URL)
-    || 'https://www.booking.com/searchresults.html';
-  const affiliateId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_HOTEL_AFFILIATE_ID) || '';
-  const params = new URLSearchParams({ ss: destination });
-  if (checkinDate) params.set('checkin', checkinDate);
-  if (affiliateId) params.set('aid', affiliateId);
-  return `${base}?${params.toString()}`;
-}
 
 function AncillaryAdCard({ destination, checkinDate }) {
   const hotelUrl = buildHotelUrl(destination, checkinDate);
@@ -283,7 +275,7 @@ export default function Search() {
                 cabinClass={form.cabin_class}
                 onCreateAlert={handleCreateAlert}
               />
-              {idx === 1 && (
+              {idx === AD_INSERTION_INDEX && (
                 <AncillaryAdCard
                   destination={form.to_iata.toUpperCase()}
                   checkinDate={form.departure_date}
