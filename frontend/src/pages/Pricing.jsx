@@ -2,23 +2,79 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { apiFetch } from '../lib/api';
 
-const FEATURES_FREE = [
-  '1 Active Alert',
-  'Email Notifications',
-];
-
-const FEATURES_PRO = [
-  'Unlimited Alerts',
-  'Telegram Notifications',
-  'Instant Background Checking',
-  'Priority Support',
+const TIERS = [
+  {
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    color: '#374151',
+    background: '#fff',
+    cardStyle: {},
+    features: [
+      '1 Active Alert',
+      'Email Notifications',
+    ],
+    cta: 'Current Plan',
+    ctaDisabled: true,
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 9,
+    color: '#1d4ed8',
+    background: '#eff6ff',
+    cardStyle: { borderColor: '#93c5fd' },
+    features: [
+      '5 Active Alerts',
+      'Email & Telegram Notifications',
+      'Instant Background Checking',
+      'Priority Support',
+    ],
+    cta: 'Upgrade to Pro',
+    badge: null,
+  },
+  {
+    id: 'elite',
+    name: 'Elite',
+    price: 19,
+    color: '#fff',
+    background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
+    cardStyle: { boxShadow: '0 8px 32px rgba(29,78,216,0.35)' },
+    features: [
+      '20 Active Alerts',
+      'Email & Telegram Notifications',
+      'AI Flight Insights (OpenAI)',
+      'Instant Background Checking',
+      'Priority Support',
+    ],
+    cta: 'Upgrade to Elite',
+    badge: 'Most Popular',
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    price: 39,
+    color: '#fff',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+    cardStyle: { boxShadow: '0 8px 32px rgba(0,0,0,0.35)' },
+    features: [
+      'Unlimited Alerts',
+      'All Notification Channels',
+      'AI Flight Insights (OpenAI)',
+      'Instant Background Checking',
+      'Dedicated Support',
+      'Team Access',
+    ],
+    cta: 'Upgrade to Business',
+    badge: null,
+  },
 ];
 
 export default function Pricing() {
-  const { user } = useAuth();
+  const { user, subscriptionTier } = useAuth();
   const navigate = useNavigate();
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (plan) => {
     if (!user?.email) {
       navigate('/');
       return;
@@ -32,7 +88,7 @@ export default function Pricing() {
         user_email: user.email,
         success_url: successUrl,
         cancel_url: cancelUrl,
-        plan: 'pro',
+        plan,
       });
 
       const data = await apiFetch(`/api/payments/checkout?${params.toString()}`, {
@@ -49,7 +105,7 @@ export default function Pricing() {
     }
   };
 
-  const isPro = user?.user_metadata?.is_pro || user?.app_metadata?.is_pro;
+  const currentTier = subscriptionTier || 'free';
 
   return (
     <div style={styles.page}>
@@ -61,54 +117,83 @@ export default function Pricing() {
       </div>
 
       <div style={styles.cards}>
-        {/* Free Tier */}
-        <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <h2 style={styles.planName}>Free</h2>
-            <div style={styles.price}>
-              <span style={styles.priceAmount}>$0</span>
-              <span style={styles.pricePeriod}>/month</span>
-            </div>
-          </div>
-          <ul style={styles.featureList}>
-            {FEATURES_FREE.map((f) => (
-              <li key={f} style={styles.featureItem}>
-                <span style={styles.checkIcon}>✓</span> {f}
-              </li>
-            ))}
-          </ul>
-          <button style={styles.btnOutline} disabled>
-            Current Plan
-          </button>
-        </div>
+        {TIERS.map((tier) => {
+          const isGradient = tier.background.startsWith('linear-gradient');
+          const isCurrentTier = currentTier === tier.id;
+          const isDowngrade = TIERS.findIndex(t => t.id === tier.id) < TIERS.findIndex(t => t.id === currentTier);
 
-        {/* Pro Tier */}
-        <div style={{ ...styles.card, ...styles.cardPro }}>
-          <div style={styles.popularBadge}>Most Popular</div>
-          <div style={styles.cardHeader}>
-            <h2 style={{ ...styles.planName, color: '#fff' }}>Pro</h2>
-            <div style={styles.price}>
-              <span style={{ ...styles.priceAmount, color: '#fff' }}>$9</span>
-              <span style={{ ...styles.pricePeriod, color: '#bfdbfe' }}>/month</span>
+          return (
+            <div
+              key={tier.id}
+              style={{
+                ...styles.card,
+                background: tier.background,
+                ...tier.cardStyle,
+              }}
+            >
+              {tier.badge && (
+                <div style={styles.popularBadge}>{tier.badge}</div>
+              )}
+              <div style={styles.cardHeader}>
+                <h2 style={{ ...styles.planName, color: isGradient ? '#fff' : tier.color }}>
+                  {tier.name}
+                </h2>
+                <div style={styles.price}>
+                  <span style={{ ...styles.priceAmount, color: isGradient ? '#fff' : '#111827' }}>
+                    ${tier.price}
+                  </span>
+                  <span style={{ ...styles.pricePeriod, color: isGradient ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>
+                    /month
+                  </span>
+                </div>
+              </div>
+
+              <ul style={styles.featureList}>
+                {tier.features.map((f) => (
+                  <li key={f} style={{ ...styles.featureItem, color: isGradient ? 'rgba(255,255,255,0.9)' : '#374151' }}>
+                    <span style={{ ...styles.checkIcon, color: isGradient ? 'rgba(255,255,255,0.7)' : '#16a34a' }}>✓</span>
+                    {' '}{f}
+                  </li>
+                ))}
+              </ul>
+
+              {isCurrentTier ? (
+                <button
+                  style={{
+                    ...styles.btnCurrent,
+                    background: isGradient ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
+                    color: isGradient ? '#fff' : '#6b7280',
+                  }}
+                  disabled
+                >
+                  Current Plan ✓
+                </button>
+              ) : tier.id === 'free' || isDowngrade ? (
+                <button
+                  style={{
+                    ...styles.btnCurrent,
+                    background: '#f3f4f6',
+                    color: '#6b7280',
+                  }}
+                  disabled
+                >
+                  {tier.id === 'free' ? 'Free Plan' : 'Lower Tier'}
+                </button>
+              ) : (
+                <button
+                  style={{
+                    ...styles.btnUpgrade,
+                    background: isGradient ? '#fff' : tier.color,
+                    color: isGradient ? tier.color : '#fff',
+                  }}
+                  onClick={() => handleUpgrade(tier.id)}
+                >
+                  {tier.cta}
+                </button>
+              )}
             </div>
-          </div>
-          <ul style={styles.featureList}>
-            {FEATURES_PRO.map((f) => (
-              <li key={f} style={{ ...styles.featureItem, color: '#e0f2fe' }}>
-                <span style={{ ...styles.checkIcon, color: '#bfdbfe' }}>✓</span> {f}
-              </li>
-            ))}
-          </ul>
-          {isPro ? (
-            <button style={styles.btnProDisabled} disabled>
-              You're on Pro ✓
-            </button>
-          ) : (
-            <button style={styles.btnPro} onClick={handleUpgrade}>
-              Upgrade to Pro
-            </button>
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -116,7 +201,7 @@ export default function Pricing() {
 
 const styles = {
   page: {
-    maxWidth: '900px',
+    maxWidth: '1100px',
     margin: '2rem auto',
     padding: '0 1rem',
     fontFamily: 'inherit',
@@ -136,27 +221,20 @@ const styles = {
     color: '#6b7280',
   },
   cards: {
-    display: 'flex',
-    gap: '2rem',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+    gap: '1.5rem',
+    alignItems: 'start',
   },
   card: {
-    background: '#fff',
     borderRadius: '12px',
     boxShadow: '0 4px 16px rgba(0,0,0,0.10)',
-    padding: '2rem',
-    flex: '1',
-    minWidth: '260px',
-    maxWidth: '340px',
+    padding: '2rem 1.5rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '1.25rem',
     position: 'relative',
-  },
-  cardPro: {
-    background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
-    boxShadow: '0 8px 32px rgba(29,78,216,0.35)',
+    border: '1px solid transparent',
   },
   popularBadge: {
     position: 'absolute',
@@ -165,12 +243,13 @@ const styles = {
     transform: 'translateX(-50%)',
     background: '#f59e0b',
     color: '#fff',
-    fontSize: '0.75rem',
+    fontSize: '0.72rem',
     fontWeight: '700',
     padding: '0.25rem 0.875rem',
     borderRadius: '99px',
     letterSpacing: '0.05em',
     textTransform: 'uppercase',
+    whiteSpace: 'nowrap',
   },
   cardHeader: {
     display: 'flex',
@@ -180,7 +259,6 @@ const styles = {
   planName: {
     fontSize: '1.25rem',
     fontWeight: '700',
-    color: '#1d4ed8',
     margin: 0,
   },
   price: {
@@ -189,13 +267,11 @@ const styles = {
     gap: '0.25rem',
   },
   priceAmount: {
-    fontSize: '2.5rem',
+    fontSize: '2.25rem',
     fontWeight: '800',
-    color: '#111827',
   },
   pricePeriod: {
-    fontSize: '1rem',
-    color: '#6b7280',
+    fontSize: '0.95rem',
   },
   featureList: {
     listStyle: 'none',
@@ -207,46 +283,34 @@ const styles = {
     flex: 1,
   },
   featureItem: {
-    fontSize: '0.95rem',
-    color: '#374151',
+    fontSize: '0.9rem',
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
   },
   checkIcon: {
-    color: '#16a34a',
     fontWeight: '700',
+    flexShrink: 0,
   },
-  btnOutline: {
-    padding: '0.625rem 1.25rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '8px',
-    background: '#f9fafb',
-    color: '#6b7280',
-    fontSize: '0.95rem',
-    fontWeight: '600',
-    cursor: 'not-allowed',
-  },
-  btnPro: {
+  btnUpgrade: {
     padding: '0.75rem 1.25rem',
     border: 'none',
     borderRadius: '8px',
-    background: '#fff',
-    color: '#1d4ed8',
-    fontSize: '1rem',
+    fontSize: '0.95rem',
     fontWeight: '700',
     cursor: 'pointer',
     boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
     transition: 'opacity 0.15s',
+    textAlign: 'center',
   },
-  btnProDisabled: {
+  btnCurrent: {
     padding: '0.75rem 1.25rem',
     border: 'none',
     borderRadius: '8px',
-    background: 'rgba(255,255,255,0.2)',
-    color: '#fff',
-    fontSize: '1rem',
+    fontSize: '0.95rem',
     fontWeight: '700',
     cursor: 'not-allowed',
+    textAlign: 'center',
   },
 };
+

@@ -19,7 +19,7 @@ const emptyForm = {
 };
 
 export default function Alerts() {
-  const { user } = useAuth();
+  const { user, subscriptionTier } = useAuth();
   const location = useLocation();
   const [alerts, setAlerts] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -29,8 +29,12 @@ export default function Alerts() {
   const [success, setSuccess] = useState('');
   const [prefillApplied, setPrefillApplied] = useState(false);
 
-  const isPro = user?.user_metadata?.is_pro || user?.app_metadata?.is_pro;
-  const atFreeLimit = !isPro && alerts.length >= 1;
+  const ALERT_LIMITS = { free: 1, pro: 5, elite: 20, business: Infinity };
+  const tier = subscriptionTier || 'free';
+  const alertLimit = ALERT_LIMITS[tier] ?? 1;
+  const atLimit = alerts.length >= alertLimit;
+  const isPaidTier = tier !== 'free';
+  const isPro = isPaidTier;
 
   useEffect(() => {
     const prefill = location.state?.prefill;
@@ -234,21 +238,25 @@ export default function Alerts() {
             </div>
           </div>
 
-          {atFreeLimit && (
+          {atLimit && (
             <div style={styles.paywallBox}>
               <p style={styles.paywallText}>
-                ⚠️ You have reached your free limit. Upgrade to Pro to monitor additional routes.
+                {tier === 'free'
+                  ? '⚠️ You have reached your free limit of 1 alert. Upgrade to monitor additional routes.'
+                  : tier === 'pro'
+                  ? `⚠️ You have reached your Pro limit of ${ALERT_LIMITS.pro} alerts. Upgrade to Elite for up to 20 alerts.`
+                  : `⚠️ You have reached your Elite limit of ${ALERT_LIMITS.elite} alerts. Upgrade to Business for unlimited alerts.`}
               </p>
-              <Link to="/pricing" style={styles.paywallLink}>Upgrade to Pro →</Link>
+              <Link to="/pricing" style={styles.paywallLink}>View Plans →</Link>
             </div>
           )}
 
           {error && <p style={styles.error}>{error}</p>}
           {success && <p style={styles.success}>{success}</p>}
 
-          <button type="submit" disabled={creating || atFreeLimit} style={{
+          <button type="submit" disabled={creating || atLimit} style={{
             ...styles.button,
-            ...(atFreeLimit ? styles.buttonDisabled : {}),
+            ...(atLimit ? styles.buttonDisabled : {}),
           }}>
             {creating ? 'Creating...' : 'Create Alert'}
           </button>

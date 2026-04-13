@@ -10,8 +10,11 @@ import PriceTrendGraph from '../components/PriceTrendGraph';
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, subscriptionTier } = useAuth();
   const navigate = useNavigate();
+
+  const tier = subscriptionTier || 'free';
+  const hasAiInsights = tier === 'elite' || tier === 'business';
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: u } }) => {
@@ -230,6 +233,18 @@ export default function Dashboard() {
                   <div style={styles.price}>
                     {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
                   </div>
+                  {hasAiInsights && offer.ai_insight && (
+                    <div style={styles.aiInsight}>
+                      <span style={styles.aiInsightLabel}>✨ AI Insight: </span>
+                      {offer.ai_insight}
+                    </div>
+                  )}
+                  {!hasAiInsights && (
+                    <div style={styles.aiInsightLocked}>
+                      ✨ AI Insights available on Elite &amp; Business plans.{' '}
+                      <a href="/pricing" style={{ color: '#1d4ed8', fontWeight: '600' }}>Upgrade →</a>
+                    </div>
+                  )}
                   <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
                     Create alert
                   </button>
@@ -342,4 +357,20 @@ const styles = {
     color: '#374151',
   },
   alertMeta: { color: '#6b7280', fontSize: '0.875rem' },
+  aiInsight: {
+    fontSize: '0.875rem',
+    color: '#1d4ed8',
+    background: '#eff6ff',
+    borderRadius: '6px',
+    padding: '0.5rem 0.75rem',
+    fontStyle: 'italic',
+  },
+  aiInsightLocked: {
+    fontSize: '0.8rem',
+    color: '#9ca3af',
+    background: '#f9fafb',
+    borderRadius: '6px',
+    padding: '0.4rem 0.75rem',
+  },
+  aiInsightLabel: { fontWeight: '700', fontStyle: 'normal' },
 };
