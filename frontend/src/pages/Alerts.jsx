@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { createAlert, listAlerts, deleteAlert } from '../lib/api';
+import { createAlert, listAlerts, deleteAlert, getPreferences } from '../lib/api';
 import { useAuth } from '../App';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
@@ -63,6 +63,23 @@ export default function Alerts() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.prefill]);
+
+  // Auto-populate from user preferences (only when no search prefill is present)
+  useEffect(() => {
+    if (!user?.email || location.state?.prefill) return;
+    getPreferences(user.email)
+      .then((prefs) => {
+        setForm((prev) => ({
+          ...prev,
+          from_iata: prefs.home_airport || prev.from_iata,
+          currency: prefs.currency || prev.currency,
+        }));
+      })
+      .catch((err) => {
+        console.error('Failed to load preferences:', err);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.email]);
 
   useEffect(() => {
     if (user?.email) {
