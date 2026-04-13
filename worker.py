@@ -13,6 +13,73 @@ logger = logging.getLogger(__name__)
 # Default number of days ahead to search when an alert has no departure_date
 _DEFAULT_ALERT_DAYS_AHEAD = 7
 
+# Error-fare threshold: price must be this fraction below the 14-day average
+ERROR_FARE_THRESHOLD = 0.40  # 40%
+
+try:
+    import openai as _openai_lib
+    _openai_available = True
+except ImportError:
+    _openai_available = False
+
+
+def predict_price_action(current_price: float, history_list: list) -> dict:
+    """Call OpenAI to analyse a price trend and advise BUY NOW or WAIT.
+
+    Args:
+        current_price: The most recent observed price.
+        history_list:  Up to the last 10 price points (oldest first).
+
+    Returns:
+        A dict with keys ``action`` ('BUY NOW' or 'WAIT') and ``reason``
+        (one-sentence explanation).  Falls back to a heuristic result when
+        OpenAI is unavailable or the call fails.
+    """
+    if not _openai_available or not config.OPENAI_API_KEY:
+        logger.info("predict_price_action: OpenAI unavailable, using heuristic fallback")
+        return _heuristic_price_action(current_price, history_list)
+
+    try:
+        client = _openai_lib.OpenAI(api_key=config.OPENAI_API_KEY)
+        history_str = ", ".join(f"${p:.2f}" for p in history_list[-10:])
+        prompt = (
+            f"You are a travel data scientist. Looking at this 14-day price history "
+            f"[{history_str}], the current price is ${current_price:.2f}. "
+            f"Is this a historical low? Should the user 'BUY NOW' or 'WAIT'? "
+            f"Provide a 1-sentence reason."
+        )
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a travel data scientist."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=80,
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content.strip()
+        action = "BUY NOW" if "BUY NOW" in content.upper() else "WAIT"
+        return {"action": action, "reason": content}
+    except Exception as exc:
+        logger.error(f"predict_price_action: OpenAI call failed: {exc}")
+        return _heuristic_price_action(current_price, history_list)
+
+
+def _heuristic_price_action(current_price: float, history_list: list) -> dict:
+    """Simple statistical fallback when OpenAI is unavailable."""
+    if not history_list:
+        return {"action": "WAIT", "reason": "Insufficient price history to make a recommendation."}
+    avg = sum(history_list) / len(history_list)
+    if avg > 0 and current_price < avg * 0.85:
+        return {
+            "action": "BUY NOW",
+            "reason": f"Current price ${current_price:.2f} is well below the recent average of ${avg:.2f}.",
+        }
+    return {
+        "action": "WAIT",
+        "reason": f"Current price ${current_price:.2f} is near or above the recent average of ${avg:.2f}.",
+    }
+
 class AlertWorker:
     def __init__(self):
         self.use_redis = config.REDIS_URL is not None
@@ -307,8 +374,35 @@ class AlertWorker:
         except Exception as e:
             logger.error(f"Error saving to flight_price_cache: {str(e)}")
 
+    def _get_14day_average(self, supabase, from_iata: str, to_iata: str) -> tuple:
+        """Return (average_price, history_list) from price_history_logs over the last 14 days.
+
+        Returns (None, []) when fewer than 2 data points exist or on any error.
+        """
+        from datetime import timezone
+
+        route_group = f"{from_iata}-{to_iata}"
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+        try:
+            result = (
+                supabase.table('price_history_logs')
+                .select('lowest_price')
+                .eq('route_group', route_group)
+                .gte('recorded_at', cutoff)
+                .order('recorded_at', desc=False)
+                .execute()
+            )
+            prices = [float(row['lowest_price']) for row in (result.data or [])]
+            if len(prices) < 2:
+                return None, prices
+            avg = sum(prices) / len(prices)
+            return avg, prices
+        except Exception as exc:
+            logger.error(f"Error fetching 14-day average for {route_group}: {exc}")
+            return None, []
+
     def _log_price_history(self, supabase, from_iata: str, to_iata: str, lowest_price: float):
-        """Insert a price snapshot into price_history_logs for trend visualisation."""
+        """Insert a price snapshot into price_history_logs, then detect error fares."""
         from datetime import timezone
 
         route_group = f"{from_iata}-{to_iata}"
@@ -321,6 +415,23 @@ class AlertWorker:
             logger.info(f"Logged price history for {route_group}: {lowest_price}")
         except Exception as e:
             logger.error(f"Error logging price history for {route_group}: {str(e)}")
+            return
+
+        # Error-fare detection
+        avg_price, history = self._get_14day_average(supabase, from_iata, to_iata)
+        if avg_price is not None and avg_price > 0:
+            drop_fraction = (avg_price - lowest_price) / avg_price
+            if drop_fraction > ERROR_FARE_THRESHOLD:
+                logger.warning(
+                    f"🔥 ERROR FARE detected on {route_group}: "
+                    f"${lowest_price:.2f} is {drop_fraction * 100:.1f}% below "
+                    f"14-day average ${avg_price:.2f}"
+                )
+                advice = predict_price_action(lowest_price, history)
+                logger.info(
+                    f"AI price advice for {route_group}: "
+                    f"{advice['action']} — {advice['reason']}"
+                )
 
     # ------------------------------------------------------------------
     # Per-user notification logic

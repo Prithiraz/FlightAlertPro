@@ -64,7 +64,7 @@ const adCardStyles = {
 
 export default function Search() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, subscriptionTier } = useAuth();
   const [form, setForm] = useState({
     from_iata: '',
     to_iata: '',
@@ -274,6 +274,7 @@ export default function Search() {
                 offer={offer}
                 cabinClass={form.cabin_class}
                 onCreateAlert={handleCreateAlert}
+                subscriptionTier={subscriptionTier}
               />
               {idx === AD_INSERTION_INDEX && (
                 <AncillaryAdCard

@@ -221,7 +221,33 @@ export default function Dashboard() {
             <div style={styles.results}>
               <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
               {results.map((offer, idx) => (
-                <div key={offer.id ?? idx} style={styles.card}>
+                <div
+                  key={offer.id ?? idx}
+                  style={{
+                    ...styles.card,
+                    ...(offer.is_error_fare && hasAiInsights
+                      ? {
+                          boxShadow: '0 0 0 3px #ef4444, 0 0 18px 4px rgba(239,68,68,0.45)',
+                          border: '2px solid #f97316',
+                        }
+                      : {}),
+                  }}
+                >
+                  {offer.is_error_fare && hasAiInsights && (
+                    <div style={{
+                      display: 'inline-block',
+                      background: 'linear-gradient(90deg, #ef4444, #f97316)',
+                      color: '#fff',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      padding: '2px 10px',
+                      borderRadius: '9999px',
+                      marginBottom: '6px',
+                      letterSpacing: '0.03em',
+                    }}>
+                      🔥 PROBABLE ERROR FARE
+                    </div>
+                  )}
                   <div style={styles.route}>
                     <span style={styles.iata}>{offer.from_iata}</span>
                     <span style={styles.arrow}> → </span>
@@ -233,13 +259,48 @@ export default function Dashboard() {
                   <div style={styles.price}>
                     {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
                   </div>
+                  {/* AI Market Advice */}
+                  {offer.is_error_fare && (
+                    hasAiInsights ? (
+                      <div style={{
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                        marginTop: '6px',
+                        fontSize: '0.85rem',
+                      }}>
+                        <div style={{ fontWeight: '600', marginBottom: '4px', color: '#374151' }}>🤖 AI Market Advice</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {offer.ai_action === 'BUY NOW' ? (
+                            <span style={{ background: '#16a34a', color: '#fff', fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>✅ BUY NOW</span>
+                          ) : (
+                            <span style={{ background: '#ca8a04', color: '#fff', fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '4px' }}>⏳ WAIT</span>
+                          )}
+                          <span style={{ color: '#4b5563' }}>{offer.ai_advice}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ position: 'relative', overflow: 'hidden', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', marginTop: '6px', fontSize: '0.85rem' }}>
+                        <div style={{ fontWeight: '600', marginBottom: '4px', color: '#374151' }}>🤖 AI Market Advice</div>
+                        <div style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none', color: '#4b5563' }}>
+                          ✅ BUY NOW — This price is significantly below the 14-day average.
+                        </div>
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.75)' }}>
+                          <a href="/pricing" style={{ background: '#1d4ed8', color: '#fff', fontSize: '0.75rem', fontWeight: '600', padding: '6px 12px', borderRadius: '6px', textDecoration: 'none' }}>
+                            🔒 Upgrade to Elite to see AI Advice
+                          </a>
+                        </div>
+                      </div>
+                    )
+                  )}
                   {hasAiInsights && offer.ai_insight && (
                     <div style={styles.aiInsight}>
                       <span style={styles.aiInsightLabel}>✨ AI Insight: </span>
                       {offer.ai_insight}
                     </div>
                   )}
-                  {!hasAiInsights && (
+                  {!hasAiInsights && !offer.is_error_fare && (
                     <div style={styles.aiInsightLocked}>
                       ✨ AI Insights available on Elite &amp; Business plans.{' '}
                       <a href="/pricing" style={{ color: '#1d4ed8', fontWeight: '600' }}>Upgrade →</a>
