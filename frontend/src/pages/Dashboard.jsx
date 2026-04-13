@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import { searchFlights, listAlerts } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
+import PriceTrendGraph from '../components/PriceTrendGraph';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
@@ -261,6 +262,7 @@ export default function Dashboard() {
                     &nbsp;· Max: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
                     {alert.departure_date && ` · Dep: ${alert.departure_date}`}
                   </span>
+                  <PriceTrendGraph route_group={`${alert.from_iata}-${alert.to_iata}`} />
                 </div>
               ))}
             </div>

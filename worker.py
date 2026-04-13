@@ -169,6 +169,9 @@ class AlertWorker:
                         lowest_price, api_response
                     )
 
+                    # 3b. Log price history for trend visualisation
+                    self._log_price_history(supabase, from_iata, to_iata, lowest_price)
+
                 # 4. Process each user in this route group
                 for alert in group_alerts:
                     try:
@@ -236,6 +239,21 @@ class AlertWorker:
             }).execute()
         except Exception as e:
             logger.error(f"Error saving to flight_price_cache: {str(e)}")
+
+    def _log_price_history(self, supabase, from_iata: str, to_iata: str, lowest_price: float):
+        """Insert a price snapshot into price_history_logs for trend visualisation."""
+        from datetime import timezone
+
+        route_group = f"{from_iata}-{to_iata}"
+        try:
+            supabase.table('price_history_logs').insert({
+                'route_group': route_group,
+                'lowest_price': lowest_price,
+                'recorded_at': datetime.now(timezone.utc).isoformat(),
+            }).execute()
+            logger.info(f"Logged price history for {route_group}: {lowest_price}")
+        except Exception as e:
+            logger.error(f"Error logging price history for {route_group}: {str(e)}")
 
     # ------------------------------------------------------------------
     # Per-user notification logic

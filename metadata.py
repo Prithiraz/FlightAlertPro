@@ -1,5 +1,5 @@
 """Metadata API routes for airports and airlines (offline OpenFlights data)"""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from typing import List, Dict, Optional
 import json
 import logging
@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 airports_router = APIRouter(prefix="/api/airports", tags=["airports"])
 airlines_router = APIRouter(prefix="/api/airlines", tags=["airlines"])
+history_router = APIRouter(prefix="/api/history", tags=["history"])
 
 # Load data at module level (singleton)
 _data_candidate = Path(__file__).parent / "data"
@@ -323,3 +324,30 @@ async def airline_autocomplete_search(q: str = Query("", description="Search que
 
     results = exact_iata + prefix_matches + substring_matches
     return results[:10]
+
+
+@history_router.get("/{route_group}")
+async def get_price_history(route_group: str):
+    """Return the last 14 price data points for a given route group (e.g. 'LGW-JFK'),
+    sorted chronologically (oldest first) for rendering a price trend graph."""
+    from config import config
+    from supabase import create_client
+
+    supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+
+    try:
+        result = (
+            supabase.table('price_history_logs')
+            .select('lowest_price, recorded_at')
+            .eq('route_group', route_group.upper())
+            .order('recorded_at', desc=True)
+            .limit(14)
+            .execute()
+        )
+    except Exception as e:
+        logger.error(f"Error fetching price history for {route_group}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch price history")
+
+    # Reverse so the list is chronological (oldest → newest) for the chart
+    data = list(reversed(result.data or []))
+    return {"route_group": route_group.upper(), "data": data}
