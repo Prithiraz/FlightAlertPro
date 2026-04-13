@@ -90,3 +90,7 @@ export async function searchAirlines(q) {
   if (!q || q.length < 2) return [];
   return apiFetch(`/api/airlines/search?q=${encodeURIComponent(q)}`);
 }
+
+export function getPriceHistory(routeGroup) {
+  return request('GET', `/api/history/${encodeURIComponent(routeGroup)}`);
+}
