@@ -1,4 +1,6 @@
 import logging
+import os
+import urllib.parse
 from typing import List, Optional
 from datetime import datetime
 from ycloud_whatsapp import ycloud_whatsapp_service
@@ -12,6 +14,17 @@ class NotificationService:
         self.whatsapp = ycloud_whatsapp_service
         self.email = email_service
         self.telegram = telegram_service
+
+    def _build_hotel_affiliate_url(self, destination: str, checkin_date: Optional[str] = None) -> str:
+        """Construct a dynamic hotel affiliate URL for the given destination and check-in date."""
+        base_url = os.environ.get('HOTEL_AFFILIATE_BASE_URL', 'https://www.booking.com/searchresults.html')
+        affiliate_id = os.environ.get('HOTEL_AFFILIATE_ID', '')
+        params: dict = {'ss': destination}
+        if checkin_date:
+            params['checkin'] = checkin_date
+        if affiliate_id:
+            params['aid'] = affiliate_id
+        return f"{base_url}?{urllib.parse.urlencode(params)}"
 
     def send_notification(self, user_email: str, message: str, channels: List[str],
                          subject: Optional[str] = None, phone: Optional[str] = None,
@@ -70,7 +83,10 @@ class NotificationService:
 
     def send_price_alert(self, user_email: str, route: str, old_price: float,
                         new_price: float, channels: List[str],
-                        best_date: Optional[str] = None, **kwargs) -> dict:
+                        best_date: Optional[str] = None,
+                        destination_city: Optional[str] = None,
+                        arrival_date: Optional[str] = None,
+                        **kwargs) -> dict:
         savings = old_price - new_price
 
         if best_date:
@@ -101,6 +117,11 @@ You Save: ${savings:.2f}
 
 Book now: https://flightalertpro.com/book"""
             subject = f"Price Drop: {route} - Save ${savings:.2f}"
+
+        if destination_city:
+            checkin = arrival_date or best_date
+            affiliate_url = self._build_hotel_affiliate_url(destination_city, checkin)
+            message += f"\n\n🏨 Need a place to stay in {destination_city}? Check current hotel deals: {affiliate_url}"
 
         return self.send_notification(
             user_email=user_email,
