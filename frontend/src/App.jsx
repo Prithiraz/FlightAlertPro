@@ -11,6 +11,7 @@ import Search from './pages/Search';
 import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
+import Discover from './pages/Discover';
 
 const AuthContext = createContext(null);
 
@@ -102,6 +103,14 @@ function App() {
             }
           />
           <Route path="/pricing" element={<Pricing />} />
+          <Route
+            path="/discover"
+            element={
+              <ProtectedRoute>
+                <Discover />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

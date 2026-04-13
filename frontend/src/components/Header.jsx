@@ -22,6 +22,7 @@ export default function Header() {
       <nav style={styles.nav}>
         <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
         <NavLink to="/search" style={navLinkStyle}>Search</NavLink>
+        <NavLink to="/discover" style={navLinkStyle}>Discover</NavLink>
         <NavLink to="/alerts" style={navLinkStyle}>Alerts</NavLink>
         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
         <NavLink to="/pricing" style={navLinkStyle}>Upgrade</NavLink>
