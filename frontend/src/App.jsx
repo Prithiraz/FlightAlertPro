@@ -18,25 +18,48 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+async function fetchSubscriptionTier(userId) {
+  if (!userId) return 'free';
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('subscription_tier')
+    .eq('id', userId)
+    .single();
+  return data?.subscription_tier ?? 'free';
+}
+
 function App() {
   const [user, setUser] = useState(null);
+  const [subscriptionTier, setSubscriptionTier] = useState('free');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) {
+        const tier = await fetchSubscriptionTier(u.id);
+        setSubscriptionTier(tier);
+      }
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) {
+        const tier = await fetchSubscriptionTier(u.id);
+        setSubscriptionTier(tier);
+      } else {
+        setSubscriptionTier('free');
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, subscriptionTier }}>
       <BrowserRouter>
         {user && <Header />}
         <Routes>

@@ -110,9 +110,12 @@ class PaymentsService:
             logger.warning("Supabase client not configured – skipping DB upgrade for %s", user_email)
             return False
 
+        valid_tiers = {'pro', 'elite', 'business'}
+        subscription_tier = plan.lower() if plan.lower() in valid_tiers else 'pro'
+
         profile_data: Dict = {
             'email': user_email,
-            'is_pro': True,
+            'subscription_tier': subscription_tier,
             'plan': plan,
             'subscription_status': 'active',
             'updated_at': datetime.utcnow().isoformat(),
