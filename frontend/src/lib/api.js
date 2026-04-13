@@ -94,3 +94,11 @@ export async function searchAirlines(q) {
 export function getPriceHistory(routeGroup) {
   return request('GET', `/api/history/${encodeURIComponent(routeGroup)}`);
 }
+
+export function getPreferences(userEmail) {
+  return request('GET', `/api/users/me/preferences?user_email=${encodeURIComponent(userEmail)}`);
+}
+
+export function updatePreferences(userEmail, prefs) {
+  return request('PUT', `/api/users/me/preferences?user_email=${encodeURIComponent(userEmail)}`, prefs);
+}

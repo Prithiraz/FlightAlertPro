@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchFlights } from '../lib/api';
+import { searchFlights, getPreferences } from '../lib/api';
+import { useAuth } from '../App';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 import FlightResultCard from '../components/FlightResultCard';
@@ -13,6 +14,7 @@ const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
 export default function Search() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [form, setForm] = useState({
     from_iata: '',
     to_iata: '',
@@ -27,6 +29,22 @@ export default function Search() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [searched, setSearched] = useState(false);
+
+  // Auto-populate from user preferences on mount
+  useEffect(() => {
+    if (!user?.email) return;
+    getPreferences(user.email)
+      .then((prefs) => {
+        setForm((prev) => ({
+          ...prev,
+          from_iata: prefs.home_airport || prev.from_iata,
+          cabin_class: prefs.default_cabin || prev.cabin_class,
+        }));
+      })
+      .catch((err) => {
+        console.error('Failed to load preferences:', err);
+      });
+  }, [user?.email]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
