@@ -467,4 +467,4 @@ async def list_delays(user_email: str):
         return {"delays": result.data or []}
     except Exception as exc:
         logger.error(f"Failed to list delays for {user_email}: {exc}")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to retrieve delay records")
