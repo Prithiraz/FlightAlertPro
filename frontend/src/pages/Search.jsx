@@ -270,12 +270,42 @@ export default function Search() {
           <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
           {results.map((offer, idx) => (
             <Fragment key={offer.id ?? idx}>
-              <FlightResultCard
-                offer={offer}
-                cabinClass={form.cabin_class}
-                onCreateAlert={handleCreateAlert}
-                subscriptionTier={subscriptionTier}
-              />
+              {offer.is_hacker_fare && !['elite', 'business'].includes(subscriptionTier || 'free') ? (
+                <div style={styles.hackerFareWrapper}>
+                  <div style={styles.hackerFareBlur}>
+                    <FlightResultCard
+                      offer={offer}
+                      cabinClass={form.cabin_class}
+                      onCreateAlert={handleCreateAlert}
+                      subscriptionTier={subscriptionTier}
+                    />
+                  </div>
+                  <div style={styles.hackerFareOverlay}>
+                    <div style={styles.hackerFareCTA}>
+                      <div style={styles.hackerFareIcon}>🥷</div>
+                      <p style={styles.hackerFareHeadline}>
+                        We found a Hacker Fare that saves you{' '}
+                        <strong style={{ color: '#a3e635' }}>
+                          ${Number(offer.savings ?? 0).toFixed(2)}
+                        </strong>
+                      </p>
+                      <p style={styles.hackerFareSub}>
+                        Upgrade to Elite to unlock the airlines and book.
+                      </p>
+                      <a href="/pricing" style={styles.hackerFareBtn}>
+                        Upgrade to Elite →
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <FlightResultCard
+                  offer={offer}
+                  cabinClass={form.cabin_class}
+                  onCreateAlert={handleCreateAlert}
+                  subscriptionTier={subscriptionTier}
+                />
+              )}
               {idx === AD_INSERTION_INDEX && (
                 <AncillaryAdCard
                   destination={form.to_iata.toUpperCase()}
@@ -305,4 +335,28 @@ const styles = {
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '2rem' },
   results: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   resultsHeading: { fontSize: '1.25rem', marginBottom: '0.5rem', color: '#374151' },
+  // Hacker fare paywall wrapper
+  hackerFareWrapper: { position: 'relative', borderRadius: '8px', overflow: 'hidden' },
+  hackerFareBlur: { filter: 'blur(3px)', pointerEvents: 'none', userSelect: 'none' },
+  hackerFareOverlay: {
+    position: 'absolute', inset: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(15,12,41,0.82)',
+    borderRadius: '8px',
+    border: '2px solid #7c3aed',
+  },
+  hackerFareCTA: { textAlign: 'center', padding: '1.25rem', maxWidth: '360px' },
+  hackerFareIcon: { fontSize: '2.5rem', marginBottom: '0.5rem' },
+  hackerFareHeadline: { color: '#e2d9f3', fontSize: '1rem', fontWeight: '600', margin: '0 0 0.35rem' },
+  hackerFareSub: { color: '#c4b5fd', fontSize: '0.875rem', margin: '0 0 1rem' },
+  hackerFareBtn: {
+    display: 'inline-block',
+    padding: '0.55rem 1.4rem',
+    background: 'linear-gradient(90deg, #7c3aed, #a855f7)',
+    color: '#fff',
+    borderRadius: '6px',
+    fontWeight: '700',
+    fontSize: '0.9rem',
+    textDecoration: 'none',
+  },
 };

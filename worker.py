@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -310,6 +310,14 @@ class AlertWorker:
                             supabase, alert, lowest_price, currency,
                             best_date=best_date if is_flexible else None
                         )
+                        # For elite/business users: also evaluate split-ticket (hacker fare)
+                        user_tier = alert.get('subscription_tier', 'free')
+                        return_date = alert.get('return_date')
+                        if user_tier in ('elite', 'business') and return_date:
+                            self._process_hacker_fare_alert(
+                                supabase, alert, from_iata, to_iata,
+                                best_date or start_date, return_date, currency
+                            )
                     except Exception as e:
                         logger.error(
                             f"Error processing alert {alert.get('id')} "
@@ -436,6 +444,98 @@ class AlertWorker:
     # ------------------------------------------------------------------
     # Per-user notification logic
     # ------------------------------------------------------------------
+
+    def _process_hacker_fare_alert(
+        self,
+        supabase,
+        alert: dict,
+        from_iata: str,
+        to_iata: str,
+        departure_date: str,
+        return_date: str,
+        currency: str,
+    ):
+        """For elite/business users with a return_date on their alert, check
+        whether split-ticket (hacker fare) pricing drops the total below their
+        max_price threshold.  Sends a notification if so.
+        """
+        import asyncio
+        from search import search_flights, SearchRequest, FlightSegment, PassengerCount
+
+        max_price = alert.get('max_price')
+        user_email = alert.get('user_email')
+        alert_id = alert.get('id')
+
+        if not max_price or not user_email:
+            return
+
+        try:
+            rt_request = SearchRequest(
+                segments=[
+                    FlightSegment(from_iata=from_iata, to_iata=to_iata, departure_date=departure_date),
+                    FlightSegment(from_iata=to_iata, to_iata=from_iata, departure_date=return_date),
+                ],
+                passengers=PassengerCount(adults=1, children=0, infants=0),
+                cabin_class="economy",
+                currency=currency,
+            )
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                search_result = loop.run_until_complete(search_flights(rt_request))
+            finally:
+                loop.close()
+
+            offers = search_result.get('offers', [])
+            hacker_fare = next((o for o in offers if o.get('is_hacker_fare')), None)
+            if not hacker_fare:
+                return
+
+            hf_price = hacker_fare.get('price', 0)
+            if hf_price > max_price:
+                logger.info(
+                    f"Hacker fare {from_iata}->{to_iata} price {hf_price:.2f} "
+                    f"above threshold {max_price:.2f}, skipping"
+                )
+                return
+
+            last_triggered_price = alert.get('last_triggered_price')
+            if last_triggered_price is not None and hf_price >= last_triggered_price:
+                logger.info(
+                    f"Hacker fare {from_iata}->{to_iata} price {hf_price:.2f} "
+                    f"not lower than last triggered price {last_triggered_price:.2f}, skipping"
+                )
+                return
+
+            savings = hacker_fare.get('savings', 0)
+            route = f"{from_iata} → {to_iata} (Hacker Fare)"
+            old_price = last_triggered_price if last_triggered_price else max_price
+            channels = alert.get('channels') or alert.get('notification_channels', ['email'])
+            phone = alert.get('phone')
+
+            logger.info(
+                f"🥷 HACKER FARE alert triggered for {user_email}: "
+                f"{from_iata}→{to_iata} ${hf_price:.2f} saves ${savings:.2f}"
+            )
+
+            notification_service.send_price_alert(
+                user_email=user_email,
+                route=route,
+                old_price=old_price,
+                new_price=hf_price,
+                channels=channels,
+                phone=phone,
+                best_date=departure_date,
+            )
+
+            supabase.table('price_alerts').update({
+                'triggered_at': datetime.now(timezone.utc).isoformat(),
+                'last_triggered_price': hf_price,
+            }).eq('id', alert_id).execute()
+
+        except Exception as exc:
+            logger.error(f"Hacker fare alert check failed for alert {alert_id}: {exc}")
 
     def _process_user_alert(self, supabase, alert: dict, lowest_price: float, currency: str,
                             best_date: str | None = None):
