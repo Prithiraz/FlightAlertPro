@@ -543,6 +543,12 @@ class AlertWorker:
         """Compare cached lowest_price against a single user's threshold and
         send a notification if the price is low enough.
 
+        For purchased-flight alerts (``is_purchased == True``) the logic is
+        inverted: instead of looking for a price below ``max_price``, we
+        compare the live price against ``purchase_price``.  If the live price
+        is at least $25 lower than what the user paid, a "Post-Booking Drop"
+        notification is sent so they can claim a travel credit.
+
         For Business users that set ``max_points`` instead of (or in addition
         to) ``max_price``, the points threshold is converted to a cash
         equivalent using the standard baseline CPP and the comparison is
@@ -557,8 +563,73 @@ class AlertWorker:
         alert_id = alert.get('id')
         from_iata = alert.get('from_iata')
         to_iata = alert.get('to_iata')
-        max_price = alert.get('max_price')
         user_email = alert.get('user_email')
+        is_purchased = alert.get('is_purchased', False)
+
+        # ------------------------------------------------------------------
+        # Post-Booking Travel Credit path
+        # ------------------------------------------------------------------
+        if is_purchased:
+            purchase_price = alert.get('purchase_price')
+            if not purchase_price:
+                logger.info(
+                    f"Purchased alert {alert_id} has no purchase_price, skipping"
+                )
+                return
+
+            difference = purchase_price - lowest_price
+            if difference < 25:
+                logger.info(
+                    f"Post-booking alert {alert_id} ({from_iata}->{to_iata}): "
+                    f"live price {lowest_price:.2f} is only ${difference:.2f} below "
+                    f"purchase price {purchase_price:.2f} (threshold $25), skipping"
+                )
+                return
+
+            # Deduplication — don't re-notify unless price dropped further
+            last_triggered_price = alert.get('last_triggered_price')
+            if last_triggered_price is not None and lowest_price >= last_triggered_price:
+                logger.info(
+                    f"Post-booking alert {alert_id}: live price {lowest_price:.2f} "
+                    f"not lower than last triggered price {last_triggered_price:.2f}, skipping"
+                )
+                return
+
+            airline = alert.get('airline') or f"{from_iata}-{to_iata}"
+            route = f"{from_iata} → {to_iata}"
+            channels = alert.get('channels') or alert.get('notification_channels', ['email'])
+            phone = alert.get('phone')
+
+            logger.info(
+                f"🎫 POST-BOOKING DROP for {user_email}: {route} "
+                f"bought at ${purchase_price:.2f}, now ${lowest_price:.2f} "
+                f"(save ${difference:.2f})"
+            )
+
+            notification_result = notification_service.send_post_booking_drop_alert(
+                user_email=user_email,
+                route=route,
+                airline=airline,
+                purchase_price=purchase_price,
+                live_price=lowest_price,
+                channels=channels,
+                phone=phone,
+            )
+
+            logger.info(f"Alert {alert_id}: Post-booking notification sent - {notification_result}")
+
+            supabase.table('price_alerts').update({
+                'triggered_at': datetime.now(timezone.utc).isoformat(),
+                'last_triggered_price': lowest_price,
+            }).eq('id', alert_id).execute()
+
+            logger.info(f"Alert {alert_id}: Post-booking processing completed successfully")
+            return
+
+        # ------------------------------------------------------------------
+        # Standard pre-booking / watching path
+        # ------------------------------------------------------------------
+        max_price = alert.get('max_price')
 
         # Convert a points-based threshold to cash for Business users
         max_points = alert.get('max_points')

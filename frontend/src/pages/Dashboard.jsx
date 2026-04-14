@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
-import { searchFlights, listAlerts } from '../lib/api';
+import { searchFlights, listAlerts, createAlert } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 import PriceTrendGraph from '../components/PriceTrendGraph';
@@ -47,6 +47,19 @@ export default function Dashboard() {
   const [myAlerts, setMyAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [alertsError, setAlertsError] = useState('');
+
+  // Purchased flight form state
+  const [purchaseForm, setPurchaseForm] = useState({
+    from_iata: '',
+    to_iata: '',
+    departure_date: '',
+    airline: '',
+    purchase_price: '',
+  });
+  const [purchaseLoading, setPurchaseLoading] = useState(false);
+  const [purchaseError, setPurchaseError] = useState('');
+  const [purchaseSuccess, setPurchaseSuccess] = useState('');
+  const [showPurchaseForm, setShowPurchaseForm] = useState(false);
 
   useEffect(() => {
     if (user?.email) {
@@ -112,6 +125,60 @@ export default function Dashboard() {
         },
       },
     });
+  };
+
+  const handlePurchaseFormChange = (e) => {
+    const { name, value } = e.target;
+    setPurchaseForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddPurchasedFlight = async (e) => {
+    e.preventDefault();
+    setPurchaseLoading(true);
+    setPurchaseError('');
+    setPurchaseSuccess('');
+
+    if (!purchaseForm.from_iata || !purchaseForm.to_iata) {
+      setPurchaseError('Please select an origin and destination airport.');
+      setPurchaseLoading(false);
+      return;
+    }
+    if (!purchaseForm.purchase_price || Number(purchaseForm.purchase_price) <= 0) {
+      setPurchaseError('Please enter the price you paid.');
+      setPurchaseLoading(false);
+      return;
+    }
+
+    try {
+      await createAlert({
+        user_email: user.email,
+        from_iata: purchaseForm.from_iata.toUpperCase(),
+        to_iata: purchaseForm.to_iata.toUpperCase(),
+        departure_date: purchaseForm.departure_date || undefined,
+        airline: purchaseForm.airline || undefined,
+        // max_price is required by the backend; set it to purchase_price so the
+        // worker knows which route to query, even though threshold logic is
+        // overridden for purchased alerts
+        max_price: Number(purchaseForm.purchase_price),
+        is_purchased: true,
+        purchase_price: Number(purchaseForm.purchase_price),
+        notification_channels: ['email'],
+      });
+
+      setPurchaseSuccess(`✅ Tracking added! We'll alert you if the price drops $25 or more.`);
+      setPurchaseForm({ from_iata: '', to_iata: '', departure_date: '', airline: '', purchase_price: '' });
+      setShowPurchaseForm(false);
+
+      // Refresh alerts list
+      if (user?.email) {
+        const data = await listAlerts(user.email);
+        setMyAlerts(Array.isArray(data) ? data : data.alerts ?? []);
+      }
+    } catch (err) {
+      setPurchaseError(err.message || 'Failed to add purchased flight.');
+    } finally {
+      setPurchaseLoading(false);
+    }
   };
 
   return (
@@ -315,21 +382,21 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* My Alerts Summary */}
+        {/* My Alerts — split into Watching (Pre-Booking) and Upcoming Trips (Post-Booking) */}
         <section style={styles.section}>
           <div style={styles.alertsHeader}>
-            <h2 style={styles.sectionTitle}>My Alerts</h2>
+            <h2 style={styles.sectionTitle}>✈️ Watching (Pre-Booking)</h2>
             <Link to="/alerts" style={styles.manageLink}>Manage alerts →</Link>
           </div>
           {alertsLoading ? (
             <p style={styles.empty}>Loading alerts...</p>
           ) : alertsError ? (
             <p style={styles.error}>{alertsError}</p>
-          ) : myAlerts.length === 0 ? (
-            <p style={styles.empty}>No alerts yet. <Link to="/alerts" style={styles.inlineLink}>Create one</Link>.</p>
+          ) : myAlerts.filter((a) => !a.is_purchased).length === 0 ? (
+            <p style={styles.empty}>No price-watch alerts yet. <Link to="/alerts" style={styles.inlineLink}>Create one</Link>.</p>
           ) : (
             <div style={styles.alertList}>
-              {myAlerts.slice(0, 5).map((alert) => (
+              {myAlerts.filter((a) => !a.is_purchased).slice(0, 5).map((alert) => (
                 <div key={alert.id} style={styles.alertCard}>
                   <span style={styles.iata}>{alert.from_iata}</span>
                   <span style={styles.arrow}> → </span>
@@ -341,6 +408,142 @@ export default function Dashboard() {
                   <PriceTrendGraph route_group={`${alert.from_iata}-${alert.to_iata}`} />
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        {/* My Upcoming Trips — Post-Booking Travel Credit Engine */}
+        <section style={styles.section}>
+          <div style={styles.alertsHeader}>
+            <h2 style={styles.sectionTitle}>🧳 My Upcoming Trips (Post-Booking)</h2>
+            <button
+              onClick={() => { setShowPurchaseForm((v) => !v); setPurchaseError(''); setPurchaseSuccess(''); }}
+              style={styles.addTripBtn}
+            >
+              {showPurchaseForm ? 'Cancel' : '+ Add Purchased Flight'}
+            </button>
+          </div>
+
+          <p style={styles.tripSubtitle}>
+            Already booked? Add your flight below. We'll alert you if the price drops by $25+ so you can claim a travel credit from the airline.
+          </p>
+
+          {purchaseSuccess && <p style={styles.success}>{purchaseSuccess}</p>}
+
+          {showPurchaseForm && (
+            <form onSubmit={handleAddPurchasedFlight} style={{ ...styles.form, marginBottom: '1.25rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '1rem' }}>
+              <div style={styles.row}>
+                <div style={styles.field}>
+                  <label style={styles.label}>From</label>
+                  <AirportAutocomplete
+                    placeholder="LAX – Los Angeles"
+                    value={purchaseForm.from_iata}
+                    onChange={(iata) => setPurchaseForm((prev) => ({ ...prev, from_iata: iata }))}
+                  />
+                </div>
+                <div style={styles.field}>
+                  <label style={styles.label}>To</label>
+                  <AirportAutocomplete
+                    placeholder="JFK – New York"
+                    value={purchaseForm.to_iata}
+                    onChange={(iata) => setPurchaseForm((prev) => ({ ...prev, to_iata: iata }))}
+                  />
+                </div>
+              </div>
+              <div style={styles.row}>
+                <div style={styles.field}>
+                  <label style={styles.label}>Departure Date</label>
+                  <input
+                    type="date"
+                    name="departure_date"
+                    value={purchaseForm.departure_date}
+                    onChange={handlePurchaseFormChange}
+                    style={styles.input}
+                  />
+                </div>
+                <div style={styles.field}>
+                  <label style={styles.label}>Airline (optional)</label>
+                  <AirlineAutocomplete
+                    value={purchaseForm.airline}
+                    onChange={(iata) => setPurchaseForm((prev) => ({ ...prev, airline: iata }))}
+                  />
+                </div>
+              </div>
+              <div style={styles.row}>
+                <div style={styles.field}>
+                  <label style={styles.label}>What You Paid (USD)</label>
+                  <input
+                    type="number"
+                    name="purchase_price"
+                    value={purchaseForm.purchase_price}
+                    onChange={handlePurchaseFormChange}
+                    placeholder="e.g. 450.00"
+                    min="1"
+                    step="0.01"
+                    required
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+              {purchaseError && <p style={styles.error}>{purchaseError}</p>}
+              <button type="submit" disabled={purchaseLoading} style={styles.button}>
+                {purchaseLoading ? 'Adding...' : 'Track This Flight'}
+              </button>
+            </form>
+          )}
+
+          {alertsLoading ? (
+            <p style={styles.empty}>Loading trips...</p>
+          ) : myAlerts.filter((a) => a.is_purchased).length === 0 ? (
+            <p style={styles.empty}>No purchased flights tracked yet.</p>
+          ) : (
+            <div style={styles.alertList}>
+              {myAlerts.filter((a) => a.is_purchased).map((alert) => {
+                const purchased = Number(alert.purchase_price || alert.max_price);
+                const live = alert.last_triggered_price ? Number(alert.last_triggered_price) : null;
+                const pct = live !== null && purchased > 0 ? Math.max(0, Math.min(100, (live / purchased) * 100)) : null;
+                const savings = live !== null ? purchased - live : null;
+                return (
+                  <div key={alert.id} style={styles.tripCard}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span style={styles.iata}>{alert.from_iata}</span>
+                      <span style={styles.arrow}> → </span>
+                      <span style={styles.iata}>{alert.to_iata}</span>
+                      {alert.airline && <span style={styles.alertMeta}>&nbsp;· {alert.airline}</span>}
+                      {alert.departure_date && <span style={styles.alertMeta}>&nbsp;· {alert.departure_date}</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                      <span>🔒 You paid: <strong>${purchased.toFixed(2)}</strong></span>
+                      {live !== null ? (
+                        <span style={{ color: savings >= 25 ? '#16a34a' : '#6b7280' }}>
+                          📊 Market now: <strong>${live.toFixed(2)}</strong>
+                          {savings >= 25 && <span style={{ color: '#16a34a', fontWeight: 700 }}>&nbsp;(Save ${savings.toFixed(2)}!)</span>}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#6b7280' }}>📊 Market: checking...</span>
+                      )}
+                    </div>
+                    {pct !== null && (
+                      <div style={{ marginTop: '0.25rem' }}>
+                        <div style={styles.progressTrack}>
+                          <div
+                            style={{
+                              ...styles.progressBar,
+                              width: `${pct}%`,
+                              background: pct < 90 ? '#16a34a' : '#ca8a04',
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
+                          <span>$0</span>
+                          <span>Current: ${live.toFixed(2)} ({pct.toFixed(0)}% of purchase)</span>
+                          <span>${purchased.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -417,6 +620,28 @@ const styles = {
     fontSize: '0.9rem',
     color: '#374151',
   },
+  tripCard: {
+    padding: '0.875rem',
+    border: '1px solid #d1fae5',
+    borderRadius: '8px',
+    background: '#f0fdf4',
+    fontSize: '0.9rem',
+    color: '#374151',
+  },
+  tripSubtitle: { fontSize: '0.875rem', color: '#6b7280', marginTop: 0, marginBottom: '1rem' },
+  addTripBtn: {
+    padding: '0.4rem 0.9rem',
+    background: '#16a34a',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  success: { color: '#16a34a', fontSize: '0.875rem', margin: '0 0 0.75rem 0' },
+  progressTrack: { background: '#e5e7eb', borderRadius: '9999px', height: '8px', overflow: 'hidden' },
+  progressBar: { height: '8px', borderRadius: '9999px', transition: 'width 0.4s ease' },
   alertMeta: { color: '#6b7280', fontSize: '0.875rem' },
   aiInsight: {
     fontSize: '0.875rem',
