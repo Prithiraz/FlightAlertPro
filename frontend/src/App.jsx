@@ -14,6 +14,7 @@ import Pricing from './pages/Pricing';
 import Discover from './pages/Discover';
 import Referrals from './pages/Referrals';
 import DestinationHub from './pages/DestinationHub';
+import AgentDashboard from './pages/AgentDashboard';
 
 const AuthContext = createContext(null);
 
@@ -150,6 +151,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DestinationHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agent-dashboard"
+            element={
+              <ProtectedRoute>
+                <AgentDashboard />
               </ProtectedRoute>
             }
           />

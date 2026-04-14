@@ -4,6 +4,12 @@ import { createAlert, listAlerts, deleteAlert, getPreferences } from '../lib/api
 import { useAuth } from '../App';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
+import {
+  canUseFlexibleDates as tierCanUseFlexibleDates,
+  canUseClientFields,
+  canUseEU261,
+  ALERT_LIMITS,
+} from '../utils/tierLimits';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'telegram'];
@@ -18,6 +24,8 @@ const emptyForm = {
   departure_end_date: '',
   notification_channels: ['email'],
   airline: '',
+  client_name: '',
+  client_email: '',
 };
 
 export default function Alerts() {
@@ -33,14 +41,18 @@ export default function Alerts() {
   const [success, setSuccess] = useState('');
   const [prefillApplied, setPrefillApplied] = useState(false);
 
-  const ALERT_LIMITS = { free: 1, pro: 5, elite: 20, business: Infinity };
+  const ALERT_LIMITS_LOCAL = ALERT_LIMITS;
   const tier = subscriptionTier || 'free';
-  const alertLimit = ALERT_LIMITS[tier] ?? 1;
+  const alertLimit = ALERT_LIMITS_LOCAL[tier] ?? 1;
   const atLimit = alerts.length >= alertLimit;
   const isPaidTier = tier !== 'free';
   const isPro = isPaidTier;
   // Flexible Dates is an Elite/Business feature
-  const canUseFlexibleDates = tier === 'elite' || tier === 'business';
+  const canUseFlexibleDates = tierCanUseFlexibleDates(tier);
+  // Client fields are a Business feature
+  const showClientFields = canUseClientFields(tier);
+  // EU261 Auto-Claim is an Elite/Business feature
+  const showEU261 = canUseEU261(tier);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -142,6 +154,12 @@ export default function Alerts() {
         if (form.departure_start_date) payload.departure_date = form.departure_start_date;
       } else if (form.departure_date) {
         payload.departure_date = form.departure_date;
+      }
+
+      // Business-tier client fields
+      if (showClientFields) {
+        if (form.client_name)  payload.client_name  = form.client_name;
+        if (form.client_email) payload.client_email = form.client_email;
       }
 
       await createAlert(payload);
@@ -309,6 +327,37 @@ export default function Alerts() {
             />
           </div>
 
+          {/* Business-tier client fields */}
+          {showClientFields && (
+            <div style={styles.clientSection}>
+              <div style={styles.clientBadge}>🏢 Business – Client Fields</div>
+              <div style={styles.row}>
+                <div style={styles.field}>
+                  <label style={styles.label}>Client Name (optional)</label>
+                  <input
+                    type="text"
+                    name="client_name"
+                    value={form.client_name}
+                    onChange={handleChange}
+                    placeholder="e.g. Acme Corp"
+                    style={styles.input}
+                  />
+                </div>
+                <div style={styles.field}>
+                  <label style={styles.label}>Client Email (optional)</label>
+                  <input
+                    type="email"
+                    name="client_email"
+                    value={form.client_email}
+                    onChange={handleChange}
+                    placeholder="client@example.com"
+                    style={styles.input}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={styles.field}>
             <label style={styles.label}>Notification Channels</label>
             <div style={styles.channels}>
@@ -344,8 +393,8 @@ export default function Alerts() {
                 {tier === 'free'
                   ? '⚠️ You have reached your free limit of 1 alert. Upgrade to monitor additional routes.'
                   : tier === 'pro'
-                  ? `⚠️ You have reached your Pro limit of ${ALERT_LIMITS.pro} alerts. Upgrade to Elite for up to 20 alerts.`
-                  : `⚠️ You have reached your Elite limit of ${ALERT_LIMITS.elite} alerts. Upgrade to Business for unlimited alerts.`}
+                  ? `⚠️ You have reached your Pro limit of ${ALERT_LIMITS_LOCAL.pro} alerts. Upgrade to Elite for up to 20 alerts.`
+                  : `⚠️ You have reached your Elite limit of ${ALERT_LIMITS_LOCAL.elite} alerts. Upgrade to Business for unlimited alerts.`}
               </p>
               <Link to="/pricing" style={styles.paywallLink}>View Plans →</Link>
             </div>
@@ -395,12 +444,29 @@ export default function Alerts() {
                     Created: {new Date(alert.created_at).toLocaleDateString()}
                   </div>
                 )}
-                <button
-                  onClick={() => handleDeactivate(alert.id)}
-                  style={styles.deactivateBtn}
-                >
-                  Deactivate
-                </button>
+                {alert.client_name && (
+                  <div style={styles.alertMeta}>
+                    Client: {alert.client_name}
+                    {alert.client_email && ` (${alert.client_email})`}
+                  </div>
+                )}
+                <div style={styles.alertActions}>
+                  {showEU261 && alert.is_purchased && (
+                    <a
+                      href={`mailto:?subject=EU261 Claim – ${alert.from_iata}-${alert.to_iata}&body=Please%20check%20your%20FlightAlertPro%20dashboard%20for%20your%20pre-filled%20EU261%20claim.`}
+                      style={styles.eu261Btn}
+                      title="EU261 Auto-Claim – check your email for the pre-filled claim letter"
+                    >
+                      ⚖️ EU261 Claim
+                    </a>
+                  )}
+                  <button
+                    onClick={() => handleDeactivate(alert.id)}
+                    style={styles.deactivateBtn}
+                  >
+                    Deactivate
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -447,4 +513,10 @@ const styles = {
   eliteBadge: { marginLeft: '0.375rem', background: '#fef3c7', color: '#92400e', fontSize: '0.68rem', fontWeight: '700', padding: '0.1rem 0.4rem', borderRadius: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' },
   // Toast notification
   toast: { position: 'fixed', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', color: '#fff', padding: '0.75rem 1.5rem', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', zIndex: 9999, boxShadow: '0 4px 12px rgba(0,0,0,0.25)', whiteSpace: 'nowrap' },
+  // Business-tier client fields section
+  clientSection: { background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' },
+  clientBadge: { display: 'inline-block', background: '#16a34a', color: '#fff', fontSize: '0.75rem', fontWeight: '700', padding: '0.2rem 0.6rem', borderRadius: '4px', letterSpacing: '0.04em', alignSelf: 'flex-start' },
+  // Alert card action row
+  alertActions: { display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.5rem', flexWrap: 'wrap' },
+  eu261Btn: { padding: '0.375rem 0.875rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '0.875rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' },
 };

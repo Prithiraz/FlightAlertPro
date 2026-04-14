@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
+import { canUseAgentDashboard } from '../utils/tierLimits';
 
 export default function Header() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, subscriptionTier } = useAuth();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -16,6 +17,8 @@ export default function Header() {
     ...(isActive ? styles.activeLink : {}),
   });
 
+  const isAgent = canUseAgentDashboard(subscriptionTier);
+
   return (
     <header style={styles.header}>
       <div style={styles.logo}>✈️ FlightAlertPro</div>
@@ -24,6 +27,9 @@ export default function Header() {
         <NavLink to="/search" style={navLinkStyle}>Search</NavLink>
         <NavLink to="/discover" style={navLinkStyle}>Discover</NavLink>
         <NavLink to="/alerts" style={navLinkStyle}>Alerts</NavLink>
+        {isAgent && (
+          <NavLink to="/agent-dashboard" style={navLinkStyle}>Agent Portal</NavLink>
+        )}
         <NavLink to="/referrals" style={navLinkStyle}>Refer &amp; Earn</NavLink>
         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
         <NavLink to="/pricing" style={navLinkStyle}>Upgrade</NavLink>
