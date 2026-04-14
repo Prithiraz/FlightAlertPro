@@ -33,6 +33,9 @@ class CreateAlertRequest(BaseModel):
     is_purchased: bool = Field(False)
     purchase_price: Optional[float] = Field(None, gt=0)
     airline: Optional[str] = None
+    # Business-tier Travel Agent Portal fields
+    client_name: Optional[str] = None
+    client_email: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -73,6 +76,8 @@ async def create_alert(alert: CreateAlertRequest):
             'is_purchased': alert.is_purchased,
             'purchase_price': alert.purchase_price,
             'airline': alert.airline,
+            'client_name': alert.client_name,
+            'client_email': alert.client_email,
         }).execute()
 
         if result.data:
