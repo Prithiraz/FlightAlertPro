@@ -146,10 +146,115 @@ class AlertWorker:
 
         try:
             self.process_active_alerts()
+            self.send_departure_reminders()
         except Exception as e:
             logger.error(f"Error in check_alerts: {str(e)}")
         finally:
             self.release_lock(lock_key)
+
+    # ------------------------------------------------------------------
+    # 7-day departure reminder
+    # ------------------------------------------------------------------
+
+    def send_departure_reminders(self):
+        """Send a Destination Hub reminder email to users whose purchased
+        flight departs in exactly 7 days (within the current 6-hour window)."""
+        from datetime import timezone, date
+        from supabase import create_client
+
+        logger.info("Checking for 7-day departure reminders...")
+
+        try:
+            supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+
+            # Target departure date = today + 7 days
+            target_date = (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%Y-%m-%d")
+
+            result = (
+                supabase.table("price_alerts")
+                .select("id, user_email, from_iata, to_iata, departure_date, airline")
+                .eq("is_purchased", True)
+                .eq("active", True)
+                .eq("departure_date", target_date)
+                .execute()
+            )
+
+            alerts = result.data or []
+            logger.info(f"Found {len(alerts)} 7-day departure reminder(s) to send")
+
+            for alert in alerts:
+                try:
+                    self._send_departure_reminder(supabase, alert)
+                except Exception as exc:
+                    logger.error(
+                        f"Failed to send departure reminder for alert {alert.get('id')}: {exc}"
+                    )
+        except Exception as exc:
+            logger.error(f"send_departure_reminders failed: {exc}", exc_info=True)
+
+    def _send_departure_reminder(self, supabase, alert: dict):
+        """Send a single 7-day departure reminder email."""
+        from supabase import create_client
+
+        user_email = alert.get("user_email")
+        alert_id = alert.get("id")
+        to_iata = alert.get("to_iata", "")
+        from_iata = alert.get("from_iata", "")
+        departure_date = alert.get("departure_date", "")
+
+        if not user_email:
+            return
+
+        # Fetch passport_nationality from user profile
+        try:
+            profile_result = (
+                supabase.table("user_profiles")
+                .select("passport_nationality")
+                .eq("email", user_email)
+                .single()
+                .execute()
+            )
+            passport = (
+                profile_result.data.get("passport_nationality") if profile_result.data else None
+            ) or "your nationality"
+        except Exception:
+            passport = "your nationality"
+
+        # Best-effort city name (reuse trip_service helper logic inline)
+        _city_map = {
+            "NRT": "Tokyo", "HND": "Tokyo", "KIX": "Osaka",
+            "CDG": "Paris", "LHR": "London", "JFK": "New York",
+            "LAX": "Los Angeles", "DXB": "Dubai", "SIN": "Singapore",
+            "BKK": "Bangkok", "DEL": "Delhi", "SYD": "Sydney",
+        }
+        destination_city = _city_map.get(to_iata.upper(), to_iata)
+
+        hub_url = f"https://flightalertpro.com/hub/{alert_id}"
+
+        subject = f"✈️ You leave for {destination_city} in 1 week!"
+        body = (
+            f"Hi there,\n\n"
+            f"You leave for {destination_city} in just 1 week (on {departure_date})! 🎉\n\n"
+            f"Check your Destination Hub for {passport} visa requirements, "
+            f"weather tips, and get your local eSIM:\n\n"
+            f"{hub_url}\n\n"
+            f"Safe travels,\n"
+            f"The FlightAlertPro Team"
+        )
+
+        try:
+            success = notification_service.email.send_email(user_email, subject, body)
+            if success:
+                logger.info(
+                    f"7-day departure reminder sent to {user_email} for alert {alert_id} "
+                    f"(destination: {destination_city})"
+                )
+            else:
+                logger.warning(
+                    f"7-day departure reminder: email send returned False for {user_email}"
+                )
+        except Exception as exc:
+            logger.error(f"_send_departure_reminder: email failed for {user_email}: {exc}")
 
     # ------------------------------------------------------------------
     # Route-batching + caching entry point

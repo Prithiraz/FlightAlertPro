@@ -117,3 +117,7 @@ export function registerUser(email, referredBy) {
   return request('POST', '/api/users/register', body);
 }
 
+export function getTripHub(alertId, userEmail) {
+  return request('GET', `/api/trips/${encodeURIComponent(alertId)}/hub?user_email=${encodeURIComponent(userEmail)}`);
+}
+

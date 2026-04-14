@@ -13,6 +13,7 @@ import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
 import Discover from './pages/Discover';
 import Referrals from './pages/Referrals';
+import DestinationHub from './pages/DestinationHub';
 
 const AuthContext = createContext(null);
 
@@ -141,6 +142,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Referrals />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/hub/:alert_id"
+            element={
+              <ProtectedRoute>
+                <DestinationHub />
               </ProtectedRoute>
             }
           />
