@@ -322,7 +322,7 @@ def run_eu261_checks() -> dict:
 
     except Exception as exc:
         logger.error(f"EU261 cron failed: {exc}", exc_info=True)
-        return {"status": "error", "message": str(exc)}
+        return {"status": "error", "message": "EU261 cron job encountered an unexpected error"}
 
     return {
         "status": "ok",
