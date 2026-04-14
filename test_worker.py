@@ -28,7 +28,8 @@ logger = logging.getLogger(__name__)
 
 def _make_alert(alert_id, user_email, from_iata, to_iata, max_price,
                 departure_date='2026-12-15', currency='USD',
-                last_triggered_price=None, channels=None, phone=None):
+                last_triggered_price=None, channels=None, phone=None,
+                is_purchased=False, purchase_price=None, airline=None):
     return {
         'id': alert_id,
         'user_email': user_email,
@@ -41,6 +42,9 @@ def _make_alert(alert_id, user_email, from_iata, to_iata, max_price,
         'channels': channels or ['email'],
         'phone': phone,
         'last_triggered_price': last_triggered_price,
+        'is_purchased': is_purchased,
+        'purchase_price': purchase_price,
+        'airline': airline,
     }
 
 
@@ -552,6 +556,164 @@ def test_flexible_notification_message_includes_best_date():
 
 
 # ---------------------------------------------------------------------------
+# Post-Booking Travel Credit Engine tests
+# ---------------------------------------------------------------------------
+
+def test_post_booking_drop_triggers_when_savings_meet_threshold():
+    """Purchased alert: notification sent when live_price is $25+ below purchase_price."""
+    logger.info("=" * 70)
+    logger.info("TEST: post-booking drop — notified when saving >= $25")
+    logger.info("=" * 70)
+
+    worker = AlertWorker()
+    mock_supabase = MagicMock()
+    alert = _make_alert(
+        'p1', 'traveller@example.com', 'LHR', 'JFK', 450,
+        is_purchased=True, purchase_price=450.0, airline='BA',
+    )
+
+    notification_mock = MagicMock()
+    notification_mock.send_post_booking_drop_alert.return_value = {'success': True}
+
+    with patch('worker.notification_service', notification_mock):
+        worker._process_user_alert(mock_supabase, alert, lowest_price=420.0, currency='USD')
+
+    if notification_mock.send_post_booking_drop_alert.called:
+        logger.info("✅ Post-booking drop notification sent when saving $30")
+        return True
+    else:
+        logger.error("❌ Notification NOT sent even though saving was $30")
+        return False
+
+
+def test_post_booking_drop_not_triggered_below_threshold():
+    """Purchased alert: no notification when live_price is < $25 below purchase_price."""
+    logger.info("=" * 70)
+    logger.info("TEST: post-booking drop — suppressed when saving < $25")
+    logger.info("=" * 70)
+
+    worker = AlertWorker()
+    mock_supabase = MagicMock()
+    alert = _make_alert(
+        'p2', 'traveller@example.com', 'LHR', 'JFK', 450,
+        is_purchased=True, purchase_price=450.0, airline='BA',
+    )
+
+    notification_mock = MagicMock()
+
+    with patch('worker.notification_service', notification_mock):
+        worker._process_user_alert(mock_supabase, alert, lowest_price=435.0, currency='USD')
+
+    if not notification_mock.send_post_booking_drop_alert.called:
+        logger.info("✅ No notification when saving is only $15 (below $25 threshold)")
+        return True
+    else:
+        logger.error("❌ Notification incorrectly sent when saving was below threshold")
+        return False
+
+
+def test_post_booking_deduplication():
+    """Purchased alert: no re-notification when live_price did not drop further."""
+    logger.info("=" * 70)
+    logger.info("TEST: post-booking deduplication — same or higher price → no notification")
+    logger.info("=" * 70)
+
+    worker = AlertWorker()
+    mock_supabase = MagicMock()
+    alert = _make_alert(
+        'p3', 'traveller@example.com', 'CDG', 'LAX', 600,
+        is_purchased=True, purchase_price=600.0, airline='AF',
+        last_triggered_price=560.0,  # already notified at $560
+    )
+
+    notification_mock = MagicMock()
+
+    with patch('worker.notification_service', notification_mock):
+        # Same price as last triggered — should be deduplicated
+        worker._process_user_alert(mock_supabase, alert, lowest_price=560.0, currency='USD')
+
+    if not notification_mock.send_post_booking_drop_alert.called:
+        logger.info("✅ Deduplication correctly suppressed repeat notification")
+        return True
+    else:
+        logger.error("❌ Notification sent despite price not dropping further")
+        return False
+
+
+def test_post_booking_notification_template():
+    """send_post_booking_drop_alert must include airline, prices, and credit amount."""
+    logger.info("=" * 70)
+    logger.info("TEST: post-booking notification template content")
+    logger.info("=" * 70)
+
+    from notifications import NotificationService
+    from unittest.mock import MagicMock
+
+    svc = NotificationService()
+    captured = {}
+
+    def capture_send(user_email, email_subject, message):
+        captured['subject'] = email_subject
+        captured['message'] = message
+        return True
+
+    svc.email = MagicMock()
+    svc.email.send_email.side_effect = capture_send
+
+    svc.send_post_booking_drop_alert(
+        user_email='test@example.com',
+        route='LHR → JFK',
+        airline='British Airways',
+        purchase_price=500.0,
+        live_price=450.0,
+        channels=['email'],
+    )
+
+    msg = captured.get('message', '')
+    subj = captured.get('subject', '')
+
+    ok = (
+        'British Airways' in msg
+        and '$500.00' in msg
+        and '$450.00' in msg
+        and '$50.00' in msg
+        and 'Travel Credit Alert' in subj
+    )
+    if ok:
+        logger.info("✅ Post-booking notification template contains all expected fields")
+        return True
+    else:
+        logger.error(f"❌ Template missing expected content.\nSubject: {subj}\nMessage: {msg}")
+        return False
+
+
+def test_post_booking_missing_purchase_price_skipped():
+    """Purchased alert with no purchase_price must be skipped gracefully."""
+    logger.info("=" * 70)
+    logger.info("TEST: post-booking with no purchase_price → skipped")
+    logger.info("=" * 70)
+
+    worker = AlertWorker()
+    mock_supabase = MagicMock()
+    alert = _make_alert(
+        'p4', 'traveller@example.com', 'MAN', 'DXB', 400,
+        is_purchased=True, purchase_price=None,
+    )
+
+    notification_mock = MagicMock()
+
+    with patch('worker.notification_service', notification_mock):
+        worker._process_user_alert(mock_supabase, alert, lowest_price=300.0, currency='USD')
+
+    if not notification_mock.send_post_booking_drop_alert.called:
+        logger.info("✅ Alert with missing purchase_price correctly skipped")
+        return True
+    else:
+        logger.error("❌ Notification sent despite missing purchase_price")
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -569,6 +731,12 @@ if __name__ == "__main__":
         test_flexible_date_range_checks_all_days,
         test_flexible_date_range_finds_cheapest_day,
         test_flexible_notification_message_includes_best_date,
+        # Post-Booking Travel Credit Engine tests
+        test_post_booking_drop_triggers_when_savings_meet_threshold,
+        test_post_booking_drop_not_triggered_below_threshold,
+        test_post_booking_deduplication,
+        test_post_booking_notification_template,
+        test_post_booking_missing_purchase_price_skipped,
     ]
 
     passed = 0

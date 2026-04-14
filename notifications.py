@@ -131,4 +131,30 @@ Book now: https://flightalertpro.com/book"""
             **kwargs
         )
 
+    def send_post_booking_drop_alert(self, user_email: str, route: str,
+                                     airline: str, purchase_price: float,
+                                     live_price: float, channels: List[str],
+                                     **kwargs) -> dict:
+        """Send a Travel Credit Alert for a purchased flight whose price has dropped.
+
+        Triggered when the live market price is at least $25 below the user's
+        locked-in purchase price, giving them an opportunity to claim a travel
+        credit by changing their flight to the identical itinerary.
+        """
+        difference = purchase_price - live_price
+        subject = f"🚨 Travel Credit Alert! {route} dropped ${difference:.2f}"
+        message = (
+            f"🚨 Travel Credit Alert!\n\n"
+            f"The {airline} flight you bought for ${purchase_price:.2f} just dropped to ${live_price:.2f}.\n\n"
+            f"Log into your airline account immediately and 'Change' your flight to the exact same "
+            f"itinerary to claim your ${difference:.2f} travel credit!"
+        )
+        return self.send_notification(
+            user_email=user_email,
+            message=message,
+            channels=channels,
+            subject=subject,
+            **kwargs
+        )
+
 notification_service = NotificationService()

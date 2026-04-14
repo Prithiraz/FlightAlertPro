@@ -29,6 +29,10 @@ class CreateAlertRequest(BaseModel):
     phone: Optional[str] = None
     # Points-based threshold (Business tier only); stored alongside max_price
     max_points: Optional[int] = Field(None, gt=0)
+    # Post-Booking Travel Credit Engine fields
+    is_purchased: bool = Field(False)
+    purchase_price: Optional[float] = Field(None, gt=0)
+    airline: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -66,6 +70,9 @@ async def create_alert(alert: CreateAlertRequest):
             'phone': alert.phone,
             'active': True,
             'max_points': alert.max_points,
+            'is_purchased': alert.is_purchased,
+            'purchase_price': alert.purchase_price,
+            'airline': alert.airline,
         }).execute()
 
         if result.data:
