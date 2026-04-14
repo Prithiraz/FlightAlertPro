@@ -27,6 +27,8 @@ class CreateAlertRequest(BaseModel):
     departure_end_date: Optional[str] = None
     notification_channels: List[str] = Field(default=["email"])
     phone: Optional[str] = None
+    # Points-based threshold (Business tier only); stored alongside max_price
+    max_points: Optional[int] = Field(None, gt=0)
 
     @model_validator(mode='before')
     @classmethod
@@ -62,7 +64,8 @@ async def create_alert(alert: CreateAlertRequest):
             'departure_end_date': alert.departure_end_date,
             'notification_channels': alert.notification_channels,
             'phone': alert.phone,
-            'active': True
+            'active': True,
+            'max_points': alert.max_points,
         }).execute()
 
         if result.data:

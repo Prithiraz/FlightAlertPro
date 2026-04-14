@@ -13,6 +13,7 @@ from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
 from duffel_service import duffel_service
 from serpapi_service import serpapi_service
 from config import config
+from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,16 @@ def _heuristic_action(current_price: float, history_list: list) -> dict:
         "action": "WAIT",
         "reason": f"Current price ${current_price:.2f} is near or above the recent average of ${avg:.2f}.",
     }
+
+
+def _inject_points_valuation(offers: list) -> list:
+    """Add ``estimated_points_cost`` and ``cpp_value`` to each offer dict."""
+    for offer in offers:
+        price = offer.get('price', 0)
+        pts = calculate_points_cost(price)
+        offer['estimated_points_cost'] = pts
+        offer['cpp_value'] = calculate_cpp(price, pts)
+    return offers
 
 
 def _enrich_offers_with_market_insights(
@@ -603,6 +614,7 @@ async def search_flights(request: SearchRequest):
         segment.from_iata,
         segment.to_iata,
     )
+    enriched_offers = _inject_points_valuation(enriched_offers)
 
     # Check for a hacker fare (split ticketing) on round-trip searches
     if is_round_trip:
@@ -667,6 +679,8 @@ async def search_flights(request: SearchRequest):
                     'inbound_price': round(best_in.price, 2),
                     'savings': savings,
                     'roundtrip_price': round(cheapest_rt, 2),
+                    'estimated_points_cost': calculate_points_cost(round(combined, 2)),
+                    'cpp_value': BASELINE_CPP,
                 }
                 enriched_offers.insert(0, hacker_fare)
 

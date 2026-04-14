@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 VALID_CABINS = {"economy", "premium_economy", "business", "first"}
 VALID_CURRENCIES = {"USD", "EUR", "GBP", "CAD", "AUD", "INR", "JPY", "CHF", "SEK", "NOK", "DKK", "SGD", "HKD", "NZD", "ZAR"}
+VALID_REWARD_PROGRAMS = {"chase_ur", "amex_mr", "capital_one", "none"}
 
 REFERRAL_REWARD_DAYS = 30
 
@@ -110,6 +111,7 @@ class PreferencesUpdate(BaseModel):
     home_airport: Optional[str] = None
     default_cabin: Optional[str] = None
     currency: Optional[str] = None
+    preferred_reward_program: Optional[str] = None
 
 
 @router.get("/me/preferences")
@@ -122,24 +124,25 @@ async def get_preferences(user_email: str):
         supabase = get_supabase()
         result = (
             supabase.table("user_profiles")
-            .select("home_airport, default_cabin, preferred_currency")
+            .select("home_airport, default_cabin, preferred_currency, preferred_reward_program")
             .eq("email", user_email)
             .single()
             .execute()
         )
         if not result.data:
-            return {"home_airport": None, "default_cabin": "economy", "currency": "USD"}
+            return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none"}
 
         data = result.data
         return {
             "home_airport": data.get("home_airport"),
             "default_cabin": data.get("default_cabin") or "economy",
             "currency": data.get("preferred_currency") or "USD",
+            "preferred_reward_program": data.get("preferred_reward_program") or "none",
         }
     except Exception as e:
         logger.error(f"Error fetching preferences for {user_email}: {e}")
         # Return defaults when profile doesn't exist yet
-        return {"home_airport": None, "default_cabin": "economy", "currency": "USD"}
+        return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none"}
 
 
 @router.put("/me/preferences")
@@ -160,6 +163,12 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             detail=f"Invalid currency. Must be one of: {', '.join(sorted(VALID_CURRENCIES))}",
         )
 
+    if body.preferred_reward_program and body.preferred_reward_program not in VALID_REWARD_PROGRAMS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid reward program. Must be one of: {', '.join(sorted(VALID_REWARD_PROGRAMS))}",
+        )
+
     try:
         supabase = get_supabase()
 
@@ -170,6 +179,8 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             updates["default_cabin"] = body.default_cabin
         if body.currency is not None:
             updates["preferred_currency"] = body.currency.upper()
+        if body.preferred_reward_program is not None:
+            updates["preferred_reward_program"] = body.preferred_reward_program
 
         if not updates:
             return {"success": True, "message": "No changes provided"}

@@ -6,6 +6,12 @@ import { getPreferences, updatePreferences } from '../lib/api';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'JPY', 'CHF', 'SEK', 'NOK', 'DKK', 'SGD', 'HKD', 'NZD', 'ZAR'];
+const REWARD_PROGRAMS = [
+  { value: 'none', label: 'None' },
+  { value: 'chase_ur', label: 'Chase Ultimate Rewards' },
+  { value: 'amex_mr', label: 'Amex Membership Rewards' },
+  { value: 'capital_one', label: 'Capital One Miles' },
+];
 
 export default function Settings() {
   const { user } = useAuth();
@@ -13,6 +19,7 @@ export default function Settings() {
     home_airport: '',
     default_cabin: 'economy',
     currency: 'USD',
+    preferred_reward_program: 'none',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,6 +34,7 @@ export default function Settings() {
           home_airport: data.home_airport || '',
           default_cabin: data.default_cabin || 'economy',
           currency: data.currency || 'USD',
+          preferred_reward_program: data.preferred_reward_program || 'none',
         });
       })
       .catch((err) => {
@@ -44,6 +52,7 @@ export default function Settings() {
         home_airport: prefs.home_airport || null,
         default_cabin: prefs.default_cabin,
         currency: prefs.currency,
+        preferred_reward_program: prefs.preferred_reward_program,
       });
       setToast('Preferences saved successfully!');
     } catch (err) {
@@ -105,6 +114,20 @@ export default function Settings() {
               >
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Reward Program (Optional)</label>
+              <p style={styles.hint}>Select your preferred credit card reward system to see estimated point costs on flights.</p>
+              <select
+                value={prefs.preferred_reward_program}
+                onChange={(e) => setPrefs((prev) => ({ ...prev, preferred_reward_program: e.target.value }))}
+                style={styles.input}
+              >
+                {REWARD_PROGRAMS.map((rp) => (
+                  <option key={rp.value} value={rp.value}>{rp.label}</option>
                 ))}
               </select>
             </div>
