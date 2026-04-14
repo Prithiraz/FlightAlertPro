@@ -12,6 +12,7 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
   const tier = subscriptionTier || 'free';
   const hasAiAccess = tier === 'elite' || tier === 'business';
   const hasEliteAccess = tier === 'elite' || tier === 'business';
+  const hasPointsAccess = tier === 'elite' || tier === 'business';
   const isErrorFare = Boolean(offer.is_error_fare);
   const isHackerFare = Boolean(offer.is_hacker_fare);
 
@@ -158,6 +159,57 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
           </span>
         )}
       </div>
+
+      {/* Points & Miles Valuation */}
+      {offer.estimated_points_cost > 0 && (
+        hasPointsAccess ? (
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+            >
+              or ~{Number(offer.estimated_points_cost).toLocaleString()} pts
+            </span>
+            {offer.cpp_value > 1.5 && (
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+              >
+                💎 High Point Value ({Number(offer.cpp_value).toFixed(2)} cpp)
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="relative mt-0.5">
+            <div
+              className="inline-flex items-center gap-2"
+              style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}
+            >
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+              >
+                or ~40,000 pts
+              </span>
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+              >
+                💎 High Point Value (1.8 cpp)
+              </span>
+            </div>
+            <div className="mt-1">
+              <a
+                href="/pricing"
+                className="text-xs font-semibold px-3 py-1 rounded-md"
+                style={{ background: '#7c3aed', color: '#fff', textDecoration: 'none' }}
+              >
+                🔒 Are you a points maximizer? Upgrade to Elite to unlock Points Valuation.
+              </a>
+            </div>
+          </div>
+        )
+      )}
 
       {/* AI Market Advice — elite/business only (non-hacker fares) */}
       {!isHackerFare && isErrorFare && (

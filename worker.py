@@ -7,6 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from config import config
 from cache import cache_service
 from notifications import notification_service
+from math_utils import calculate_points_cost
 
 logger = logging.getLogger(__name__)
 
@@ -542,6 +543,11 @@ class AlertWorker:
         """Compare cached lowest_price against a single user's threshold and
         send a notification if the price is low enough.
 
+        For Business users that set ``max_points`` instead of (or in addition
+        to) ``max_price``, the points threshold is converted to a cash
+        equivalent using the standard baseline CPP and the comparison is
+        performed in cash terms.
+
         Args:
             best_date: For flexible-date alerts, the specific departure date that
                        produced the lowest price.  None for exact-date alerts.
@@ -553,6 +559,15 @@ class AlertWorker:
         to_iata = alert.get('to_iata')
         max_price = alert.get('max_price')
         user_email = alert.get('user_email')
+
+        # Convert a points-based threshold to cash for Business users
+        max_points = alert.get('max_points')
+        if max_points and max_points > 0:
+            from math_utils import BASELINE_CPP
+            # points * cpp_in_dollars → cash price equivalent
+            points_as_cash = (max_points * BASELINE_CPP) / 100
+            # Use the more permissive of the two thresholds
+            max_price = max(max_price, points_as_cash) if max_price else points_as_cash
 
         if lowest_price > max_price:
             logger.info(
