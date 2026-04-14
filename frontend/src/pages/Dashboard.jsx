@@ -504,7 +504,12 @@ export default function Dashboard() {
                 const pct = live !== null && purchased > 0 ? Math.max(0, Math.min(100, (live / purchased) * 100)) : null;
                 const savings = live !== null ? purchased - live : null;
                 return (
-                  <div key={alert.id} style={styles.tripCard}>
+                  <div
+                    key={alert.id}
+                    style={{ ...styles.tripCard, cursor: 'pointer', position: 'relative' }}
+                    onClick={() => navigate(`/hub/${alert.id}`)}
+                    title="Open Destination Hub"
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                       <span style={styles.iata}>{alert.from_iata}</span>
                       <span style={styles.arrow}> → </span>
@@ -541,6 +546,9 @@ export default function Dashboard() {
                         </div>
                       </div>
                     )}
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#1d4ed8', fontWeight: 600 }}>
+                      🌍 Open Destination Hub →
+                    </div>
                   </div>
                 );
               })}

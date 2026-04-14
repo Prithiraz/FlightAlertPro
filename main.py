@@ -25,6 +25,7 @@ from currency import router as currency_router
 from alerts import router as alerts_router
 from systemcheck import router as systemcheck_router
 from user_service import router as user_router
+from trip_service import router as trip_router
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -59,6 +60,7 @@ app.include_router(currency_router)
 app.include_router(alerts_router)
 app.include_router(systemcheck_router)
 app.include_router(user_router)
+app.include_router(trip_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str

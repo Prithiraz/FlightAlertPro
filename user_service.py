@@ -112,6 +112,7 @@ class PreferencesUpdate(BaseModel):
     default_cabin: Optional[str] = None
     currency: Optional[str] = None
     preferred_reward_program: Optional[str] = None
+    passport_nationality: Optional[str] = None
 
 
 @router.get("/me/preferences")
@@ -124,13 +125,13 @@ async def get_preferences(user_email: str):
         supabase = get_supabase()
         result = (
             supabase.table("user_profiles")
-            .select("home_airport, default_cabin, preferred_currency, preferred_reward_program")
+            .select("home_airport, default_cabin, preferred_currency, preferred_reward_program, passport_nationality")
             .eq("email", user_email)
             .single()
             .execute()
         )
         if not result.data:
-            return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none"}
+            return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none", "passport_nationality": None}
 
         data = result.data
         return {
@@ -138,11 +139,12 @@ async def get_preferences(user_email: str):
             "default_cabin": data.get("default_cabin") or "economy",
             "currency": data.get("preferred_currency") or "USD",
             "preferred_reward_program": data.get("preferred_reward_program") or "none",
+            "passport_nationality": data.get("passport_nationality"),
         }
     except Exception as e:
         logger.error(f"Error fetching preferences for {user_email}: {e}")
         # Return defaults when profile doesn't exist yet
-        return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none"}
+        return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none", "passport_nationality": None}
 
 
 @router.put("/me/preferences")
@@ -181,6 +183,8 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             updates["preferred_currency"] = body.currency.upper()
         if body.preferred_reward_program is not None:
             updates["preferred_reward_program"] = body.preferred_reward_program
+        if body.passport_nationality is not None:
+            updates["passport_nationality"] = body.passport_nationality.strip() if body.passport_nationality.strip() else None
 
         if not updates:
             return {"success": True, "message": "No changes provided"}
