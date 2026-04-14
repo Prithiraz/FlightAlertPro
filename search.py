@@ -192,6 +192,7 @@ def _enrich_offers_with_market_insights(
     return offers
 
 
+def check_circuit_breaker(supplier: str) -> bool:
     """Check if circuit breaker allows requests to supplier"""
     cb = CIRCUIT_BREAKER.get(supplier)
     if not cb:
@@ -475,6 +476,12 @@ async def generate_flight_insight(top_flights: List[FlightOffer]) -> Optional[st
         return None
 
 
+_HACKER_FARE_THRESHOLD = 0.10  # 10% cheaper required
+
+# Sources list used when gathering multi-supplier results
+_SOURCES = ['aerodatabox', 'airscraper', 'duffel', 'serpapi']
+
+
 @router.post("/search")
 async def search_flights(request: SearchRequest):
     """
@@ -496,20 +503,64 @@ async def search_flights(request: SearchRequest):
     # Search first segment only for now (multi-city requires sequential booking)
     segment = request.segments[0]
 
-    # Launch parallel searches
-    tasks = [
-        search_aerodatabox(segment, request),
-        search_airscraper(segment, request),
-        search_duffel(segment, request),
-        search_serpapi(segment, request),
-    ]
+    is_round_trip = len(request.segments) == 2
 
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    if is_round_trip:
+        # Run three parallel searches: A (round-trip), B (outbound one-way), C (inbound one-way)
+        seg_in = request.segments[1]
+        req_out_only = SearchRequest(
+            segments=[segment],
+            passengers=request.passengers,
+            cabin_class=request.cabin_class,
+            currency=request.currency,
+        )
+        req_in_only = SearchRequest(
+            segments=[seg_in],
+            passengers=request.passengers,
+            cabin_class=request.cabin_class,
+            currency=request.currency,
+        )
+        # Search A tasks (standard round-trip suppliers)
+        rt_tasks = [
+            search_aerodatabox(segment, request),
+            search_airscraper(segment, request),
+            search_duffel(segment, request),
+            search_serpapi(segment, request),
+        ]
+        # Search B tasks (one-way outbound)
+        out_tasks = [
+            search_aerodatabox(segment, req_out_only),
+            search_airscraper(segment, req_out_only),
+            search_duffel(segment, req_out_only),
+            search_serpapi(segment, req_out_only),
+        ]
+        # Search C tasks (one-way inbound)
+        in_tasks = [
+            search_aerodatabox(seg_in, req_in_only),
+            search_airscraper(seg_in, req_in_only),
+            search_duffel(seg_in, req_in_only),
+            search_serpapi(seg_in, req_in_only),
+        ]
+        all_results = await asyncio.gather(*(rt_tasks + out_tasks + in_tasks), return_exceptions=True)
+        rt_results = all_results[:4]
+        out_results = all_results[4:8]
+        in_results = all_results[8:12]
+    else:
+        # Single-segment search
+        tasks = [
+            search_aerodatabox(segment, request),
+            search_airscraper(segment, request),
+            search_duffel(segment, request),
+            search_serpapi(segment, request),
+        ]
+        rt_results = await asyncio.gather(*tasks, return_exceptions=True)
+        out_results = None
+        in_results = None
 
     # Flatten and normalize results
     all_offers = []
 
-    for idx, result in enumerate(results):
+    for idx, result in enumerate(rt_results):
         if isinstance(result, Exception):
             logger.error(f"Supplier {idx} raised exception: {result}")
             continue
@@ -552,6 +603,72 @@ async def search_flights(request: SearchRequest):
         segment.from_iata,
         segment.to_iata,
     )
+
+    # Check for a hacker fare (split ticketing) on round-trip searches
+    if is_round_trip:
+        # Build normalised offer lists from the one-way results already gathered
+        out_offers: List[FlightOffer] = []
+        in_offers: List[FlightOffer] = []
+        for idx, result in enumerate(out_results or []):
+            if not isinstance(result, Exception):
+                for raw in (result or []):
+                    o = normalize_offer(raw, _SOURCES[idx])
+                    if o:
+                        out_offers.append(o)
+        for idx, result in enumerate(in_results or []):
+            if not isinstance(result, Exception):
+                for raw in (result or []):
+                    o = normalize_offer(raw, _SOURCES[idx])
+                    if o:
+                        in_offers.append(o)
+        out_offers = dedupe_offers(out_offers)
+        in_offers = dedupe_offers(in_offers)
+
+        if out_offers and in_offers and unique_offers:
+            cheapest_rt = min(o.price for o in unique_offers)
+            best_out = min(out_offers, key=lambda o: o.price)
+            best_in = min(in_offers, key=lambda o: o.price)
+            combined = best_out.price + best_in.price
+            if combined < cheapest_rt * (1 - _HACKER_FARE_THRESHOLD):
+                savings = round(cheapest_rt - combined, 2)
+                logger.info(
+                    f"Hacker fare: {segment.from_iata}->{segment.to_iata} "
+                    f"RT={cheapest_rt:.2f} split={combined:.2f} saves={savings:.2f}"
+                )
+                hacker_fare = {
+                    'id': f'hacker-{best_out.id}-{best_in.id}',
+                    'source': 'hacker_fare',
+                    'airline_iata': best_out.airline_iata,
+                    'airline_name': best_out.airline_name,
+                    'from_iata': segment.from_iata,
+                    'to_iata': segment.to_iata,
+                    'departure_time': best_out.departure_time,
+                    'arrival_time': best_out.arrival_time,
+                    'duration_minutes': None,  # N/A: two separate tickets
+                    'stops': best_out.stops,
+                    'price': round(combined, 2),
+                    'currency': best_out.currency,
+                    'cabin_class': request.cabin_class,
+                    'baggage_kg': None,
+                    'booking_url': best_out.booking_url,
+                    'is_error_fare': False,
+                    'is_hacker_fare': True,
+                    'outbound_airline_iata': best_out.airline_iata,
+                    'outbound_airline_name': best_out.airline_name,
+                    'outbound_booking_url': best_out.booking_url,
+                    'outbound_departure': best_out.departure_time,
+                    'outbound_arrival': best_out.arrival_time,
+                    'outbound_price': round(best_out.price, 2),
+                    'inbound_airline_iata': best_in.airline_iata,
+                    'inbound_airline_name': best_in.airline_name,
+                    'inbound_booking_url': best_in.booking_url,
+                    'inbound_departure': best_in.departure_time,
+                    'inbound_arrival': best_in.arrival_time,
+                    'inbound_price': round(best_in.price, 2),
+                    'savings': savings,
+                    'roundtrip_price': round(cheapest_rt, 2),
+                }
+                enriched_offers.insert(0, hacker_fare)
 
     response = {
         "query": {
