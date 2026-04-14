@@ -106,3 +106,14 @@ export function updatePreferences(userEmail, prefs) {
 export function exploreFlights(origin) {
   return request('GET', `/api/flights/explore?origin=${encodeURIComponent(origin)}`);
 }
+
+export function getReferralInfo(userEmail) {
+  return request('GET', `/api/users/me/referral?user_email=${encodeURIComponent(userEmail)}`);
+}
+
+export function registerUser(email, referredBy) {
+  const body = { email };
+  if (referredBy) body.referred_by = referredBy;
+  return request('POST', '/api/users/register', body);
+}
+

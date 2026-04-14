@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException
 import logging
+import random
+import string
 from typing import Optional
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 from supabase import create_client
 from config import config
@@ -11,9 +14,96 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 VALID_CABINS = {"economy", "premium_economy", "business", "first"}
 VALID_CURRENCIES = {"USD", "EUR", "GBP", "CAD", "AUD", "INR", "JPY", "CHF", "SEK", "NOK", "DKK", "SGD", "HKD", "NZD", "ZAR"}
 
+REFERRAL_REWARD_DAYS = 30
+
 
 def get_supabase():
     return create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
+
+
+def generate_referral_code() -> str:
+    """Generate a unique short referral code in the format FLIGHT-XXXX."""
+    chars = string.ascii_uppercase + string.digits
+    suffix = "".join(random.choices(chars, k=4))
+    return f"FLIGHT-{suffix}"
+
+
+def get_or_create_referral_code(user_email: str) -> str:
+    """Return existing referral_code for the user or generate and store a new one."""
+    supabase = get_supabase()
+    result = (
+        supabase.table("user_profiles")
+        .select("referral_code")
+        .eq("email", user_email)
+        .single()
+        .execute()
+    )
+    existing_code = result.data.get("referral_code") if result.data else None
+    if existing_code:
+        return existing_code
+
+    # Generate a collision-free code
+    for _ in range(10):
+        code = generate_referral_code()
+        check = (
+            supabase.table("user_profiles")
+            .select("id")
+            .eq("referral_code", code)
+            .execute()
+        )
+        if not check.data:
+            supabase.table("user_profiles").upsert(
+                {"email": user_email, "referral_code": code}, on_conflict="email"
+            ).execute()
+            return code
+
+    raise RuntimeError("Failed to generate a unique referral code after multiple attempts")
+
+
+def grant_referral_reward(referrer_code: str) -> bool:
+    """Add REFERRAL_REWARD_DAYS days of Elite access to the owner of referrer_code.
+
+    Returns True if the reward was applied, False if the code was not found.
+    """
+    supabase = get_supabase()
+    result = (
+        supabase.table("user_profiles")
+        .select("email, elite_until")
+        .eq("referral_code", referrer_code)
+        .execute()
+    )
+    if not result.data:
+        logger.warning("grant_referral_reward: referral code %s not found", referrer_code)
+        return False
+
+    row = result.data[0]
+    now = datetime.now(timezone.utc)
+
+    current_until_raw = row.get("elite_until")
+    if current_until_raw:
+        try:
+            current_until = datetime.fromisoformat(current_until_raw.replace("Z", "+00:00"))
+            if current_until.tzinfo is None:
+                current_until = current_until.replace(tzinfo=timezone.utc)
+        except ValueError:
+            current_until = now
+    else:
+        current_until = now
+
+    # Extend from the later of now or the existing elite_until
+    base = max(now, current_until)
+    new_until = base + timedelta(days=REFERRAL_REWARD_DAYS)
+
+    supabase.table("user_profiles").update(
+        {"elite_until": new_until.isoformat()}
+    ).eq("referral_code", referrer_code).execute()
+
+    logger.info(
+        "Referral reward granted: code=%s, new elite_until=%s",
+        referrer_code,
+        new_until.isoformat(),
+    )
+    return True
 
 
 class PreferencesUpdate(BaseModel):
@@ -92,3 +182,106 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
     except Exception as e:
         logger.error(f"Error updating preferences for {user_email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update preferences")
+
+
+# ---------------------------------------------------------------------------
+# Referral endpoints
+# ---------------------------------------------------------------------------
+
+class RegisterUserRequest(BaseModel):
+    email: str
+    referred_by: Optional[str] = None
+
+
+@router.post("/register")
+async def register_user(body: RegisterUserRequest):
+    """Called after Supabase Auth sign-up to assign a referral code and log referred_by."""
+    if not body.email:
+        raise HTTPException(status_code=400, detail="email is required")
+
+    try:
+        supabase = get_supabase()
+
+        upsert_data: dict = {"email": body.email}
+
+        # Assign a referral code if not already set
+        existing = (
+            supabase.table("user_profiles")
+            .select("referral_code")
+            .eq("email", body.email)
+            .execute()
+        )
+        existing_code = (existing.data[0].get("referral_code") if existing.data else None)
+
+        if not existing_code:
+            for _ in range(10):
+                code = generate_referral_code()
+                check = (
+                    supabase.table("user_profiles")
+                    .select("id")
+                    .eq("referral_code", code)
+                    .execute()
+                )
+                if not check.data:
+                    upsert_data["referral_code"] = code
+                    break
+
+        if body.referred_by:
+            upsert_data["referred_by"] = body.referred_by
+
+        supabase.table("user_profiles").upsert(upsert_data, on_conflict="email").execute()
+
+        # Grant reward to the referrer
+        if body.referred_by:
+            grant_referral_reward(body.referred_by)
+
+        return {"success": True, "referral_code": upsert_data.get("referral_code", existing_code)}
+    except Exception as e:
+        logger.error(f"Error registering user {body.email}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to register user")
+
+
+@router.get("/me/referral")
+async def get_referral_info(user_email: str):
+    """Return the user's referral code, number of successful referrals, and elite_until timestamp."""
+    if not user_email:
+        raise HTTPException(status_code=400, detail="user_email is required")
+
+    try:
+        supabase = get_supabase()
+
+        result = (
+            supabase.table("user_profiles")
+            .select("referral_code, elite_until")
+            .eq("email", user_email)
+            .single()
+            .execute()
+        )
+
+        if not result.data:
+            # Ensure the user has a profile + referral code
+            code = get_or_create_referral_code(user_email)
+            return {"referral_code": code, "referred_count": 0, "elite_until": None}
+
+        data = result.data
+        code = data.get("referral_code")
+        if not code:
+            code = get_or_create_referral_code(user_email)
+
+        # Count how many users used this referral code
+        referred_result = (
+            supabase.table("user_profiles")
+            .select("id", count="exact")
+            .eq("referred_by", code)
+            .execute()
+        )
+        referred_count = referred_result.count if referred_result.count is not None else 0
+
+        return {
+            "referral_code": code,
+            "referred_count": referred_count,
+            "elite_until": data.get("elite_until"),
+        }
+    except Exception as e:
+        logger.error(f"Error fetching referral info for {user_email}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch referral info")
