@@ -74,8 +74,124 @@ class FlightOffer(BaseModel):
     cabin_class: str
     baggage_kg: Optional[int]
     booking_url: Optional[str]
+    is_error_fare: bool = False
+    ai_advice: Optional[str] = None
+    ai_action: Optional[str] = None  # 'BUY NOW' or 'WAIT'
 
-def check_circuit_breaker(supplier: str) -> bool:
+def _get_route_14day_average(from_iata: str, to_iata: str):
+    """Return (average_price, history_list) from price_history_logs over the last 14 days.
+
+    Queries Supabase synchronously.  Returns (None, []) when there is
+    insufficient history or when Supabase is not configured.
+    """
+    if not config.SUPABASE_URL or not config.SUPABASE_ANON_KEY:
+        return None, []
+    try:
+        from supabase import create_client
+        from datetime import timezone
+        supabase = create_client(config.SUPABASE_URL, config.SUPABASE_ANON_KEY)
+        route_group = f"{from_iata}-{to_iata}"
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+        result = (
+            supabase.table('price_history_logs')
+            .select('lowest_price')
+            .eq('route_group', route_group)
+            .gte('recorded_at', cutoff)
+            .order('recorded_at', desc=False)
+            .execute()
+        )
+        prices = [float(row['lowest_price']) for row in (result.data or [])]
+        if len(prices) < 2:
+            return None, prices
+        avg = sum(prices) / len(prices)
+        return avg, prices
+    except Exception as exc:
+        logger.error(f"Error fetching 14-day average for {from_iata}-{to_iata}: {exc}")
+        return None, []
+
+
+def _predict_price_action(current_price: float, history_list: list) -> dict:
+    """Call OpenAI to advise BUY NOW or WAIT based on recent price history.
+
+    Uses the same prompt format as the worker's ``predict_price_action`` function.
+    Falls back to a heuristic when OpenAI is unavailable.
+    """
+    if not _openai_client:
+        return _heuristic_action(current_price, history_list)
+    try:
+        history_str = ", ".join(f"${p:.2f}" for p in history_list[-10:])
+        prompt = (
+            f"You are a travel data scientist. Looking at this 14-day price history "
+            f"[{history_str}], the current price is ${current_price:.2f}. "
+            f"Is this a historical low? Should the user 'BUY NOW' or 'WAIT'? "
+            f"Provide a 1-sentence reason."
+        )
+        response = _openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a travel data scientist."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=80,
+            temperature=0.3,
+        )
+        content = response.choices[0].message.content.strip()
+        action = "BUY NOW" if "BUY NOW" in content.upper() else "WAIT"
+        return {"action": action, "reason": content}
+    except Exception as exc:
+        logger.error(f"OpenAI price action prediction failed: {exc}")
+        return _heuristic_action(current_price, history_list)
+
+
+def _heuristic_action(current_price: float, history_list: list) -> dict:
+    if not history_list:
+        return {"action": "WAIT", "reason": "Insufficient price history to make a recommendation."}
+    avg = sum(history_list) / len(history_list)
+    if avg > 0 and current_price < avg * 0.85:
+        return {
+            "action": "BUY NOW",
+            "reason": f"Current price ${current_price:.2f} is significantly below the recent average of ${avg:.2f}.",
+        }
+    return {
+        "action": "WAIT",
+        "reason": f"Current price ${current_price:.2f} is near or above the recent average of ${avg:.2f}.",
+    }
+
+
+def _enrich_offers_with_market_insights(
+    offers: list, from_iata: str, to_iata: str
+) -> list:
+    """Add ``is_error_fare``, ``ai_action``, and ``ai_advice`` to each offer dict.
+
+    An error fare is flagged when the offer price is more than 40% below the
+    14-day average for the route.  OpenAI advice is fetched once for the
+    cheapest error-fare offer and shared across all flagged offers.
+    """
+    avg_price, history = _get_route_14day_average(from_iata, to_iata)
+    if avg_price is None:
+        return offers
+
+    ai_cache: dict = {}  # keyed by offer price bucket to avoid duplicate calls
+
+    for offer in offers:
+        price = offer.get('price', 0)
+        if avg_price > 0 and (avg_price - price) / avg_price > 0.40:
+            offer['is_error_fare'] = True
+            # Dedupe OpenAI calls within the same request
+            bucket = round(price / 5) * 5
+            if bucket not in ai_cache:
+                advice = _predict_price_action(price, history)
+                ai_cache[bucket] = advice
+            else:
+                advice = ai_cache[bucket]
+            offer['ai_action'] = advice['action']
+            offer['ai_advice'] = advice['reason']
+        else:
+            offer['is_error_fare'] = False
+
+    return offers
+
+
     """Check if circuit breaker allows requests to supplier"""
     cb = CIRCUIT_BREAKER.get(supplier)
     if not cb:
@@ -428,6 +544,15 @@ async def search_flights(request: SearchRequest):
     # Generate AI insight for the top 3 cheapest flights
     ai_insight = await generate_flight_insight(sorted_offers)
 
+    # Serialise offers and enrich with error-fare / AI market advice
+    serialised_offers = [offer.dict() for offer in sorted_offers[:50]]
+    enriched_offers = await asyncio.to_thread(
+        _enrich_offers_with_market_insights,
+        serialised_offers,
+        segment.from_iata,
+        segment.to_iata,
+    )
+
     response = {
         "query": {
             "from": segment.from_iata,
@@ -436,7 +561,7 @@ async def search_flights(request: SearchRequest):
             "passengers": request.passengers.dict()
         },
         "total_offers": len(sorted_offers),
-        "offers": [offer.dict() for offer in sorted_offers[:50]],  # Max 50 results
+        "offers": enriched_offers,
         "sources_queried": ['aerodatabox', 'airscraper', 'duffel', 'serpapi'],
         "search_time_ms": int((time.time() - start_time) * 1000),
         "ai_insight": ai_insight,

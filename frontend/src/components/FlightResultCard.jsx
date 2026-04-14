@@ -1,6 +1,6 @@
 import { buildHotelUrl } from '../lib/hotelAffiliate';
 
-export default function FlightResultCard({ offer, cabinClass, onCreateAlert }) {
+export default function FlightResultCard({ offer, cabinClass, onCreateAlert, subscriptionTier }) {
   const destination = offer.to_iata || '';
   const checkinDate = offer.arrival
     ? new Date(offer.arrival).toISOString().slice(0, 10)
@@ -9,8 +9,36 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert }) {
       : '';
   const hotelUrl = buildHotelUrl(destination, checkinDate);
 
+  const tier = subscriptionTier || 'free';
+  const hasAiAccess = tier === 'elite' || tier === 'business';
+  const isErrorFare = Boolean(offer.is_error_fare);
+
+  const cardBorderStyle = isErrorFare && hasAiAccess
+    ? {
+        boxShadow: '0 0 0 3px #ef4444, 0 0 18px 4px rgba(239,68,68,0.45)',
+        border: '2px solid #f97316',
+      }
+    : {};
+
   return (
-    <div className="bg-white rounded-lg p-5 shadow-md flex flex-col gap-1.5">
+    <div
+      className="bg-white rounded-lg p-5 shadow-md flex flex-col gap-1.5"
+      style={cardBorderStyle}
+    >
+      {/* Error Fare badge — elite/business only */}
+      {isErrorFare && hasAiAccess && (
+        <div
+          className="self-start text-xs font-bold px-3 py-1 rounded-full"
+          style={{
+            background: 'linear-gradient(90deg, #ef4444, #f97316)',
+            color: '#fff',
+            letterSpacing: '0.03em',
+          }}
+        >
+          🔥 PROBABLE ERROR FARE
+        </div>
+      )}
+
       <div className="flex items-center gap-2 text-xl font-bold">
         <span className="text-blue-700">{offer.from_iata}</span>
         <span className="text-gray-400">→</span>
@@ -33,6 +61,65 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert }) {
       <div className="text-2xl font-bold text-green-600 mt-1">
         {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
       </div>
+
+      {/* AI Market Advice — elite/business only */}
+      {isErrorFare && (
+        hasAiAccess ? (
+          <div
+            className="mt-2 rounded-lg px-3 py-2 text-sm"
+            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}
+          >
+            <div className="font-semibold mb-1 text-gray-700">🤖 AI Market Advice</div>
+            <div className="flex items-center gap-2">
+              {offer.ai_action === 'BUY NOW' ? (
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded"
+                  style={{ background: '#16a34a', color: '#fff' }}
+                >
+                  ✅ BUY NOW
+                </span>
+              ) : (
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded"
+                  style={{ background: '#ca8a04', color: '#fff' }}
+                >
+                  ⏳ WAIT
+                </span>
+              )}
+              <span className="text-gray-600">{offer.ai_advice}</span>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="mt-2 rounded-lg px-3 py-2 text-sm relative overflow-hidden"
+            style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+          >
+            <div className="font-semibold mb-1 text-gray-700">🤖 AI Market Advice</div>
+            <div
+              style={{
+                filter: 'blur(4px)',
+                userSelect: 'none',
+                pointerEvents: 'none',
+              }}
+            >
+              ✅ BUY NOW — This price is significantly below the 14-day average,
+              making it an exceptional deal worth booking immediately.
+            </div>
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ background: 'rgba(248,250,252,0.75)' }}
+            >
+              <a
+                href="/pricing"
+                className="text-xs font-semibold px-3 py-1.5 rounded-md"
+                style={{ background: '#1d4ed8', color: '#fff', textDecoration: 'none' }}
+              >
+                🔒 Upgrade to Elite to see AI Advice
+              </a>
+            </div>
+          </div>
+        )
+      )}
 
       <div className="flex gap-2 mt-1 flex-wrap">
         {offer.booking_link ? (
