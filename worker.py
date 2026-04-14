@@ -7,7 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from config import config
 from cache import cache_service
 from notifications import notification_service
-from math_utils import calculate_points_cost
+from math_utils import calculate_points_cost, BASELINE_CPP
 
 logger = logging.getLogger(__name__)
 
@@ -563,7 +563,6 @@ class AlertWorker:
         # Convert a points-based threshold to cash for Business users
         max_points = alert.get('max_points')
         if max_points and max_points > 0:
-            from math_utils import BASELINE_CPP
             # points * cpp_in_dollars → cash price equivalent
             points_as_cash = (max_points * BASELINE_CPP) / 100
             # Use the more permissive of the two thresholds
