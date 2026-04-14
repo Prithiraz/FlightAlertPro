@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -12,6 +12,7 @@ import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
 import Discover from './pages/Discover';
+import Referrals from './pages/Referrals';
 
 const AuthContext = createContext(null);
 
@@ -23,10 +24,33 @@ async function fetchSubscriptionTier(userId) {
   if (!userId) return 'free';
   const { data } = await supabase
     .from('user_profiles')
-    .select('subscription_tier')
+    .select('subscription_tier, elite_until')
     .eq('id', userId)
     .single();
-  return data?.subscription_tier ?? 'free';
+  if (!data) return 'free';
+
+  // If the user has an active elite_until timestamp, treat them as elite
+  if (data.elite_until) {
+    const eliteUntil = new Date(data.elite_until);
+    if (eliteUntil > new Date()) {
+      return 'elite';
+    }
+  }
+
+  return data.subscription_tier ?? 'free';
+}
+
+/** Capture ?ref= query param on landing and persist to localStorage for signup. */
+function RefCapture() {
+  const location = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('referral_code', ref);
+    }
+  }, [location.search]);
+  return null;
 }
 
 function App() {
@@ -62,6 +86,7 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, loading, subscriptionTier }}>
       <BrowserRouter>
+        <RefCapture />
         {user && <Header />}
         <Routes>
           <Route
@@ -108,6 +133,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Discover />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/referrals"
+            element={
+              <ProtectedRoute>
+                <Referrals />
               </ProtectedRoute>
             }
           />

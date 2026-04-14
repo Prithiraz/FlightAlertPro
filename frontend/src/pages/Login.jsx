@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { registerUser } from '../lib/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -25,10 +26,22 @@ export default function Login() {
 
     if (isSignUp) {
       const { error: err } = await supabase.auth.signUp({ email, password });
-      setLoading(false);
       if (err) {
+        setLoading(false);
         setError(err.message);
       } else {
+        // Register user profile with referral code generation
+        const referredBy = localStorage.getItem('referral_code') || undefined;
+        try {
+          await registerUser(email, referredBy);
+          if (referredBy) {
+            localStorage.removeItem('referral_code');
+          }
+        } catch (regErr) {
+          // Non-fatal: profile creation can be retried later
+          console.warn('registerUser error:', regErr);
+        }
+        setLoading(false);
         setMessage('Account created! Check your email to confirm, then log in.');
       }
     } else {
