@@ -1,0 +1,126 @@
+/* ──────────────────────────────────────────────────────────────
+   FlightAlertPro — Content Script Styles
+   Premium floating widget injected onto Google Flights pages.
+   ────────────────────────────────────────────────────────────── */
+
+/* Widget container — fixed to the bottom-right corner of the viewport */
+#fap-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647; /* max z-index so it stays above Google's UI */
+  font-family: "Google Sans", "Roboto", Arial, sans-serif;
+  animation: fap-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fap-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Inner card */
+#fap-widget-inner {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.14),
+    0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: 18px 20px 16px;
+  width: 280px;
+  box-sizing: border-box;
+}
+
+/* Header row — logo + brand name */
+#fap-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#fap-widget-logo {
+  font-size: 20px;
+  line-height: 1;
+}
+
+#fap-widget-brand {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a73e8; /* Google Blue */
+  letter-spacing: 0.01em;
+}
+
+/* Body text */
+#fap-widget-text {
+  font-size: 13px;
+  color: #3c4043;
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+#fap-widget-text strong {
+  color: #202124;
+}
+
+/* Track Now button */
+#fap-track-btn {
+  display: block;
+  width: 100%;
+  padding: 10px 0;
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.1s ease,
+    box-shadow 0.2s ease;
+  letter-spacing: 0.02em;
+}
+
+#fap-track-btn:hover:not(:disabled) {
+  background: #1558b0;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.4);
+}
+
+#fap-track-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+#fap-track-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Active / success state */
+#fap-track-btn.fap-active {
+  background: #188038; /* Google Green */
+  cursor: default;
+}
+
+#fap-track-btn.fap-active:hover {
+  background: #188038;
+  box-shadow: none;
+}
+
+/* Status / error text below the button */
+#fap-widget-status {
+  font-size: 12px;
+  color: #188038;
+  margin: 8px 0 0;
+  min-height: 16px;
+  line-height: 1.4;
+}
+
+#fap-widget-status.fap-error {
+  color: #d93025; /* Google Red */
+}
