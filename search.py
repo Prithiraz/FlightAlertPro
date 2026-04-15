@@ -757,7 +757,7 @@ async def get_live_price(from_iata: str, to_iata: str, departure_date: str):
             return best_duffel
 
     if airscraper_adapter and airscraper_adapter.enabled:
-        attempted_suppliers.append("rapidapi")
+        attempted_suppliers.append("airscraper")
         rapidapi_offers = await asyncio.to_thread(
             airscraper_adapter.search_flights,
             from_iata,
