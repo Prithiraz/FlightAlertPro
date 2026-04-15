@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
-import { searchFlights, listAlerts, createAlert } from '../lib/api';
+import { searchFlights, listAlerts, createAlert, getLiveFlightPrice } from '../lib/api';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
@@ -101,7 +101,39 @@ export default function Dashboard() {
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
-      setActiveAlerts(data || []);
+      const alerts = data || [];
+      const alertsWithLivePrices = await Promise.all(
+        alerts.map(async (alert) => {
+          if (!alert.departure_date) {
+            return {
+              ...alert,
+              current_live_price: null,
+              current_live_price_currency: alert.currency || 'USD',
+            };
+          }
+
+          try {
+            const livePrice = await getLiveFlightPrice(
+              alert.from_iata,
+              alert.to_iata,
+              alert.departure_date
+            );
+            return {
+              ...alert,
+              current_live_price: Number(livePrice.current_price),
+              current_live_price_currency: livePrice.currency || alert.currency || 'USD',
+            };
+          } catch {
+            return {
+              ...alert,
+              current_live_price: null,
+              current_live_price_currency: alert.currency || 'USD',
+            };
+          }
+        })
+      );
+
+      setActiveAlerts(alertsWithLivePrices);
     } catch (err) {
       setActiveAlertsError(err.message || 'Failed to load active alerts.');
     } finally {
@@ -565,7 +597,12 @@ export default function Dashboard() {
                   <span style={styles.arrow}> → </span>
                   <span style={styles.iata}>{alert.to_iata}</span>
                   <span style={styles.alertMeta}>
-                    &nbsp;· Max: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
+                    &nbsp;· Target: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
+                    {` · Current Live Price: ${
+                      alert.current_live_price !== null && alert.current_live_price !== undefined
+                        ? `${alert.current_live_price_currency || alert.currency || 'USD'} ${Number(alert.current_live_price).toFixed(2)}`
+                        : 'Unavailable'
+                    }`}
                     {alert.departure_date && ` · Dep: ${alert.departure_date}`}
                   </span>
                 </div>
