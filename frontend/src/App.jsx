@@ -4,7 +4,7 @@ import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
-import Login from './pages/Login';
+import Auth from './pages/Auth';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Search from './pages/Search';
@@ -95,7 +95,8 @@ function App() {
             path="/"
             element={user ? <Navigate to="/dashboard" replace /> : <Landing />}
           />
-          <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
+          <Route path="/login" element={<Navigate to="/auth" replace />} />
           <Route path="/reset" element={<ResetPassword />} />
           <Route
             path="/dashboard"
