@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { apiFetch } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 const TIERS = [
   {
@@ -74,7 +75,7 @@ export default function Pricing() {
   const { user, subscriptionTier } = useAuth();
   const navigate = useNavigate();
 
-  const handleUpgrade = async (plan) => {
+  const handleCheckout = async (planName) => {
     if (!user?.email) {
       navigate('/');
       return;
@@ -84,19 +85,23 @@ export default function Pricing() {
     const cancelUrl = `${window.location.origin}/pricing`;
 
     try {
+      const sessionResult = await supabase.auth.getSession();
+      const accessToken = sessionResult?.data?.session?.access_token;
       const params = new URLSearchParams({
         user_email: user.email,
         success_url: successUrl,
         cancel_url: cancelUrl,
-        plan,
+        plan: planName.toLowerCase(),
       });
 
       const data = await apiFetch(`/api/payments/checkout?${params.toString()}`, {
         method: 'POST',
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
 
-      if (data?.url) {
-        window.location.href = data.url;
+      const checkoutUrl = data?.checkout_url || data?.url;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
       } else {
         alert('Checkout URL not received. Please try again.');
       }
@@ -186,7 +191,7 @@ export default function Pricing() {
                     background: isGradient ? '#fff' : tier.color,
                     color: isGradient ? tier.color : '#fff',
                   }}
-                  onClick={() => handleUpgrade(tier.id)}
+                  onClick={() => handleCheckout(tier.name)}
                 >
                   {tier.cta}
                 </button>
@@ -313,4 +318,3 @@ const styles = {
     textAlign: 'center',
   },
 };
-
