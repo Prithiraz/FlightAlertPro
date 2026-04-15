@@ -703,6 +703,80 @@ async def search_flights(request: SearchRequest):
 
     return response
 
+
+@router.get("/flights/live-price")
+async def get_live_price(from_iata: str, to_iata: str, departure_date: str):
+    """Return the current lowest economy fare for a single route/date."""
+    from_iata = (from_iata or "").strip().upper()
+    to_iata = (to_iata or "").strip().upper()
+
+    if len(from_iata) != 3 or len(to_iata) != 3:
+        raise HTTPException(status_code=400, detail="from_iata and to_iata must be 3-letter IATA codes")
+    if not from_iata.isalpha() or not to_iata.isalpha():
+        raise HTTPException(status_code=400, detail="from_iata and to_iata must contain only letters")
+    if from_iata == to_iata:
+        raise HTTPException(status_code=400, detail="from_iata and to_iata must be different")
+    try:
+        datetime.strptime(departure_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="departure_date must be in YYYY-MM-DD format")
+
+    def _lowest_economy_offer(offers: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        best: Optional[Dict[str, Any]] = None
+        for offer in offers or []:
+            try:
+                price = float(offer.get("price", 0))
+            except (TypeError, ValueError):
+                continue
+            if price <= 0:
+                continue
+
+            cabin_class = str(offer.get("cabin_class", "economy")).lower()
+            if cabin_class and "economy" not in cabin_class:
+                continue
+
+            currency = str(offer.get("currency", "USD") or "USD")
+            candidate = {"current_price": round(price, 2), "currency": currency}
+            if best is None or candidate["current_price"] < best["current_price"]:
+                best = candidate
+        return best
+
+    attempted_suppliers: List[str] = []
+
+    if duffel_service and duffel_service.enabled:
+        attempted_suppliers.append("duffel")
+        duffel_offers = await asyncio.to_thread(
+            duffel_service.search_flights,
+            from_iata,
+            to_iata,
+            departure_date,
+            None,
+            1,
+            "economy",
+        )
+        best_duffel = _lowest_economy_offer(duffel_offers)
+        if best_duffel:
+            return best_duffel
+
+    if airscraper_adapter and airscraper_adapter.enabled:
+        attempted_suppliers.append("airscraper")
+        rapidapi_offers = await asyncio.to_thread(
+            airscraper_adapter.search_flights,
+            from_iata,
+            to_iata,
+            departure_date,
+            None,
+            1,
+        )
+        best_rapidapi = _lowest_economy_offer(rapidapi_offers)
+        if best_rapidapi:
+            return best_rapidapi
+
+    if not attempted_suppliers:
+        raise HTTPException(status_code=503, detail="No live flight-price provider is configured")
+
+    raise HTTPException(status_code=404, detail="No live economy prices found for this route/date")
+
 # Popular global tourist destinations for Explore Anywhere feature
 EXPLORE_DESTINATIONS = [
     {"iata": "NRT", "city": "Tokyo Narita"},

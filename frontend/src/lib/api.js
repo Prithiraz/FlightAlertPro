@@ -107,6 +107,15 @@ export function exploreFlights(origin) {
   return request('GET', `/api/flights/explore?origin=${encodeURIComponent(origin)}`);
 }
 
+export function getLiveFlightPrice(from_iata, to_iata, departure_date) {
+  const params = new URLSearchParams({
+    from_iata,
+    to_iata,
+    departure_date,
+  });
+  return request('GET', `/api/flights/live-price?${params.toString()}`);
+}
+
 export function getReferralInfo(userEmail) {
   return request('GET', `/api/users/me/referral?user_email=${encodeURIComponent(userEmail)}`);
 }
@@ -120,4 +129,3 @@ export function registerUser(email, referredBy) {
 export function getTripHub(alertId, userEmail) {
   return request('GET', `/api/trips/${encodeURIComponent(alertId)}/hub?user_email=${encodeURIComponent(userEmail)}`);
 }
-
