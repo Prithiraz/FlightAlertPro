@@ -45,9 +45,7 @@ app = FastAPI(title="FlightAlertPro API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    # If ALLOWED_ORIGINS is configured (production), restrict to those origins.
-    # Otherwise fall back to ["*"] so local development keeps working.
-    allow_origins=config.ALLOWED_ORIGINS if config.ALLOWED_ORIGINS else ["*"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
