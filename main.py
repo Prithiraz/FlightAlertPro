@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
 
-from config import config
+from config import config, validate_env_vars
 from secrets import secrets_manager
 from duffel_service import duffel_service
 from aerodatabox_service import aerodatabox_service
@@ -45,7 +45,9 @@ app = FastAPI(title="FlightAlertPro API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # If ALLOWED_ORIGINS is configured (production), restrict to those origins.
+    # Otherwise fall back to ["*"] so local development keeps working.
+    allow_origins=config.ALLOWED_ORIGINS if config.ALLOWED_ORIGINS else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -85,6 +87,14 @@ class AlertRequest(BaseModel):
 async def startup_event():
     logger.info("FlightAlertPro API Starting...")
     print(secrets_manager.get_report())
+    missing = validate_env_vars()
+    if missing:
+        logger.critical(
+            "CRITICAL: %d required environment variable(s) are missing: %s. "
+            "Affected features will be disabled.",
+            len(missing),
+            ", ".join(missing),
+        )
     if not config.CRON_SECRET:
         logger.warning("CRON_SECRET is not configured — /api/cron/run-worker endpoint will be disabled")
     logger.info("API Ready")
@@ -99,6 +109,15 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "environment": config.ENVIRONMENT
+    }
+
+@app.get("/api/health")
+async def api_health_check():
+    """Primary health-check endpoint for Render / Vercel uptime monitors."""
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),

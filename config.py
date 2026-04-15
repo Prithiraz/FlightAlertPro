@@ -1,14 +1,56 @@
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path)
 
+_logger = logging.getLogger(__name__)
+
+# Mapping of env-var name -> human-readable feature that depends on it.
+# If the var is absent, the feature is gracefully disabled (not a crash).
+_FEATURE_ENV_VARS: dict[str, str] = {
+    "VITE_SUPABASE_URL": "Database (Supabase)",
+    "VITE_SUPABASE_ANON_KEY": "Database (Supabase)",
+    "SUPABASE_SERVICE_KEY": "Database admin / worker",
+    "STRIPE_SECRET_KEY": "Payments (Stripe)",
+    "OPENAI_API_KEY": "AI search / insights",
+    "DUFFEL_ACCESS_TOKEN": "Flight data (Duffel)",
+    "RAPIDAPI_KEY": "Flight data (RapidAPI)",
+    "GMAIL_USER": "Email notifications",
+    "GMAIL_APP_PASSWORD": "Email notifications",
+}
+
+
+def validate_env_vars() -> list[str]:
+    """Check every critical env var and emit a CRITICAL log for each missing one.
+
+    Returns the list of missing variable names so callers can act on it if needed.
+    The server is intentionally *not* crashed – each service disables itself when
+    its key is absent.
+    """
+    missing: list[str] = []
+    for var, feature in _FEATURE_ENV_VARS.items():
+        if not os.getenv(var):
+            missing.append(var)
+            _logger.critical(
+                "CRITICAL: %s is missing! The '%s' feature will be disabled.",
+                var,
+                feature,
+            )
+    if not missing:
+        _logger.info("Environment variable validation passed – all critical keys present.")
+    return missing
+
+
 class Config:
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
     FLIGHTAPI_KEY = os.getenv('FLIGHTAPI_KEY')
-    DUFFEL_API_KEY = os.getenv('DUFFEL_API_KEY')
+    # DUFFEL_ACCESS_TOKEN is the dashboard token name; DUFFEL_API_KEY is the internal alias.
+    # Accept either so that both .env conventions work.
+    DUFFEL_ACCESS_TOKEN = os.getenv('DUFFEL_ACCESS_TOKEN') or os.getenv('DUFFEL_API_KEY')
+    DUFFEL_API_KEY = os.getenv('DUFFEL_API_KEY') or os.getenv('DUFFEL_ACCESS_TOKEN')
     FLIGHT_API_KEY = os.getenv('FLIGHT_API_KEY')
 
     YCLOUD_API_KEY = os.getenv('YCLOUD_API_KEY')
@@ -54,5 +96,16 @@ class Config:
     ALERT_CHECK_INTERVAL_HOURS = int(os.getenv('ALERT_CHECK_INTERVAL_HOURS', '6'))
 
     CRON_SECRET = os.getenv('CRON_SECRET')
+
+    # Comma-separated list of allowed CORS origins.
+    # In production set this to your Vercel URL(s), e.g.:
+    #   ALLOWED_ORIGINS=https://flightalertpro.vercel.app,https://www.flightalertpro.com
+    # Leave empty (or unset) in development to allow all origins.
+    _raw_origins = os.getenv('ALLOWED_ORIGINS', '')
+    ALLOWED_ORIGINS: list[str] = (
+        [o.strip() for o in _raw_origins.split(',') if o.strip()]
+        if _raw_origins.strip()
+        else []
+    )
 
 config = Config()
