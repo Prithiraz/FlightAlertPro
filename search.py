@@ -712,6 +712,8 @@ async def get_live_price(from_iata: str, to_iata: str, departure_date: str):
 
     if len(from_iata) != 3 or len(to_iata) != 3:
         raise HTTPException(status_code=400, detail="from_iata and to_iata must be 3-letter IATA codes")
+    if not from_iata.isalpha() or not to_iata.isalpha():
+        raise HTTPException(status_code=400, detail="from_iata and to_iata must contain only letters")
     if from_iata == to_iata:
         raise HTTPException(status_code=400, detail="from_iata and to_iata must be different")
     try:

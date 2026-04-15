@@ -102,36 +102,36 @@ export default function Dashboard() {
 
       if (fetchError) throw fetchError;
       const alerts = data || [];
-      const alertsWithLivePrices = await Promise.all(
-        alerts.map(async (alert) => {
-          if (!alert.departure_date) {
-            return {
-              ...alert,
-              current_live_price: null,
-              current_live_price_currency: alert.currency || 'USD',
-            };
-          }
+      const alertsWithLivePrices = [];
+      for (const alert of alerts) {
+        if (!alert.departure_date) {
+          alertsWithLivePrices.push({
+            ...alert,
+            current_live_price: null,
+            current_live_price_currency: alert.currency || 'USD',
+          });
+          continue;
+        }
 
-          try {
-            const livePrice = await getLiveFlightPrice(
-              alert.from_iata,
-              alert.to_iata,
-              alert.departure_date
-            );
-            return {
-              ...alert,
-              current_live_price: Number(livePrice.current_price),
-              current_live_price_currency: livePrice.currency || alert.currency || 'USD',
-            };
-          } catch {
-            return {
-              ...alert,
-              current_live_price: null,
-              current_live_price_currency: alert.currency || 'USD',
-            };
-          }
-        })
-      );
+        try {
+          const livePrice = await getLiveFlightPrice(
+            alert.from_iata,
+            alert.to_iata,
+            alert.departure_date
+          );
+          alertsWithLivePrices.push({
+            ...alert,
+            current_live_price: Number(livePrice.current_price),
+            current_live_price_currency: livePrice.currency || alert.currency || 'USD',
+          });
+        } catch {
+          alertsWithLivePrices.push({
+            ...alert,
+            current_live_price: null,
+            current_live_price_currency: alert.currency || 'USD',
+          });
+        }
+      }
 
       setActiveAlerts(alertsWithLivePrices);
     } catch (err) {
