@@ -599,7 +599,7 @@ export default function Dashboard() {
                   <span style={styles.alertMeta}>
                     &nbsp;· Target: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
                     {` · Current Live Price: ${
-                      alert.current_live_price !== null && alert.current_live_price !== undefined
+                      alert.current_live_price != null
                         ? `${alert.current_live_price_currency || alert.currency || 'USD'} ${Number(alert.current_live_price).toFixed(2)}`
                         : 'Unavailable'
                     }`}
