@@ -50,7 +50,7 @@ export default function Dashboard() {
     from_iata: '',
     to_iata: '',
     departure_date: '',
-    target_price: '',
+    max_price: '',
   });
   const [createAlertLoading, setCreateAlertLoading] = useState(false);
   const [createAlertError, setCreateAlertError] = useState('');
@@ -181,9 +181,16 @@ export default function Dashboard() {
 
   const handleCreateAlertSubmit = async (e) => {
     e.preventDefault();
-    setCreateAlertLoading(true);
     setCreateAlertError('');
     setCreateAlertSuccess('');
+
+    const parsedTargetPrice = parseFloat(createAlertForm.max_price);
+    if (!Number.isFinite(parsedTargetPrice) || parsedTargetPrice <= 0) {
+      setCreateAlertError('Target price must be a positive number greater than 0.');
+      return;
+    }
+
+    setCreateAlertLoading(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -191,6 +198,7 @@ export default function Dashboard() {
 
       if (!userEmail) {
         setCreateAlertError('You must be signed in to create alerts.');
+        setCreateAlertLoading(false);
         return;
       }
 
@@ -199,7 +207,8 @@ export default function Dashboard() {
         from_iata: createAlertForm.from_iata.trim().toUpperCase(),
         to_iata: createAlertForm.to_iata.trim().toUpperCase(),
         departure_date: createAlertForm.departure_date || null,
-        max_price: Number(createAlertForm.target_price),
+        max_price: parsedTargetPrice,
+        currency: 'USD',
       });
 
       if (insertError) throw insertError;
@@ -209,7 +218,7 @@ export default function Dashboard() {
         from_iata: '',
         to_iata: '',
         departure_date: '',
-        target_price: '',
+        max_price: '',
       });
       await fetchActiveAlerts();
     } catch (err) {
@@ -518,11 +527,11 @@ export default function Dashboard() {
                 />
               </div>
               <div style={styles.field}>
-                <label style={styles.label}>Target Price</label>
+                <label style={styles.label}>Maximum Price (Alert Threshold)</label>
                 <input
                   type="number"
-                  name="target_price"
-                  value={createAlertForm.target_price}
+                  name="max_price"
+                  value={createAlertForm.max_price}
                   onChange={handleCreateAlertFormChange}
                   min="1"
                   step="0.01"
