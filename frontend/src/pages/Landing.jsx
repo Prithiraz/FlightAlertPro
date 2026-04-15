@@ -65,7 +65,7 @@ export default function Landing() {
             Pricing
           </Link>
           <Link
-            to="/dashboard"
+            to="/auth"
             className="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors px-4 py-2 rounded-lg"
           >
             Sign In
@@ -86,7 +86,7 @@ export default function Landing() {
             Set your price. We check the airlines 24/7. You get the alert.
           </p>
           <Link
-            to="/dashboard"
+            to="/auth"
             className="inline-block bg-white text-blue-700 font-bold text-lg px-10 py-4 rounded-xl shadow-lg hover:bg-blue-50 transition-colors"
           >
             Start Tracking for Free

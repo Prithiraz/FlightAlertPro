@@ -18,11 +18,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: u } }) => {
-      if (!u) navigate('/');
+      if (!u) navigate('/auth');
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) navigate('/');
+      if (!session?.user) navigate('/auth');
     });
 
     return () => {
