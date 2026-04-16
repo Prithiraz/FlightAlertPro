@@ -15,7 +15,7 @@ from serpapi_service import serpapi_service
 from currency_service import currency_service
 from prediction_service import prediction_service
 from notifications import notification_service
-from stripe_service import stripe_service
+from payments import payments_service
 from worker import AlertWorker
 
 # Import new routes
@@ -124,7 +124,6 @@ async def api_health_check():
 
 @app.get("/health/integrations")
 async def integrations_health():
-    from payments import payments_service
     from ycloud_whatsapp import ycloud_whatsapp_service
 
     integrations = {
@@ -256,13 +255,13 @@ async def send_notification(user_email: str, message: str, channels: List[str],
 
 @app.post("/api/payments/checkout")
 async def create_checkout(user_email: str, success_url: str, cancel_url: str, plan: str = "pro"):
-    if not stripe_service.enabled:
+    if not payments_service.enabled:
         raise HTTPException(status_code=503, detail="Payment service unavailable")
 
     if plan not in {"pro", "elite", "business"}:
         raise HTTPException(status_code=400, detail="Invalid plan. Must be one of: pro, elite, business")
 
-    session = stripe_service.create_checkout_session(user_email, plan, success_url, cancel_url)
+    session = payments_service.create_checkout_session(user_email, plan, success_url, cancel_url)
 
     if not session:
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
@@ -277,7 +276,7 @@ async def stripe_webhook(request: Request):
     if not sig_header:
         raise HTTPException(status_code=400, detail="Missing signature")
 
-    event = stripe_service.verify_webhook_signature(payload, sig_header)
+    event = payments_service.verify_webhook_signature(payload, sig_header)
 
     if not event:
         raise HTTPException(status_code=400, detail="Invalid signature")
@@ -286,11 +285,11 @@ async def stripe_webhook(request: Request):
     data = event.get('data', {}).get('object', {})
 
     if event_type == 'checkout.session.completed':
-        result = stripe_service.handle_checkout_completed(data)
+        result = payments_service.handle_checkout_completed(data)
         logger.info(f"Checkout completed: {result}")
 
     elif event_type == 'invoice.paid':
-        result = stripe_service.handle_invoice_paid(data)
+        result = payments_service.handle_invoice_paid(data)
         logger.info(f"Invoice paid: {result}")
 
     return JSONResponse(content={"status": "success"}, status_code=200)
