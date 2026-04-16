@@ -7,10 +7,6 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
-FALLBACK_AIRLINE_CODE = "FA"
-FALLBACK_AIRLINE_NAME = "FlightAlert Demo Air"
-FALLBACK_FLIGHT_PRICE = 299.0
-
 class RapidAPIAdapterCache:
     def __init__(self):
         self.cache = {}
@@ -175,41 +171,15 @@ class AirScraperAdapter(RapidAPIAdapter):
         result = self._make_request(url, headers)
 
         if not result or "data" not in result:
-            logger.warning("AirScraper returned no data, using fallback dummy offer")
-            return [self._dummy_offer(from_iata, to_iata, departure_date, safe_currency, cabin_class)]
+            logger.warning("AirScraper returned no data")
+            return []
 
         normalized = self._normalize_offers(result["data"])
         if not normalized:
-            logger.warning("AirScraper normalization produced no offers, using fallback dummy offer")
-            return [self._dummy_offer(from_iata, to_iata, departure_date, safe_currency, cabin_class)]
+            logger.warning("AirScraper normalization produced no offers")
+            return []
         cache.set(cache_key, normalized)
         return normalized
-
-    def _dummy_offer(
-        self,
-        from_iata: str,
-        to_iata: str,
-        departure_date: str,
-        currency: str,
-        cabin_class: str,
-    ) -> Dict[str, Any]:
-        return {
-            "id": f"dummy-airscraper-{from_iata}-{to_iata}-{departure_date}",
-            "provider": "airscraper",
-            "price": FALLBACK_FLIGHT_PRICE,
-            "currency": currency,
-            "airline": FALLBACK_AIRLINE_CODE,
-            "airline_name": FALLBACK_AIRLINE_NAME,
-            "from_iata": from_iata,
-            "to_iata": to_iata,
-            "departure": f"{departure_date}T09:00:00",
-            "arrival": f"{departure_date}T12:00:00",
-            "stops": 0,
-            "duration_minutes": 180,
-            "cabin_class": cabin_class or "economy",
-            "booking_link": None,
-            "raw_data": {"fallback": True},
-        }
 
     def _normalize_offers(self, offers: List[Dict]) -> List[Dict[str, Any]]:
         normalized = []
