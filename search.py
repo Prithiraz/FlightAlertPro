@@ -271,7 +271,9 @@ async def search_airscraper(segment: FlightSegment, request: SearchRequest) -> L
             segment.to_iata,
             segment.departure_date,
             adults=request.passengers.adults,
-            children=request.passengers.children
+            children=request.passengers.children,
+            currency=request.currency,
+            cabin_class=request.cabin_class,
         )
         record_success('airscraper')
         return results or []
@@ -355,19 +357,19 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
             return FlightOffer(
                 id=f"ais-{raw_offer.get('id', 'unknown')}",
                 source='airscraper',
-                airline_iata=raw_offer.get('airline_iata', 'XX'),
+                airline_iata=raw_offer.get('airline_iata') or raw_offer.get('airline', 'XX'),
                 airline_name=raw_offer.get('airline_name', 'Unknown'),
-                from_iata=raw_offer.get('origin', ''),
-                to_iata=raw_offer.get('destination', ''),
-                departure_time=raw_offer.get('departure_time', ''),
-                arrival_time=raw_offer.get('arrival_time', ''),
+                from_iata=raw_offer.get('origin') or raw_offer.get('from_iata', ''),
+                to_iata=raw_offer.get('destination') or raw_offer.get('to_iata', ''),
+                departure_time=raw_offer.get('departure_time') or raw_offer.get('departure', ''),
+                arrival_time=raw_offer.get('arrival_time') or raw_offer.get('arrival', ''),
                 duration_minutes=raw_offer.get('duration_minutes'),
                 stops=raw_offer.get('stops', 0),
                 price=float(raw_offer.get('price', 500)),
                 currency=raw_offer.get('currency', 'USD'),
                 cabin_class=raw_offer.get('cabin_class', 'economy'),
                 baggage_kg=raw_offer.get('baggage_allowance_kg'),
-                booking_url=raw_offer.get('booking_url')
+                booking_url=raw_offer.get('booking_url') or raw_offer.get('booking_link')
             )
         elif source == 'duffel':
             slices = raw_offer.get('slices', [])

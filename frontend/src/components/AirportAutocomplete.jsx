@@ -62,7 +62,7 @@ export default function AirportAutocomplete({ placeholder = 'City or airport', v
   };
 
   const handleSelect = (item) => {
-    setInputText(`${item.city} (${item.iata})`);
+    setInputText(`${item.city}, ${item.country} (${item.iata})`);
     setResults([]);
     setOpen(false);
     onChange(item.iata);
@@ -103,7 +103,7 @@ export default function AirportAutocomplete({ placeholder = 'City or airport', v
               onMouseLeave={(e) => Object.assign(e.currentTarget.style, styles.itemBase)}
             >
               <div style={styles.itemLeft}>
-                <span style={styles.city}>{item.city}, {item.country}</span>
+                <span style={styles.city}>{item.city}, {item.country} ({item.iata})</span>
                 <span style={styles.name}>{item.name}</span>
               </div>
               <span style={styles.badge}>{item.iata}</span>

@@ -67,7 +67,11 @@ export default function Discover() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    fetchDestinations(origin);
+    if (origin.length === 3) {
+      fetchDestinations(origin);
+      return;
+    }
+    navigate('/search');
   };
 
   return (
@@ -91,7 +95,7 @@ export default function Discover() {
               style={styles.originInput}
             />
           </div>
-          <button type="submit" disabled={loading || origin.length !== 3} style={styles.exploreBtn}>
+          <button type="submit" disabled={loading} style={styles.exploreBtn}>
             {loading ? 'Searching…' : 'Explore'}
           </button>
         </form>

@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { searchFlights, getPreferences } from '../lib/api';
 import { useAuth } from '../App';
 import { buildHotelUrl } from '../lib/hotelAffiliate';
@@ -13,6 +13,7 @@ const SKELETON_COUNT = 4;
 const AD_INSERTION_INDEX = 1;
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 
 function AncillaryAdCard({ destination, checkinDate }) {
   const hotelUrl = buildHotelUrl(destination, checkinDate);
@@ -72,6 +73,7 @@ export default function Search() {
     return_date: '',
     passengers: 1,
     cabin_class: 'economy',
+    currency: 'USD',
     airline: '',
   });
   const [results, setResults] = useState([]);
@@ -121,6 +123,7 @@ export default function Search() {
         departure_date: form.departure_date,
         passengers: Number(form.passengers),
         cabin_class: form.cabin_class,
+        currency: form.currency,
       };
       if (form.return_date) {
         payload.return_date = form.return_date;
@@ -243,6 +246,21 @@ export default function Search() {
               onChange={(iata) => setForm((prev) => ({ ...prev, airline: iata }))}
             />
           </div>
+          <div style={styles.field}>
+            <label style={styles.label}>Currency</label>
+            <select
+              name="currency"
+              value={form.currency}
+              onChange={handleChange}
+              style={styles.input}
+            >
+              {CURRENCIES.map((currency) => (
+                <option key={currency} value={currency}>
+                  {currency}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {error && <p style={styles.error}>{error}</p>}
@@ -292,9 +310,9 @@ export default function Search() {
                       <p style={styles.hackerFareSub}>
                         Upgrade to Elite to unlock the airlines and book.
                       </p>
-                      <a href="/pricing" style={styles.hackerFareBtn}>
+                      <Link to="/pricing" style={styles.hackerFareBtn}>
                         Upgrade to Elite →
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 </div>

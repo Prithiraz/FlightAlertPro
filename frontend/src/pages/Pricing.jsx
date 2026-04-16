@@ -77,7 +77,7 @@ export default function Pricing() {
 
   const handleCheckout = async (planName) => {
     if (!user?.email) {
-      navigate('/');
+      navigate('/auth');
       return;
     }
 
