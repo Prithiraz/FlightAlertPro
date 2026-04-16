@@ -7,6 +7,10 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
+FALLBACK_AIRLINE_CODE = "FA"
+FALLBACK_AIRLINE_NAME = "FlightAlert Demo Air"
+FALLBACK_FLIGHT_PRICE = 299.0
+
 class RapidAPIAdapterCache:
     def __init__(self):
         self.cache = {}
@@ -192,10 +196,10 @@ class AirScraperAdapter(RapidAPIAdapter):
         return {
             "id": f"dummy-airscraper-{from_iata}-{to_iata}-{departure_date}",
             "provider": "airscraper",
-            "price": 299.0,
+            "price": FALLBACK_FLIGHT_PRICE,
             "currency": currency,
-            "airline": "FA",
-            "airline_name": "FlightAlert Demo Air",
+            "airline": FALLBACK_AIRLINE_CODE,
+            "airline_name": FALLBACK_AIRLINE_NAME,
             "from_iata": from_iata,
             "to_iata": to_iata,
             "departure": f"{departure_date}T09:00:00",

@@ -7,6 +7,10 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
+FALLBACK_AIRLINE_CODE = "FA"
+FALLBACK_AIRLINE_NAME = "FlightAlert Demo Air"
+FALLBACK_FLIGHT_PRICE = "299.00"
+
 class DuffelService:
     BASE_URL = "https://api.duffel.com"
     MAX_RETRIES = 3
@@ -116,7 +120,7 @@ class DuffelService:
     def _dummy_raw_offer(self, from_iata: str, to_iata: str, departure_date: str, cabin_class: str) -> Dict[str, Any]:
         return {
             "id": f"dummy-duffel-{from_iata}-{to_iata}-{departure_date}",
-            "total_amount": "349.00",
+            "total_amount": FALLBACK_FLIGHT_PRICE,
             "total_currency": "USD",
             "cabin_class": cabin_class or "economy",
             "slices": [
@@ -128,7 +132,7 @@ class DuffelService:
                             "arriving_at": f"{departure_date}T11:00:00",
                             "origin": {"iata_code": from_iata},
                             "destination": {"iata_code": to_iata},
-                            "marketing_carrier": {"iata_code": "FA", "name": "FlightAlert Demo Air"},
+                            "marketing_carrier": {"iata_code": FALLBACK_AIRLINE_CODE, "name": FALLBACK_AIRLINE_NAME},
                         }
                     ],
                 }

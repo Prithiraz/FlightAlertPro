@@ -106,7 +106,6 @@ export default function AirportAutocomplete({ placeholder = 'City or airport', v
                 <span style={styles.city}>{item.city}, {item.country} ({item.iata})</span>
                 <span style={styles.name}>{item.name}</span>
               </div>
-              <span style={styles.badge}>{item.iata}</span>
             </button>
           ))}
         </div>
@@ -191,17 +190,5 @@ const styles = {
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-  },
-  badge: {
-    marginLeft: '0.75rem',
-    flexShrink: 0,
-    padding: '2px 8px',
-    background: '#f3f4f6',
-    color: '#374151',
-    borderRadius: '4px',
-    fontSize: '0.75rem',
-    fontWeight: '700',
-    letterSpacing: '0.05em',
-    fontFamily: 'monospace',
   },
 };
