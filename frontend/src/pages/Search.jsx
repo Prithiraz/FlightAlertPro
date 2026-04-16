@@ -280,7 +280,7 @@ export default function Search() {
       )}
 
       {!loading && searched && results.length === 0 && !error && (
-        <p style={styles.empty}>No flights found. Try different dates or airports.</p>
+        <p style={styles.empty}>No flights found for these dates. Try adjusting your search.</p>
       )}
 
       {!loading && results.length > 0 && (
