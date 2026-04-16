@@ -7,6 +7,7 @@ import AirportAutocomplete from '../components/AirportAutocomplete';
 import AirlineAutocomplete from '../components/AirlineAutocomplete';
 
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 
 export default function Dashboard() {
   const { user, subscriptionTier } = useAuth();
@@ -36,6 +37,7 @@ export default function Dashboard() {
     return_date: '',
     passengers: 1,
     cabin_class: 'economy',
+    currency: 'USD',
     airline: '',
   });
   const [results, setResults] = useState([]);
@@ -51,6 +53,7 @@ export default function Dashboard() {
     to_iata: '',
     departure_date: '',
     max_price: '',
+    currency: 'USD',
   });
   const [createAlertLoading, setCreateAlertLoading] = useState(false);
   const [createAlertError, setCreateAlertError] = useState('');
@@ -170,6 +173,7 @@ export default function Dashboard() {
         departure_date: form.departure_date,
         passengers: Number(form.passengers),
         cabin_class: form.cabin_class,
+        currency: form.currency,
       };
       if (form.return_date) {
         payload.return_date = form.return_date;
@@ -240,7 +244,7 @@ export default function Dashboard() {
         to_iata: createAlertForm.to_iata.trim().toUpperCase(),
         departure_date: createAlertForm.departure_date || null,
         max_price: parsedTargetPrice,
-        currency: 'USD',
+        currency: createAlertForm.currency,
       });
 
       if (insertError) throw insertError;
@@ -251,6 +255,7 @@ export default function Dashboard() {
         to_iata: '',
         departure_date: '',
         max_price: '',
+        currency: 'USD',
       });
       await fetchActiveAlerts();
     } catch (err) {
@@ -398,6 +403,21 @@ export default function Dashboard() {
                   onChange={(iata) => setForm((prev) => ({ ...prev, airline: iata }))}
                 />
               </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Currency</label>
+                <select
+                  name="currency"
+                  value={form.currency}
+                  onChange={handleChange}
+                  style={styles.input}
+                >
+                  {CURRENCIES.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {error && <p style={styles.error}>{error}</p>}
@@ -482,9 +502,9 @@ export default function Dashboard() {
                           ✅ BUY NOW — This price is significantly below the 14-day average.
                         </div>
                         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(248,250,252,0.75)' }}>
-                          <a href="/pricing" style={{ background: '#1d4ed8', color: '#fff', fontSize: '0.75rem', fontWeight: '600', padding: '6px 12px', borderRadius: '6px', textDecoration: 'none' }}>
+                          <Link to="/pricing" style={{ background: '#1d4ed8', color: '#fff', fontSize: '0.75rem', fontWeight: '600', padding: '6px 12px', borderRadius: '6px', textDecoration: 'none' }}>
                             🔒 Upgrade to Elite to see AI Advice
-                          </a>
+                          </Link>
                         </div>
                       </div>
                     )
@@ -498,7 +518,7 @@ export default function Dashboard() {
                   {!hasAiInsights && !offer.is_error_fare && (
                     <div style={styles.aiInsightLocked}>
                       ✨ AI Insights available on Elite &amp; Business plans.{' '}
-                      <a href="/pricing" style={{ color: '#1d4ed8', fontWeight: '600' }}>Upgrade →</a>
+                      <Link to="/pricing" style={{ color: '#1d4ed8', fontWeight: '600' }}>Upgrade →</Link>
                     </div>
                   )}
                   <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
@@ -557,6 +577,21 @@ export default function Dashboard() {
                   onChange={handleCreateAlertFormChange}
                   style={styles.input}
                 />
+              </div>
+              <div style={styles.field}>
+                <label style={styles.label}>Currency</label>
+                <select
+                  name="currency"
+                  value={createAlertForm.currency}
+                  onChange={handleCreateAlertFormChange}
+                  style={styles.input}
+                >
+                  {CURRENCIES.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Maximum Price (Alert Threshold)</label>
