@@ -19,9 +19,32 @@ export default function AirportAutocomplete({ placeholder = 'City or airport', v
 
   // Keep display text in sync when the parent resets value to empty string
   useEffect(() => {
-    if (!value) {
+    const iata = (value || '').trim().toUpperCase();
+    if (!iata) {
       setInputText('');
+      return;
     }
+
+    let cancelled = false;
+    const hydrateLabel = async () => {
+      try {
+        const data = await searchAirports(iata);
+        if (cancelled) return;
+        const exact = (Array.isArray(data) ? data : []).find((item) => item.iata?.toUpperCase() === iata);
+        if (exact) {
+          setInputText(`${exact.city}, ${exact.country} (${exact.iata})`);
+          return;
+        }
+      } catch {
+        // Fall back to IATA code below
+      }
+      if (!cancelled) setInputText(iata);
+    };
+
+    hydrateLabel();
+    return () => {
+      cancelled = true;
+    };
   }, [value]);
 
   // Close dropdown when clicking outside
