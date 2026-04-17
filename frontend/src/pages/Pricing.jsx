@@ -196,7 +196,7 @@ export default function Pricing() {
                     background: isGradient ? '#fff' : tier.color,
                     color: isGradient ? tier.color : '#fff',
                   }}
-                  disabled={checkoutPlan === tier.id}
+                  disabled={checkoutPlan !== null}
                   onClick={() => handleCheckout(tier.id)}
                 >
                   {checkoutPlan === tier.id ? 'Starting checkout…' : tier.cta}

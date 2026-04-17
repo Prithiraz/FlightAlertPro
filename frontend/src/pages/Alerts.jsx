@@ -70,7 +70,7 @@ export default function Alerts() {
         to_iata: prefill.to_iata ?? prev.to_iata,
         departure_date: prefill.departure_date ?? prev.departure_date,
         return_date: prefill.return_date ?? prev.return_date,
-        trip_type: prefill.return_date ? 'round_trip' : prev.trip_type,
+        trip_type: prefill.trip_type ?? (prefill.return_date ? 'round_trip' : prev.trip_type),
         currency: prefill.currency ?? prev.currency,
         max_price: prefill.max_price ?? prev.max_price,
       }));

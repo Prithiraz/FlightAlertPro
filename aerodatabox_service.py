@@ -101,9 +101,14 @@ class AeroDataBoxService:
                 continue
 
             for flight in result["departures"]:
+                departure_time = (
+                    flight.get("departure", {}).get("scheduledTime", {}).get("utc")
+                    or flight.get("departure", {}).get("scheduledTime", {}).get("local")
+                )
                 key = (
                     flight.get("number"),
-                    flight.get("departure", {}).get("scheduledTime", {}).get("utc"),
+                    departure_time,
+                    flight.get("airline", {}).get("iata"),
                 )
                 if key in seen_keys:
                     continue
