@@ -38,6 +38,7 @@ async function fetchSubscriptionTier(userId) {
       if ((data.subscription_tier ?? 'free') === 'free') {
         return 'pro';
       }
+      return data.subscription_tier ?? 'free';
     }
   }
 
