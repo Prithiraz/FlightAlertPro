@@ -25,7 +25,7 @@ class DuffelService:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "Duffel-Version": "v1"
+            "Duffel-Version": "2021-12-21"
         }
 
         try:

@@ -127,7 +127,7 @@ async def get_preferences(user_email: str):
             supabase.table("user_profiles")
             .select("home_airport, default_cabin, preferred_currency, preferred_reward_program, passport_nationality")
             .eq("email", user_email)
-            .single()
+            .maybe_single()
             .execute()
         )
         if not result.data:

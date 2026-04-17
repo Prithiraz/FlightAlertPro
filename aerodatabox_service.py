@@ -85,15 +85,40 @@ class AeroDataBoxService:
         if cached_data:
             return cached_data
 
-        endpoint = f"/flights/airports/iata/{from_iata}/{departure_date}"
         params = {"withLocation": "false"}
+        # AeroDataBox limits each request window to 12 hours max.
+        time_windows = [
+            (f"{departure_date}T00:00", f"{departure_date}T11:59"),
+            (f"{departure_date}T12:00", f"{departure_date}T23:59"),
+        ]
 
-        result = self._make_request(endpoint, params)
+        departures: List[Dict[str, Any]] = []
+        seen_keys = set()
+        for start_time, end_time in time_windows:
+            endpoint = f"/flights/airports/iata/{from_iata}/{start_time}/{end_time}"
+            result = self._make_request(endpoint, params)
+            if not result or "departures" not in result:
+                continue
 
-        if not result or "departures" not in result:
+            for flight in result["departures"]:
+                departure_time = (
+                    flight.get("departure", {}).get("scheduledTime", {}).get("utc")
+                    or flight.get("departure", {}).get("scheduledTime", {}).get("local")
+                )
+                key = (
+                    flight.get("number"),
+                    departure_time,
+                    flight.get("airline", {}).get("iata"),
+                )
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                departures.append(flight)
+
+        if not departures:
             return []
 
-        normalized = self._normalize_flights(result["departures"], from_iata, to_iata)
+        normalized = self._normalize_flights(departures, from_iata, to_iata)
 
         self._save_to_cache(cache_key, normalized)
 

@@ -17,9 +17,11 @@ const CHANNELS = ['email', 'telegram'];
 const emptyForm = {
   from_iata: '',
   to_iata: '',
+  trip_type: 'one_way',
   max_price: '',
   currency: 'USD',
   departure_date: '',
+  return_date: '',
   departure_start_date: '',
   departure_end_date: '',
   notification_channels: ['email'],
@@ -67,6 +69,8 @@ export default function Alerts() {
         from_iata: prefill.from_iata ?? prev.from_iata,
         to_iata: prefill.to_iata ?? prev.to_iata,
         departure_date: prefill.departure_date ?? prev.departure_date,
+        return_date: prefill.return_date ?? prev.return_date,
+        trip_type: prefill.trip_type ?? (prefill.return_date ? 'round_trip' : prev.trip_type),
         currency: prefill.currency ?? prev.currency,
         max_price: prefill.max_price ?? prev.max_price,
       }));
@@ -113,7 +117,12 @@ export default function Alerts() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      if (name === 'trip_type' && value === 'one_way') {
+        return { ...prev, trip_type: value, return_date: '' };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const toggleChannel = (channel) => {
@@ -136,6 +145,11 @@ export default function Alerts() {
       setCreating(false);
       return;
     }
+    if (form.trip_type === 'round_trip' && !form.return_date) {
+      setError('Please select a return date for round-trip alerts.');
+      setCreating(false);
+      return;
+    }
 
     try {
       const payload = {
@@ -145,6 +159,7 @@ export default function Alerts() {
         max_price: Number(form.max_price),
         currency: form.currency,
         notification_channels: form.notification_channels,
+        trip_type: form.trip_type,
       };
 
       if (flexibleDates && canUseFlexibleDates) {
@@ -154,6 +169,9 @@ export default function Alerts() {
         if (form.departure_start_date) payload.departure_date = form.departure_start_date;
       } else if (form.departure_date) {
         payload.departure_date = form.departure_date;
+      }
+      if (form.trip_type === 'round_trip' && form.return_date) {
+        payload.return_date = form.return_date;
       }
 
       // Business-tier client fields
@@ -219,6 +237,18 @@ export default function Alerts() {
           </div>
 
           <div style={styles.row}>
+            <div style={styles.field}>
+              <label style={styles.label}>Trip Type</label>
+              <select
+                name="trip_type"
+                value={form.trip_type}
+                onChange={handleChange}
+                style={styles.input}
+              >
+                <option value="one_way">One-Way</option>
+                <option value="round_trip">Round-Trip</option>
+              </select>
+            </div>
             <div style={styles.field}>
               <label style={styles.label}>Max Price</label>
               <input
@@ -312,6 +342,18 @@ export default function Alerts() {
                   type="date"
                   name="departure_date"
                   value={form.departure_date}
+                  onChange={handleChange}
+                  style={{ ...styles.input, maxWidth: '240px' }}
+                />
+              </div>
+            )}
+            {form.trip_type === 'round_trip' && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <label style={styles.label}>Return Date</label>
+                <input
+                  type="date"
+                  name="return_date"
+                  value={form.return_date}
                   onChange={handleChange}
                   style={{ ...styles.input, maxWidth: '240px' }}
                 />
@@ -435,6 +477,7 @@ export default function Alerts() {
                     ? ` · Dates: ${alert.departure_start_date} → ${alert.departure_end_date}`
                     : (alert.departure_date || alert.departure_start_date)
                       && ` · Dep: ${alert.departure_date || alert.departure_start_date}`}
+                  {alert.return_date && ` · Return: ${alert.return_date}`}
                 </div>
                 <div style={styles.alertMeta}>
                   Channels: {(alert.notification_channels || alert.channels || []).join(', ') || '—'}

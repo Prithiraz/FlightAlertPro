@@ -22,6 +22,8 @@ class CreateAlertRequest(BaseModel):
     currency: str = Field("USD", min_length=3, max_length=3)
     # Legacy exact-date field (kept for backward compatibility)
     departure_date: Optional[str] = None
+    return_date: Optional[str] = None
+    trip_type: Optional[str] = None
     # Flexible-date range fields (Elite/Business tier)
     departure_start_date: Optional[str] = None
     departure_end_date: Optional[str] = None
@@ -67,6 +69,7 @@ async def create_alert(alert: CreateAlertRequest):
             'max_price': alert.max_price,
             'currency': alert.currency.upper(),
             'departure_date': alert.departure_date,
+            'return_date': alert.return_date,
             'departure_start_date': alert.departure_start_date,
             'departure_end_date': alert.departure_end_date,
             'notification_channels': alert.notification_channels,

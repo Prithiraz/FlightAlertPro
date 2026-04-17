@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { apiFetch } from '../lib/api';
@@ -74,8 +75,9 @@ const TIERS = [
 export default function Pricing() {
   const { user, subscriptionTier } = useAuth();
   const navigate = useNavigate();
+  const [checkoutPlan, setCheckoutPlan] = useState(null);
 
-  const handleCheckout = async (planName) => {
+  const handleCheckout = async (planId) => {
     if (!user?.email) {
       navigate('/auth');
       return;
@@ -85,13 +87,14 @@ export default function Pricing() {
     const cancelUrl = `${window.location.origin}/pricing`;
 
     try {
+      setCheckoutPlan(planId);
       const sessionResult = await supabase.auth.getSession();
       const accessToken = sessionResult?.data?.session?.access_token;
       const params = new URLSearchParams({
         user_email: user.email,
         success_url: successUrl,
         cancel_url: cancelUrl,
-        plan: planName.toLowerCase(),
+        plan: planId,
       });
 
       const data = await apiFetch(`/api/payments/checkout?${params.toString()}`, {
@@ -107,6 +110,8 @@ export default function Pricing() {
       }
     } catch (err) {
       alert(err.message || 'Unable to start checkout. Please try again.');
+    } finally {
+      setCheckoutPlan(null);
     }
   };
 
@@ -191,9 +196,10 @@ export default function Pricing() {
                     background: isGradient ? '#fff' : tier.color,
                     color: isGradient ? tier.color : '#fff',
                   }}
-                  onClick={() => handleCheckout(tier.name)}
+                  disabled={checkoutPlan !== null}
+                  onClick={() => handleCheckout(tier.id)}
                 >
-                  {tier.cta}
+                  {checkoutPlan === tier.id ? 'Starting checkout…' : tier.cta}
                 </button>
               )}
             </div>
