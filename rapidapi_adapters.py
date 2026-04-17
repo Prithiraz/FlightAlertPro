@@ -1,4 +1,5 @@
 import requests
+import httpx
 import time
 import logging
 from typing import Optional, List, Dict, Any
@@ -138,7 +139,7 @@ class AeroDataBoxAdapter(RapidAPIAdapter):
         return normalized
 
 class AirScraperAdapter(RapidAPIAdapter):
-    BASE_URL = "https://airscraper.p.rapidapi.com"
+    BASE_URL = "https://sky-scrapper.p.rapidapi.com"
 
     def search_flights(self, from_iata: str, to_iata: str, departure_date: str,
                       return_date: Optional[str] = None, passengers: int = 1,
@@ -150,7 +151,8 @@ class AirScraperAdapter(RapidAPIAdapter):
 
         adult_count = max(1, int(adults if adults is not None else passengers or 1))
         safe_currency = (currency or "USD").upper()
-        cache_key = f"airscraper:{from_iata}:{to_iata}:{departure_date}:{return_date}:{adult_count}:{children}:{safe_currency}:{cabin_class}"
+        safe_cabin_class = (cabin_class or "economy").lower()
+        cache_key = f"airscraper:{from_iata}:{to_iata}:{departure_date}:{return_date}:{adult_count}:{children}:{safe_currency}:{safe_cabin_class}"
         cached = cache.get(cache_key)
         if cached:
             logger.info(f"Returning cached AirScraper results for {cache_key}")
@@ -158,25 +160,79 @@ class AirScraperAdapter(RapidAPIAdapter):
 
         headers = {
             "X-RapidAPI-Key": self.api_key,
-            "X-RapidAPI-Host": "airscraper.p.rapidapi.com"
+            "X-RapidAPI-Host": "sky-scrapper.p.rapidapi.com"
         }
 
-        url = f"{self.BASE_URL}/search?origin={from_iata}&destination={to_iata}&date={departure_date}"
+        try:
+            with httpx.Client(timeout=30) as client:
+                origin_lookup = client.get(
+                    f"{self.BASE_URL}/api/v1/flights/searchAirport",
+                    headers=headers,
+                    params={"query": from_iata},
+                )
+                origin_lookup.raise_for_status()
+                origin_payload = origin_lookup.json()
+                origin_airports = origin_payload.get("data") if isinstance(origin_payload, dict) else None
+                if not origin_airports:
+                    logger.error(f"Sky Scrapper origin lookup returned empty for {from_iata}")
+                    return []
 
-        if return_date:
-            url += f"&returnDate={return_date}"
+                destination_lookup = client.get(
+                    f"{self.BASE_URL}/api/v1/flights/searchAirport",
+                    headers=headers,
+                    params={"query": to_iata},
+                )
+                destination_lookup.raise_for_status()
+                destination_payload = destination_lookup.json()
+                destination_airports = destination_payload.get("data") if isinstance(destination_payload, dict) else None
+                if not destination_airports:
+                    logger.error(f"Sky Scrapper destination lookup returned empty for {to_iata}")
+                    return []
 
-        url += f"&adults={adult_count}&currency={safe_currency}"
+                origin = origin_airports[0]
+                destination = destination_airports[0]
+                origin_sky_id = origin.get("skyId")
+                destination_sky_id = destination.get("skyId")
+                origin_entity_id = (origin.get("navigation") or {}).get("entityId")
+                destination_entity_id = (destination.get("navigation") or {}).get("entityId")
+                if not all([origin_sky_id, destination_sky_id, origin_entity_id, destination_entity_id]):
+                    logger.error(
+                        f"Sky Scrapper lookup missing identifiers for route {from_iata}->{to_iata}"
+                    )
+                    return []
 
-        result = self._make_request(url, headers)
-
-        if not result or "data" not in result:
-            logger.warning("AirScraper returned no data")
+                search_response = client.get(
+                    f"{self.BASE_URL}/api/v1/flights/searchFlights",
+                    headers=headers,
+                    params={
+                        "originSkyId": origin_sky_id,
+                        "destinationSkyId": destination_sky_id,
+                        "originEntityId": origin_entity_id,
+                        "destinationEntityId": destination_entity_id,
+                        "date": departure_date,
+                        "currency": safe_currency,
+                        "adults": adult_count,
+                        "cabinClass": safe_cabin_class,
+                    },
+                )
+                search_response.raise_for_status()
+                result = search_response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"Sky Scrapper request failed for {from_iata}->{to_iata}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Sky Scrapper search failed for {from_iata}->{to_iata}: {e}")
             return []
 
-        normalized = self._normalize_offers(result["data"])
+        if not result or "data" not in result:
+            logger.warning("Sky Scrapper returned no data")
+            return []
+
+        payload = result.get("data")
+        offers = payload.get("itineraries", []) if isinstance(payload, dict) else payload
+        normalized = self._normalize_offers(offers or [])
         if not normalized:
-            logger.warning("AirScraper normalization produced no offers")
+            logger.warning("Sky Scrapper normalization produced no offers")
             return []
         cache.set(cache_key, normalized)
         return normalized
@@ -199,19 +255,31 @@ class AirScraperAdapter(RapidAPIAdapter):
                 first_segment = segments[0]
                 last_segment = segments[-1]
 
+                price_data = offer.get("price", {}) if isinstance(offer.get("price"), dict) else {}
+                amount = price_data.get("amount")
+                if amount is None:
+                    amount = price_data.get("raw", 0)
+
+                origin_airport = first_segment.get("departure", {}).get("airport", "")
+                destination_airport = last_segment.get("arrival", {}).get("airport", "")
+                if isinstance(origin_airport, dict):
+                    origin_airport = origin_airport.get("iata", "") or origin_airport.get("id", "")
+                if isinstance(destination_airport, dict):
+                    destination_airport = destination_airport.get("iata", "") or destination_airport.get("id", "")
+
                 normalized_offer = {
                     "id": offer.get("id", ""),
                     "provider": "airscraper",
-                    "price": float(offer.get("price", {}).get("amount", 0)),
-                    "currency": offer.get("price", {}).get("currency", "USD"),
+                    "price": float(amount or 0),
+                    "currency": price_data.get("currency", "USD"),
                     "airline": first_segment.get("operatingCarrier", {}).get("code", ""),
                     "airline_name": first_segment.get("operatingCarrier", {}).get("name", ""),
-                    "from_iata": first_segment.get("departure", {}).get("airport", ""),
-                    "to_iata": last_segment.get("arrival", {}).get("airport", ""),
+                    "from_iata": origin_airport,
+                    "to_iata": destination_airport,
                     "departure": first_segment.get("departure", {}).get("time", ""),
                     "arrival": last_segment.get("arrival", {}).get("time", ""),
                     "stops": len(segments) - 1,
-                    "duration_minutes": first_leg.get("duration", 0),
+                    "duration_minutes": first_leg.get("duration", first_leg.get("durationInMinutes", 0)),
                     "cabin_class": offer.get("cabinClass", "economy"),
                     "booking_link": offer.get("deepLink"),
                     "raw_data": offer
