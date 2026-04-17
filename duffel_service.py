@@ -1,6 +1,7 @@
 import requests
 import time
 import logging
+import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from config import config
@@ -13,7 +14,7 @@ class DuffelService:
     INITIAL_BACKOFF = 1
 
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or config.DUFFEL_API_KEY
+        self.api_key = api_key or os.getenv("DUFFEL_ACCESS_TOKEN") or config.DUFFEL_ACCESS_TOKEN or config.DUFFEL_API_KEY
         self.enabled = self.api_key is not None
 
     def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, retry_count: int = 0) -> Optional[Dict]:
@@ -25,7 +26,8 @@ class DuffelService:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "Duffel-Version": "2021-12-21"
+            # Duffel accepts "beta" as a supported version header value.
+            "Duffel-Version": "beta"
         }
 
         try:
