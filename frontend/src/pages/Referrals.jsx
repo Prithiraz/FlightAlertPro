@@ -3,7 +3,7 @@ import { useAuth } from '../App';
 import { getReferralInfo } from '../lib/api';
 
 const SOCIAL_PROMPT =
-  "I use this AI to track error fares and save hundreds on flights. Use my link to get 30 days of Elite access for free: ";
+  "I use this AI to track error fares and save hundreds on flights. Use my link to get 30 days of Pro access for free: ";
 
 export default function Referrals() {
   const { user } = useAuth();
@@ -60,10 +60,10 @@ export default function Referrals() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        <h1 style={styles.heading}>🎁 Refer &amp; Earn Free Elite</h1>
+        <h1 style={styles.heading}>🎁 Refer &amp; Earn Free Pro</h1>
         <p style={styles.subheading}>
           Share your unique link. When a friend signs up, you both win&nbsp;—&nbsp;you get
-          <strong> 30 days of Elite access</strong> unlocked automatically.
+          <strong> 30 days of Pro access</strong> unlocked automatically.
         </p>
 
         {loading && <p style={styles.muted}>Loading your referral info…</p>}
@@ -101,7 +101,7 @@ export default function Referrals() {
                       : '—'}
                   </span>
                   <span style={styles.statLabel}>
-                    {eliteActive ? '🌟 Elite Access Until' : 'Elite Access Unlocked Until'}
+                    {eliteActive ? '🌟 Pro Access Until' : 'Pro Access Unlocked Until'}
                   </span>
                 </div>
               </div>
@@ -124,7 +124,7 @@ export default function Referrals() {
               <ol style={styles.steps}>
                 <li>Copy your unique referral link above.</li>
                 <li>Share it with friends who love cheap flights.</li>
-                <li>When they sign up, you automatically receive <strong>30 days of Elite access</strong>.</li>
+                <li>When they sign up, you automatically receive <strong>30 days of Pro access</strong>.</li>
                 <li>No limits — each successful referral stacks another 30 days.</li>
               </ol>
             </section>
