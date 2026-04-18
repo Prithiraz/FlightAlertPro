@@ -74,11 +74,7 @@ class PaymentsService:
 
             logger.info(f"Checkout session created for {user_email}: {session.id} ({plan} plan)")
 
-            return {
-                'session_id': session.id,
-                'url': session.url,
-                'plan': plan
-            }
+            return session
 
         except stripe.error.StripeError as e:
             logger.error(f"Stripe error creating checkout: {str(e)}")

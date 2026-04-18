@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { apiFetch } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 const TIERS = [
@@ -99,15 +98,20 @@ export default function Pricing() {
         plan: planId,
       });
 
-      const data = await apiFetch(`/api/payments/checkout?${params.toString()}`, {
+      const response = await fetch(`/api/payments/checkout?${params.toString()}`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (!data?.checkout_url) {
-        throw new Error('Failed to initialize checkout session. Please refresh and try again.');
-      }
+      const data = await response.json();
 
-      window.location.href = data.checkout_url;
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
     } catch (err) {
       setCheckoutPlan(null);
       alert(err.message || 'Unable to start checkout. Please try again.');
