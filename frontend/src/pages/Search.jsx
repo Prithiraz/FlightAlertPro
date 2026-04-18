@@ -69,6 +69,7 @@ export default function Search() {
   const [form, setForm] = useState({
     from_iata: '',
     to_iata: '',
+    trip_type: 'one_way',
     departure_date: '',
     return_date: '',
     passengers: 1,
@@ -100,7 +101,12 @@ export default function Search() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      if (name === 'trip_type' && value !== 'round_trip') {
+        return { ...prev, trip_type: value, return_date: '' };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -115,6 +121,16 @@ export default function Search() {
       setLoading(false);
       return;
     }
+    if (form.trip_type === 'multi_city') {
+      setError('Multi-city UI coming soon.');
+      setLoading(false);
+      return;
+    }
+    if (form.trip_type === 'round_trip' && !form.return_date) {
+      setError('Please select a return date for round-trip searches.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const payload = {
@@ -124,8 +140,9 @@ export default function Search() {
         passengers: Number(form.passengers),
         cabin_class: form.cabin_class,
         currency: form.currency,
+        trip_type: form.trip_type,
       };
-      if (form.return_date) {
+      if (form.trip_type === 'round_trip' && form.return_date) {
         payload.return_date = form.return_date;
       }
 
@@ -152,6 +169,9 @@ export default function Search() {
           from_iata: offer.from_iata ?? form.from_iata.toUpperCase(),
           to_iata: offer.to_iata ?? form.to_iata.toUpperCase(),
           departure_date: form.departure_date,
+          return_date: form.trip_type === 'round_trip' ? form.return_date : '',
+          trip_type: form.trip_type,
+          cabin_class: form.cabin_class,
           currency: offer.currency ?? 'USD',
           max_price: offer.price ? String(Math.ceil(offer.price)) : '',
         },
@@ -185,6 +205,22 @@ export default function Search() {
 
         <div style={styles.row}>
           <div style={styles.field}>
+            <label style={styles.label}>Trip Type</label>
+            <select
+              name="trip_type"
+              value={form.trip_type}
+              onChange={handleChange}
+              style={styles.input}
+            >
+              <option value="one_way">One-Way</option>
+              <option value="round_trip">Round-Trip</option>
+              <option value="multi_city">Multi-City</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={styles.row}>
+          <div style={styles.field}>
             <label style={styles.label}>Departure Date</label>
             <input
               type="date"
@@ -195,17 +231,23 @@ export default function Search() {
               style={styles.input}
             />
           </div>
-          <div style={styles.field}>
-            <label style={styles.label}>Return Date (optional)</label>
-            <input
-              type="date"
-              name="return_date"
-              value={form.return_date}
-              onChange={handleChange}
-              style={styles.input}
-            />
-          </div>
+          {form.trip_type === 'round_trip' && (
+            <div style={styles.field}>
+              <label style={styles.label}>Return Date</label>
+              <input
+                type="date"
+                name="return_date"
+                value={form.return_date}
+                onChange={handleChange}
+                style={styles.input}
+              />
+            </div>
+          )}
         </div>
+
+        {form.trip_type === 'multi_city' && (
+          <p style={styles.info}>Multi-city UI coming soon.</p>
+        )}
 
         <div style={styles.row}>
           <div style={styles.field}>
@@ -350,6 +392,7 @@ const styles = {
   input: { padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
   button: { marginTop: '0.5rem', padding: '0.75rem 2rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer' },
   error: { color: '#dc2626', fontSize: '0.875rem' },
+  info: { color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' },
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '2rem' },
   results: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   resultsHeading: { fontSize: '1.25rem', marginBottom: '0.5rem', color: '#374151' },

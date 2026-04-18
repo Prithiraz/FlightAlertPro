@@ -13,11 +13,13 @@ import {
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'telegram'];
+const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 
 const emptyForm = {
   from_iata: '',
   to_iata: '',
   trip_type: 'one_way',
+  cabin_class: 'economy',
   max_price: '',
   currency: 'USD',
   departure_date: '',
@@ -71,6 +73,7 @@ export default function Alerts() {
         departure_date: prefill.departure_date ?? prev.departure_date,
         return_date: prefill.return_date ?? prev.return_date,
         trip_type: prefill.trip_type ?? (prefill.return_date ? 'round_trip' : prev.trip_type),
+        cabin_class: prefill.cabin_class ?? prev.cabin_class,
         currency: prefill.currency ?? prev.currency,
         max_price: prefill.max_price ?? prev.max_price,
       }));
@@ -121,6 +124,9 @@ export default function Alerts() {
       if (name === 'trip_type' && value === 'one_way') {
         return { ...prev, trip_type: value, return_date: '' };
       }
+      if (name === 'trip_type' && value === 'multi_city') {
+        return { ...prev, trip_type: value, return_date: '' };
+      }
       return { ...prev, [name]: value };
     });
   };
@@ -160,6 +166,7 @@ export default function Alerts() {
         currency: form.currency,
         notification_channels: form.notification_channels,
         trip_type: form.trip_type,
+        cabin_class: form.cabin_class,
       };
 
       if (flexibleDates && canUseFlexibleDates) {
@@ -247,6 +254,22 @@ export default function Alerts() {
               >
                 <option value="one_way">One-Way</option>
                 <option value="round_trip">Round-Trip</option>
+                <option value="multi_city">Multi-City</option>
+              </select>
+            </div>
+            <div style={styles.field}>
+              <label style={styles.label}>Cabin Class</label>
+              <select
+                name="cabin_class"
+                value={form.cabin_class}
+                onChange={handleChange}
+                style={styles.input}
+              >
+                {CABIN_CLASSES.map((c) => (
+                  <option key={c} value={c}>
+                    {c.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </option>
+                ))}
               </select>
             </div>
             <div style={styles.field}>
@@ -358,6 +381,11 @@ export default function Alerts() {
                   style={{ ...styles.input, maxWidth: '240px' }}
                 />
               </div>
+            )}
+            {form.trip_type === 'multi_city' && (
+              <p style={{ marginTop: '0.75rem', color: '#6b7280', fontSize: '0.875rem' }}>
+                Multi-city UI coming soon.
+              </p>
             )}
           </div>
 
