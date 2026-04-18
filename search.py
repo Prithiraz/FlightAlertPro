@@ -337,6 +337,8 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
     """Normalize offer from different suppliers to common format"""
     try:
         def _duration_to_minutes(duration: Any) -> int:
+            if duration is None:
+                return 0
             if isinstance(duration, (int, float)):
                 return max(0, int(duration))
             if isinstance(duration, str):
