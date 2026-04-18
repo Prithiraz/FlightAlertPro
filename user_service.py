@@ -236,10 +236,10 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
         )
         raw_profile_data = existing_profile.data
         existing_profile_data = raw_profile_data if isinstance(raw_profile_data, dict) else None
-        if raw_profile_data is not None and not isinstance(raw_profile_data, dict):
+        if raw_profile_data is not None and existing_profile_data is None:
             logger.warning("Unexpected profile payload type while updating preferences for %s", user_email)
         fetched_user_id = existing_profile_data.get("id") if existing_profile_data else None
-        if existing_profile_data and not fetched_user_id:
+        if not fetched_user_id and existing_profile_data:
             logger.warning("Profile exists but id missing for %s; falling back to auth.users lookup", user_email)
         if not fetched_user_id:
             if raw_profile_data is None:
