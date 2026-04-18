@@ -77,6 +77,7 @@ export default function Pricing() {
   const { user, subscriptionTier } = useAuth();
   const navigate = useNavigate();
   const [checkoutPlan, setCheckoutPlan] = useState(null);
+  const [, setIsLoading] = useState(false);
 
   const handleCheckout = async (planId) => {
     try {
@@ -108,9 +109,10 @@ export default function Pricing() {
       const data = await response.json();
 
       if (data.checkout_url) {
-        window.location.href = data.checkout_url;
+        window.location.assign(data.checkout_url);
       } else {
-        throw new Error("No checkout URL returned");
+        setIsLoading(false);
+        alert("Failed to generate checkout link.");
       }
     } catch (err) {
       setCheckoutPlan(null);

@@ -163,24 +163,10 @@ async def get_preferences(user_email: str):
 
     try:
         supabase = get_supabase()
-        response = (
-            supabase.table("user_profiles")
-            .select("home_airport, default_cabin, preferred_currency, preferred_reward_program, passport_nationality")
-            .eq("email", user_email)
-            .maybe_single()
-            .execute()
-        )
+        response = supabase.table("user_profiles").select("*").eq("email", user_email).maybe_single().execute()
         if not response.data:
             return {}
-
-        data = response.data
-        return {
-            "home_airport": data.get("home_airport"),
-            "default_cabin": data.get("default_cabin") or "economy",
-            "currency": data.get("preferred_currency") or "USD",
-            "preferred_reward_program": data.get("preferred_reward_program") or "none",
-            "passport_nationality": data.get("passport_nationality"),
-        }
+        return response.data
     except Exception as e:
         logger.error(f"Error fetching preferences for {user_email}: {e}")
         # Return defaults when profile doesn't exist yet
@@ -191,12 +177,9 @@ async def get_preferences(user_email: str):
 async def update_preferences(request: PreferencesUpdate):
     """Update the current user's travel preferences."""
     request_user_email = (request.user_email or "").strip()
-    request_user_id = (request.user_id or "").strip()
 
     if not request_user_email:
         raise HTTPException(status_code=400, detail="user_email is required")
-    if not request_user_id:
-        raise HTTPException(status_code=400, detail="user_id is required")
 
     if request.default_cabin and request.default_cabin not in VALID_CABINS:
         raise HTTPException(
@@ -218,20 +201,6 @@ async def update_preferences(request: PreferencesUpdate):
 
     try:
         supabase = get_supabase()
-        auth_response = (
-            supabase.schema("auth")
-            .table("users")
-            .select("id")
-            .eq("email", request_user_email)
-            .maybe_single()
-            .execute()
-        )
-        auth_user_id = auth_response.data.get("id") if auth_response and auth_response.data else None
-        if not auth_user_id:
-            raise HTTPException(status_code=404, detail="Auth user not found for provided email")
-        if auth_user_id != request_user_id:
-            raise HTTPException(status_code=403, detail="user_id does not match authenticated email")
-        request.user_id = request_user_id
         request.user_email = request_user_email
 
         updates: dict = {}
@@ -249,9 +218,10 @@ async def update_preferences(request: PreferencesUpdate):
         if not updates:
             return {"success": True, "message": "No changes provided"}
 
-        supabase.table("user_profiles").upsert(
-            {"id": request.user_id, "email": request.user_email, **updates}
-        ).execute()
+        # Assume request.user_id is provided by the frontend
+        if not getattr(request, 'user_id', None):
+            raise HTTPException(status_code=400, detail="user_id is required in the payload")
+        supabase.table("user_profiles").upsert({"id": request.user_id, "email": request.user_email, **updates}).execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
     except HTTPException:
