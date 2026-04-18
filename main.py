@@ -269,6 +269,8 @@ async def create_checkout(user_email: str, success_url: str, cancel_url: str, pl
     checkout_url = None
     if isinstance(session, dict):
         checkout_url = session.get("checkout_url") or session.get("url")
+    else:
+        checkout_url = getattr(session, "url", None)
 
     if not checkout_url:
         raise HTTPException(status_code=500, detail="Checkout URL missing from Stripe session")

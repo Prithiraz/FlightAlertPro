@@ -103,12 +103,11 @@ export default function Pricing() {
         method: 'POST',
       });
 
-      if (data?.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        setCheckoutPlan(null);
-        alert('Checkout URL not received. Please try again.');
+      if (!data?.checkout_url) {
+        throw new Error('Checkout URL not received. Please try again.');
       }
+
+      window.location.href = data.checkout_url;
     } catch (err) {
       setCheckoutPlan(null);
       alert(err.message || 'Unable to start checkout. Please try again.');
