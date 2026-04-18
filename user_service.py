@@ -16,10 +16,35 @@ VALID_CURRENCIES = {"USD", "EUR", "GBP", "CAD", "AUD", "INR", "JPY", "CHF", "SEK
 VALID_REWARD_PROGRAMS = {"chase_ur", "amex_mr", "capital_one", "none"}
 
 REFERRAL_REWARD_DAYS = 30
+DEFAULT_PREFERENCES = {
+    "home_airport": None,
+    "default_cabin": "economy",
+    "currency": "USD",
+    "preferred_reward_program": "none",
+    "passport_nationality": None,
+}
 
 
 def get_supabase():
     return create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
+
+
+def get_auth_user_id(user_email: str, supabase=None) -> Optional[str]:
+    """Fetch auth.users UUID for an email."""
+    client = supabase or get_supabase()
+    try:
+        result = (
+            client.schema("auth")
+            .table("users")
+            .select("id")
+            .eq("email", user_email)
+            .maybe_single()
+            .execute()
+        )
+        return result.data.get("id") if result and result.data else None
+    except Exception as exc:
+        logger.error("Failed to fetch auth user id for %s: %s", user_email, exc)
+        return None
 
 
 def generate_referral_code() -> str:
@@ -32,18 +57,23 @@ def generate_referral_code() -> str:
 def get_or_create_referral_code(user_email: str) -> str:
     """Return existing referral_code for the user or generate and store a new one."""
     supabase = get_supabase()
-    result = (
+    profile_result = (
         supabase.table("user_profiles")
-        .select("referral_code")
+        .select("id, referral_code")
         .eq("email", user_email)
         .maybe_single()
         .execute()
     )
-    existing_code = result.data.get("referral_code") if result.data else None
+    profile_row = profile_result.data or {}
+    existing_code = profile_row.get("referral_code")
     if existing_code:
         return existing_code
 
     # Generate a collision-free code
+    user_id = profile_row.get("id") or get_auth_user_id(user_email, supabase)
+    if not user_id:
+        raise RuntimeError(f"No auth user found for {user_email}")
+
     for _ in range(10):
         code = generate_referral_code()
         check = (
@@ -53,9 +83,14 @@ def get_or_create_referral_code(user_email: str) -> str:
             .execute()
         )
         if not check.data:
-            supabase.table("user_profiles").upsert(
-                {"email": user_email, "referral_code": code}, on_conflict="email"
-            ).execute()
+            if profile_row:
+                supabase.table("user_profiles").update(
+                    {"referral_code": code}
+                ).eq("email", user_email).execute()
+            else:
+                supabase.table("user_profiles").insert(
+                    {"id": user_id, "email": user_email, "referral_code": code}
+                ).execute()
             return code
 
     raise RuntimeError("Failed to generate a unique referral code after multiple attempts")
@@ -134,7 +169,7 @@ async def get_preferences(user_email: str):
             .execute()
         )
         if not result.data:
-            return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none", "passport_nationality": None}
+            return DEFAULT_PREFERENCES
 
         data = result.data
         return {
@@ -147,7 +182,7 @@ async def get_preferences(user_email: str):
     except Exception as e:
         logger.error(f"Error fetching preferences for {user_email}: {e}")
         # Return defaults when profile doesn't exist yet
-        return {"home_airport": None, "default_cabin": "economy", "currency": "USD", "preferred_reward_program": "none", "passport_nationality": None}
+        return DEFAULT_PREFERENCES
 
 
 @router.put("/me/preferences")
@@ -192,11 +227,25 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
         if not updates:
             return {"success": True, "message": "No changes provided"}
 
-        # Upsert so new users get a profile row automatically
-        updates["email"] = user_email
-        supabase.table("user_profiles").upsert(updates, on_conflict="email").execute()
+        # Create profile row for new users; update existing rows directly.
+        existing_profile = (
+            supabase.table("user_profiles")
+            .select("id")
+            .eq("email", user_email)
+            .maybe_single()
+            .execute()
+        )
+        if existing_profile.data:
+            supabase.table("user_profiles").update(updates).eq("email", user_email).execute()
+        else:
+            user_id = get_auth_user_id(user_email, supabase)
+            if not user_id:
+                raise HTTPException(status_code=404, detail="Auth user not found for provided email")
+            supabase.table("user_profiles").insert({"id": user_id, "email": user_email, **updates}).execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating preferences for {user_email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update preferences")
@@ -220,16 +269,17 @@ async def register_user(body: RegisterUserRequest):
     try:
         supabase = get_supabase()
 
-        upsert_data: dict = {"email": body.email}
-
-        # Assign a referral code if not already set
         existing = (
             supabase.table("user_profiles")
-            .select("referral_code")
+            .select("id, referral_code")
             .eq("email", body.email)
+            .maybe_single()
             .execute()
         )
-        existing_code = (existing.data[0].get("referral_code") if existing.data else None)
+        existing_row = existing.data or {}
+        existing_code = existing_row.get("referral_code")
+        update_data: dict = {}
+        insert_data: dict = {}
 
         if not existing_code:
             for _ in range(10):
@@ -241,19 +291,36 @@ async def register_user(body: RegisterUserRequest):
                     .execute()
                 )
                 if not check.data:
-                    upsert_data["referral_code"] = code
+                    if existing_row:
+                        update_data["referral_code"] = code
+                    else:
+                        insert_data["referral_code"] = code
                     break
 
         if body.referred_by:
-            upsert_data["referred_by"] = body.referred_by
+            if existing_row:
+                update_data["referred_by"] = body.referred_by
+            else:
+                insert_data["referred_by"] = body.referred_by
 
-        supabase.table("user_profiles").upsert(upsert_data, on_conflict="email").execute()
+        if existing_row:
+            if update_data:
+                supabase.table("user_profiles").update(update_data).eq("email", body.email).execute()
+        else:
+            auth_user_id = get_auth_user_id(body.email, supabase)
+            if not auth_user_id:
+                raise HTTPException(status_code=404, detail="Auth user not found for provided email")
+            supabase.table("user_profiles").insert(
+                {"id": auth_user_id, "email": body.email, **insert_data}
+            ).execute()
 
         # Grant reward to the referrer
         if body.referred_by:
             grant_referral_reward(body.referred_by)
 
-        return {"success": True, "referral_code": upsert_data.get("referral_code", existing_code)}
+        return {"success": True, "referral_code": update_data.get("referral_code") or insert_data.get("referral_code") or existing_code}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error registering user {body.email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to register user")
@@ -302,4 +369,9 @@ async def get_referral_info(user_email: str):
         }
     except Exception as e:
         logger.error(f"Error fetching referral info for {user_email}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch referral info")
+        try:
+            code = get_or_create_referral_code(user_email)
+            return {"referral_code": code, "referred_count": 0, "elite_until": None}
+        except Exception as inner:
+            logger.error("Unable to recover referral info by creating fallback code for %s: %s", user_email, inner)
+            return {"referral_code": None, "referred_count": 0, "elite_until": None}
