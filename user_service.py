@@ -348,5 +348,5 @@ async def get_referral_info(user_email: str):
             code = get_or_create_referral_code(user_email)
             return {"referral_code": code, "referred_count": 0, "elite_until": None}
         except Exception as inner:
-            logger.error("Unable to recover referral info for %s: %s", user_email, inner)
+            logger.error("Unable to recover referral info by creating fallback code for %s: %s", user_email, inner)
             return {"referral_code": None, "referred_count": 0, "elite_until": None}

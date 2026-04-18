@@ -263,8 +263,9 @@ class AirScraperAdapter(RapidAPIAdapter):
                 if amount is None:
                     amount = price_data.get("formatted")
                 if isinstance(amount, str):
-                    parsed = re.sub(r"[^\d.]", "", amount)
-                    amount = float(parsed) if parsed else 0
+                    normalized_amount = amount.replace(",", "")
+                    parsed_match = re.search(r"\d+(?:\.\d+)?", normalized_amount)
+                    amount = float(parsed_match.group(0)) if parsed_match else 0
 
                 origin_airport = first_segment.get("departure", {}).get("airport", "")
                 destination_airport = last_segment.get("arrival", {}).get("airport", "")

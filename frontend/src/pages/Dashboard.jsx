@@ -250,7 +250,7 @@ export default function Dashboard() {
   };
 
   const purchasedAlerts = myAlerts.filter((a) => a.is_purchased);
-  const bestLivePrice = activeAlerts
+  const lowestLivePrice = activeAlerts
     .map((a) => Number(a.current_live_price))
     .filter((price) => Number.isFinite(price) && price > 0)
     .reduce((min, price) => (min === null || price < min ? price : min), null);
@@ -495,7 +495,7 @@ export default function Dashboard() {
             </div>
             <div style={styles.statCard}>
               <div style={styles.statLabel}>Best Live Market Price</div>
-              <div style={styles.statValue}>{bestLivePrice !== null ? `$${bestLivePrice.toFixed(2)}` : '—'}</div>
+              <div style={styles.statValue}>{lowestLivePrice !== null ? `$${lowestLivePrice.toFixed(2)}` : '—'}</div>
               <div style={styles.statHint}>Based on currently active route checks</div>
             </div>
           </div>
