@@ -15,7 +15,7 @@ const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'telegram'];
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
 const formatCabinClassName = (cabinClass) =>
-  cabinClass.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  cabinClass.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
 const emptyForm = {
   from_iata: '',
@@ -123,10 +123,7 @@ export default function Alerts() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => {
-      if (name === 'trip_type' && value === 'one_way') {
-        return { ...prev, trip_type: value, return_date: '' };
-      }
-      if (name === 'trip_type' && value === 'multi_city') {
+      if (name === 'trip_type' && value !== 'round_trip') {
         return { ...prev, trip_type: value, return_date: '' };
       }
       return { ...prev, [name]: value };
