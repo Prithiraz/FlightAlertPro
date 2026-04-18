@@ -116,10 +116,6 @@ export function getLiveFlightPrice(from_iata, to_iata, departure_date) {
   return request('GET', `/api/flights/live-price?${params.toString()}`);
 }
 
-export function getReferralInfo(userEmail) {
-  return request('GET', `/api/users/me/referral?user_email=${encodeURIComponent(userEmail)}`);
-}
-
 export function registerUser(email, referredBy) {
   const body = { email };
   if (referredBy) body.referred_by = referredBy;
