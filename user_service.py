@@ -227,7 +227,6 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
         if not updates:
             return {"success": True, "message": "No changes provided"}
 
-        # Create profile row for new users; update existing rows directly.
         existing_profile = (
             supabase.table("user_profiles")
             .select("id")
@@ -235,13 +234,23 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             .maybe_single()
             .execute()
         )
-        if existing_profile.data:
-            supabase.table("user_profiles").update(updates).eq("email", user_email).execute()
-        else:
-            user_id = get_auth_user_id(user_email, supabase)
-            if not user_id:
-                raise HTTPException(status_code=404, detail="Auth user not found for provided email")
-            supabase.table("user_profiles").insert({"id": user_id, "email": user_email, **updates}).execute()
+        raw_profile_data = existing_profile.data
+        existing_profile_data = raw_profile_data if isinstance(raw_profile_data, dict) else None
+        if raw_profile_data is not None and existing_profile_data is None:
+            logger.warning("Unexpected profile payload type while updating preferences for %s", user_email)
+        fetched_user_id = existing_profile_data.get("id") if existing_profile_data else None
+        if not fetched_user_id and existing_profile_data:
+            logger.warning("Profile exists but id missing for %s; falling back to auth.users lookup", user_email)
+        if not fetched_user_id:
+            if raw_profile_data is None:
+                logger.info("No user_profiles row found for %s; resolving auth.users id for upsert", user_email)
+            fetched_user_id = get_auth_user_id(user_email, supabase)
+        if not fetched_user_id:
+            raise HTTPException(status_code=404, detail="Auth user not found for provided email")
+
+        supabase.table("user_profiles").upsert(
+            {"id": fetched_user_id, "email": user_email, **updates}
+        ).execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
     except HTTPException:
