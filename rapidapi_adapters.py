@@ -221,6 +221,16 @@ class AirScraperAdapter(RapidAPIAdapter):
                 )
                 search_response.raise_for_status()
                 result = search_response.json()
+        except httpx.HTTPStatusError as e:
+            if e.response is not None and e.response.status_code == 429:
+                logger.warning(
+                    "Sky Scrapper rate limited (429) for %s->%s; returning empty results",
+                    from_iata,
+                    to_iata,
+                )
+                return []
+            logger.error(f"Sky Scrapper request failed for {from_iata}->{to_iata}: {e}")
+            return []
         except httpx.HTTPError as e:
             logger.error(f"Sky Scrapper request failed for {from_iata}->{to_iata}: {e}")
             return []

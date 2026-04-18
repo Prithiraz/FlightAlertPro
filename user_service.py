@@ -163,17 +163,17 @@ async def get_preferences(user_email: str):
 
     try:
         supabase = get_supabase()
-        result = (
+        response = (
             supabase.table("user_profiles")
             .select("home_airport, default_cabin, preferred_currency, preferred_reward_program, passport_nationality")
             .eq("email", user_email)
             .maybe_single()
             .execute()
         )
-        if not result.data:
-            return DEFAULT_PREFERENCES
+        if not response.data:
+            return {}
 
-        data = result.data
+        data = response.data
         return {
             "home_airport": data.get("home_airport"),
             "default_cabin": data.get("default_cabin") or "economy",
@@ -188,29 +188,29 @@ async def get_preferences(user_email: str):
 
 
 @router.put("/me/preferences")
-async def update_preferences(body: PreferencesUpdate):
+async def update_preferences(request: PreferencesUpdate):
     """Update the current user's travel preferences."""
-    request_user_email = (body.user_email or "").strip()
-    request_user_id = (body.user_id or "").strip()
+    request_user_email = (request.user_email or "").strip()
+    request_user_id = (request.user_id or "").strip()
 
     if not request_user_email:
         raise HTTPException(status_code=400, detail="user_email is required")
     if not request_user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
 
-    if body.default_cabin and body.default_cabin not in VALID_CABINS:
+    if request.default_cabin and request.default_cabin not in VALID_CABINS:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid cabin class. Must be one of: {', '.join(sorted(VALID_CABINS))}",
         )
 
-    if body.currency and body.currency.upper() not in VALID_CURRENCIES:
+    if request.currency and request.currency.upper() not in VALID_CURRENCIES:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid currency. Must be one of: {', '.join(sorted(VALID_CURRENCIES))}",
         )
 
-    if body.preferred_reward_program and body.preferred_reward_program not in VALID_REWARD_PROGRAMS:
+    if request.preferred_reward_program and request.preferred_reward_program not in VALID_REWARD_PROGRAMS:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid reward program. Must be one of: {', '.join(sorted(VALID_REWARD_PROGRAMS))}",
@@ -218,36 +218,46 @@ async def update_preferences(body: PreferencesUpdate):
 
     try:
         supabase = get_supabase()
-        auth_user_id = get_auth_user_id(request_user_email, supabase)
+        auth_response = (
+            supabase.schema("auth")
+            .table("users")
+            .select("id")
+            .eq("email", request_user_email)
+            .maybe_single()
+            .execute()
+        )
+        auth_user_id = auth_response.data.get("id") if auth_response and auth_response.data else None
         if not auth_user_id:
             raise HTTPException(status_code=404, detail="Auth user not found for provided email")
         if auth_user_id != request_user_id:
             raise HTTPException(status_code=403, detail="user_id does not match authenticated email")
+        request.user_id = request_user_id
+        request.user_email = request_user_email
 
         updates: dict = {}
-        if body.home_airport is not None:
-            updates["home_airport"] = body.home_airport.strip().upper() if body.home_airport.strip() else None
-        if body.default_cabin is not None:
-            updates["default_cabin"] = body.default_cabin
-        if body.currency is not None:
-            updates["preferred_currency"] = body.currency.upper()
-        if body.preferred_reward_program is not None:
-            updates["preferred_reward_program"] = body.preferred_reward_program
-        if body.passport_nationality is not None:
-            updates["passport_nationality"] = body.passport_nationality.strip() if body.passport_nationality.strip() else None
+        if request.home_airport is not None:
+            updates["home_airport"] = request.home_airport.strip().upper() if request.home_airport.strip() else None
+        if request.default_cabin is not None:
+            updates["default_cabin"] = request.default_cabin
+        if request.currency is not None:
+            updates["preferred_currency"] = request.currency.upper()
+        if request.preferred_reward_program is not None:
+            updates["preferred_reward_program"] = request.preferred_reward_program
+        if request.passport_nationality is not None:
+            updates["passport_nationality"] = request.passport_nationality.strip() if request.passport_nationality.strip() else None
 
         if not updates:
             return {"success": True, "message": "No changes provided"}
 
         supabase.table("user_profiles").upsert(
-            {"id": request_user_id, "email": request_user_email, **updates}
+            {"id": request.user_id, "email": request.user_email, **updates}
         ).execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating preferences for {user_email}: {e}")
+        logger.error(f"Error updating preferences for {request_user_email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update preferences")
 
 
