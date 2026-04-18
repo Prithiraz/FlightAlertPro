@@ -266,6 +266,7 @@ async def create_checkout(user_email: str, success_url: str, cancel_url: str, pl
     if not session:
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
+    # Support both the internal dict response and a raw Stripe Session object.
     checkout_url = None
     if isinstance(session, dict):
         checkout_url = session.get("checkout_url") or session.get("url")

@@ -104,7 +104,7 @@ export default function Pricing() {
       });
 
       if (!data?.checkout_url) {
-        throw new Error('Checkout URL not received. Please try again.');
+        throw new Error('Failed to initialize checkout session. Please refresh and try again.');
       }
 
       window.location.href = data.checkout_url;
