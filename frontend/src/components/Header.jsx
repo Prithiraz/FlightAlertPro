@@ -30,7 +30,6 @@ export default function Header() {
         {isAgent && (
           <NavLink to="/agent-dashboard" style={navLinkStyle}>Agent Portal</NavLink>
         )}
-        <NavLink to="/referrals" style={navLinkStyle}>Refer &amp; Earn</NavLink>
         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
         <NavLink to="/pricing" style={navLinkStyle}>Upgrade</NavLink>
         {user?.email && <span style={styles.userEmail}>{user.email}</span>}

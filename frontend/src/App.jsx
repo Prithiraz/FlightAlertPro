@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -12,7 +12,6 @@ import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
 import Discover from './pages/Discover';
-import Referrals from './pages/Referrals';
 import DestinationHub from './pages/DestinationHub';
 import AgentDashboard from './pages/AgentDashboard';
 
@@ -43,19 +42,6 @@ async function fetchSubscriptionTier(userId) {
   }
 
   return data.subscription_tier ?? 'free';
-}
-
-/** Capture ?ref= query param on landing and persist to localStorage for signup. */
-function RefCapture() {
-  const location = useLocation();
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const ref = params.get('ref');
-    if (ref) {
-      localStorage.setItem('referral_code', ref);
-    }
-  }, [location.search]);
-  return null;
 }
 
 function App() {
@@ -91,7 +77,6 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, loading, subscriptionTier }}>
       <BrowserRouter>
-        <RefCapture />
         {user && <Header />}
         <Routes>
           <Route
@@ -139,14 +124,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <Discover />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/referrals"
-            element={
-              <ProtectedRoute>
-                <Referrals />
               </ProtectedRoute>
             }
           />

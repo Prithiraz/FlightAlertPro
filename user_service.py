@@ -22,6 +22,33 @@ def get_supabase():
     return create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY)
 
 
+def resolve_user_id_by_email(supabase, user_email: str) -> Optional[str]:
+    profile = (
+        supabase.table("user_profiles")
+        .select("id")
+        .eq("email", user_email)
+        .maybe_single()
+        .execute()
+    )
+    profile_id = profile.data.get("id") if profile.data else None
+    if profile_id:
+        return profile_id
+
+    auth_user = (
+        supabase.schema("auth")
+        .table("users")
+        .select("id")
+        .eq("email", user_email)
+        .maybe_single()
+        .execute()
+    )
+    auth_user_id = auth_user.data.get("id") if auth_user.data else None
+    if auth_user_id:
+        return auth_user_id
+
+    return None
+
+
 def generate_referral_code() -> str:
     """Generate a unique short referral code in the format FLIGHT-XXXX."""
     chars = string.ascii_uppercase + string.digits
@@ -176,6 +203,9 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
 
     try:
         supabase = get_supabase()
+        user_id = resolve_user_id_by_email(supabase, user_email)
+        if not user_id:
+            raise HTTPException(status_code=404, detail="User not found")
 
         updates: dict = {}
         if body.home_airport is not None:
@@ -193,10 +223,13 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             return {"success": True, "message": "No changes provided"}
 
         # Upsert so new users get a profile row automatically
+        updates["id"] = user_id
         updates["email"] = user_email
         supabase.table("user_profiles").upsert(updates, on_conflict="email").execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating preferences for {user_email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update preferences")
@@ -257,49 +290,3 @@ async def register_user(body: RegisterUserRequest):
     except Exception as e:
         logger.error(f"Error registering user {body.email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to register user")
-
-
-@router.get("/me/referral")
-async def get_referral_info(user_email: str):
-    """Return the user's referral code, number of successful referrals, and referral expiry timestamp."""
-    if not user_email:
-        raise HTTPException(status_code=400, detail="user_email is required")
-
-    try:
-        supabase = get_supabase()
-
-        result = (
-            supabase.table("user_profiles")
-            .select("referral_code, elite_until")
-            .eq("email", user_email)
-            .maybe_single()
-            .execute()
-        )
-
-        if not result.data:
-            # Ensure the user has a profile + referral code
-            code = get_or_create_referral_code(user_email)
-            return {"referral_code": code, "referred_count": 0, "elite_until": None}
-
-        data = result.data
-        code = data.get("referral_code")
-        if not code:
-            code = get_or_create_referral_code(user_email)
-
-        # Count how many users used this referral code
-        referred_result = (
-            supabase.table("user_profiles")
-            .select("id", count="exact")
-            .eq("referred_by", code)
-            .execute()
-        )
-        referred_count = referred_result.count if referred_result.count is not None else 0
-
-        return {
-            "referral_code": code,
-            "referred_count": referred_count,
-            "elite_until": data.get("elite_until"),
-        }
-    except Exception as e:
-        logger.error(f"Error fetching referral info for {user_email}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch referral info")
