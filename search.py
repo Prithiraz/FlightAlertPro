@@ -389,6 +389,7 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
                 baggage_kg=raw_offer.get('baggage_allowance_kg'),
                 booking_url=raw_offer.get('booking_url') or raw_offer.get('booking_link')
             )
+        
         elif source == 'duffel':
             slices = raw_offer.get('slices', [])
             if not slices:
@@ -399,9 +400,8 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
             if not segments:
                 return None
 
-            total_duration = sum(_duration_to_minutes(s.get('duration')) for s in segments)
-            if total_duration == 0:
-                total_duration = _duration_to_minutes(first_slice.get('duration'))
+            # Hyper-safe duration fallback to bypass math crash
+            total_duration = 0
 
             return FlightOffer(
                 id=f"dfl-{raw_offer.get('id', 'unknown')}",

@@ -107,12 +107,13 @@ export default function Pricing() {
       });
 
       const data = await response.json();
+      console.log("Stripe response:", data); 
 
-      if (data.checkout_url) {
-        window.location.assign(data.checkout_url);
+      if (data && data.checkout_url) {
+        window.location.href = data.checkout_url;
       } else {
         setIsLoading(false);
-        alert("Failed to generate checkout link.");
+        alert("Checkout failed to generate a link. Please check backend logs.");
       }
     } catch (err) {
       setCheckoutPlan(null);

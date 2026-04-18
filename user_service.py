@@ -164,13 +164,12 @@ async def get_preferences(user_email: str):
     try:
         supabase = get_supabase()
         response = supabase.table("user_profiles").select("*").eq("email", user_email).maybe_single().execute()
-        if not response.data:
-            return {}
-        return response.data
+        if response and hasattr(response, 'data') and response.data:
+            return response.data
+        return {} 
     except Exception as e:
-        logger.error(f"Error fetching preferences for {user_email}: {e}")
-        # Return defaults when profile doesn't exist yet
-        return DEFAULT_PREFERENCES
+        logger.error(f"Profile fetch error handled safely: {e}")
+        return {}
 
 
 @router.put("/me/preferences")
