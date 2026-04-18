@@ -2,6 +2,7 @@ import requests
 import httpx
 import time
 import logging
+import re
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from config import config
@@ -258,7 +259,17 @@ class AirScraperAdapter(RapidAPIAdapter):
                 price_data = offer.get("price", {}) if isinstance(offer.get("price"), dict) else {}
                 amount = price_data.get("amount")
                 if amount is None:
-                    amount = price_data.get("raw", 0)
+                    amount = price_data.get("raw")
+                if amount is None:
+                    amount = price_data.get("formatted")
+                if isinstance(amount, str):
+                    normalized_amount = amount.replace(",", "")
+                    parsed_match = re.search(r"\d+(?:\.\d+)?", normalized_amount)
+                    if parsed_match:
+                        amount = float(parsed_match.group(0))
+                    else:
+                        logger.warning("Sky Scrapper price parse failed for formatted amount: %s", amount)
+                        amount = 0
 
                 origin_airport = first_segment.get("departure", {}).get("airport", "")
                 destination_airport = last_segment.get("arrival", {}).get("airport", "")
@@ -266,14 +277,39 @@ class AirScraperAdapter(RapidAPIAdapter):
                     origin_airport = origin_airport.get("iata", "") or origin_airport.get("id", "")
                 if isinstance(destination_airport, dict):
                     destination_airport = destination_airport.get("iata", "") or destination_airport.get("id", "")
+                if not origin_airport:
+                    leg_origin = first_leg.get("origin", {}) if isinstance(first_leg.get("origin"), dict) else {}
+                    origin_airport = leg_origin.get("displayCode", "") or leg_origin.get("id", "")
+                if not destination_airport:
+                    leg_destination = first_leg.get("destination", {}) if isinstance(first_leg.get("destination"), dict) else {}
+                    destination_airport = leg_destination.get("displayCode", "") or leg_destination.get("id", "")
+
+                carriers = first_leg.get("carriers", {}) if isinstance(first_leg.get("carriers"), dict) else {}
+                marketing_carriers = carriers.get("marketing", []) if isinstance(carriers.get("marketing"), list) else []
+                primary_marketing_carrier = marketing_carriers[0] if marketing_carriers else {}
+                operating_carrier = first_segment.get("operatingCarrier", {}) if isinstance(first_segment.get("operatingCarrier"), dict) else {}
+                marketing_carrier = first_segment.get("marketingCarrier", {}) if isinstance(first_segment.get("marketingCarrier"), dict) else {}
+                airline_code = (
+                    operating_carrier.get("code")
+                    or marketing_carrier.get("code")
+                    or primary_marketing_carrier.get("code")
+                    or primary_marketing_carrier.get("id")
+                    or ""
+                )
+                airline_name = (
+                    operating_carrier.get("name")
+                    or marketing_carrier.get("name")
+                    or primary_marketing_carrier.get("name")
+                    or ""
+                )
 
                 normalized_offer = {
                     "id": offer.get("id", ""),
                     "provider": "airscraper",
                     "price": float(amount or 0),
                     "currency": price_data.get("currency", "USD"),
-                    "airline": first_segment.get("operatingCarrier", {}).get("code", ""),
-                    "airline_name": first_segment.get("operatingCarrier", {}).get("name", ""),
+                    "airline": airline_code,
+                    "airline_name": airline_name,
                     "from_iata": origin_airport,
                     "to_iata": destination_airport,
                     "departure": first_segment.get("departure", {}).get("time", ""),

@@ -48,16 +48,6 @@ export default function Dashboard() {
   const [myAlerts, setMyAlerts] = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
   const [alertsError, setAlertsError] = useState('');
-  const [createAlertForm, setCreateAlertForm] = useState({
-    from_iata: '',
-    to_iata: '',
-    departure_date: '',
-    max_price: '',
-    currency: 'USD',
-  });
-  const [createAlertLoading, setCreateAlertLoading] = useState(false);
-  const [createAlertError, setCreateAlertError] = useState('');
-  const [createAlertSuccess, setCreateAlertSuccess] = useState('');
   const [activeAlerts, setActiveAlerts] = useState([]);
   const [activeAlertsLoading, setActiveAlertsLoading] = useState(false);
   const [activeAlertsError, setActiveAlertsError] = useState('');
@@ -210,61 +200,6 @@ export default function Dashboard() {
     setPurchaseForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCreateAlertFormChange = (e) => {
-    const { name, value } = e.target;
-    setCreateAlertForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleCreateAlertSubmit = async (e) => {
-    e.preventDefault();
-    setCreateAlertError('');
-    setCreateAlertSuccess('');
-
-    const parsedTargetPrice = parseFloat(createAlertForm.max_price);
-    if (!Number.isFinite(parsedTargetPrice) || parsedTargetPrice <= 0) {
-      setCreateAlertError('Target price must be a positive number greater than 0.');
-      return;
-    }
-
-    setCreateAlertLoading(true);
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userEmail = session?.user?.email;
-
-      if (!userEmail) {
-        setCreateAlertError('You must be signed in to create alerts.');
-        setCreateAlertLoading(false);
-        return;
-      }
-
-      const { error: insertError } = await supabase.from('price_alerts').insert({
-        user_email: userEmail,
-        from_iata: createAlertForm.from_iata.trim().toUpperCase(),
-        to_iata: createAlertForm.to_iata.trim().toUpperCase(),
-        departure_date: createAlertForm.departure_date || null,
-        max_price: parsedTargetPrice,
-        currency: createAlertForm.currency,
-      });
-
-      if (insertError) throw insertError;
-
-      setCreateAlertSuccess('Alert created successfully.');
-      setCreateAlertForm({
-        from_iata: '',
-        to_iata: '',
-        departure_date: '',
-        max_price: '',
-        currency: 'USD',
-      });
-      await fetchActiveAlerts();
-    } catch (err) {
-      setCreateAlertError(err.message || 'Failed to create alert.');
-    } finally {
-      setCreateAlertLoading(false);
-    }
-  };
-
   const handleAddPurchasedFlight = async (e) => {
     e.preventDefault();
     setPurchaseLoading(true);
@@ -313,6 +248,16 @@ export default function Dashboard() {
       setPurchaseLoading(false);
     }
   };
+
+  const purchasedAlerts = myAlerts.filter((a) => a.is_purchased);
+  const lowestLivePrice = activeAlerts
+    .map((a) => Number(a.current_live_price))
+    .filter((price) => Number.isFinite(price) && price > 0)
+    .reduce((min, price) => (min === null || price < min ? price : min), null);
+  const monitoredRoutes = new Set([
+    ...activeAlerts.map((a) => `${a.from_iata}-${a.to_iata}`),
+    ...purchasedAlerts.map((a) => `${a.from_iata}-${a.to_iata}`),
+  ]).size;
 
   return (
     <div style={styles.page}>
@@ -530,92 +475,30 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* Create Alert + My Active Alerts */}
+        {/* Travel Intelligence + My Active Alerts */}
         <section style={styles.section}>
           <div style={styles.alertsHeader}>
-            <h2 style={styles.sectionTitle}>Create Alert</h2>
-            <Link to="/alerts" style={styles.manageLink}>Advanced alert options →</Link>
+            <h2 style={styles.sectionTitle}>Travel Intelligence</h2>
+            <Link to="/alerts" style={styles.manageLink}>Manage all alerts →</Link>
           </div>
 
-          <form onSubmit={handleCreateAlertSubmit} style={styles.form}>
-            <div style={styles.row}>
-              <div style={styles.field}>
-                <label style={styles.label}>Origin Airport Code</label>
-                <input
-                  type="text"
-                  name="from_iata"
-                  value={createAlertForm.from_iata}
-                  onChange={handleCreateAlertFormChange}
-                  placeholder="LAX"
-                  maxLength={3}
-                  required
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Destination Airport Code</label>
-                <input
-                  type="text"
-                  name="to_iata"
-                  value={createAlertForm.to_iata}
-                  onChange={handleCreateAlertFormChange}
-                  placeholder="JFK"
-                  maxLength={3}
-                  required
-                  style={styles.input}
-                />
-              </div>
+          <div style={styles.statsGrid}>
+            <div style={styles.statCard}>
+              <div style={styles.statLabel}>Active Price Alerts</div>
+              <div style={styles.statValue}>{activeAlerts.length}</div>
+              <div style={styles.statHint}>Real-time alerts tracking live fares</div>
             </div>
-
-            <div style={styles.row}>
-              <div style={styles.field}>
-                <label style={styles.label}>Departure Date</label>
-                <input
-                  type="date"
-                  name="departure_date"
-                  value={createAlertForm.departure_date}
-                  onChange={handleCreateAlertFormChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Currency</label>
-                <select
-                  name="currency"
-                  value={createAlertForm.currency}
-                  onChange={handleCreateAlertFormChange}
-                  style={styles.input}
-                >
-                  {CURRENCIES.map((currency) => (
-                    <option key={currency} value={currency}>
-                      {currency}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Maximum Price (Alert Threshold)</label>
-                <input
-                  type="number"
-                  name="max_price"
-                  value={createAlertForm.max_price}
-                  onChange={handleCreateAlertFormChange}
-                  min="1"
-                  step="0.01"
-                  placeholder="e.g. 299.99"
-                  required
-                  style={styles.input}
-                />
-              </div>
+            <div style={styles.statCard}>
+              <div style={styles.statLabel}>Monitored Routes</div>
+              <div style={styles.statValue}>{monitoredRoutes}</div>
+              <div style={styles.statHint}>{purchasedAlerts.length} purchased trips in watch mode</div>
             </div>
-
-            {createAlertError && <p style={styles.error}>{createAlertError}</p>}
-            {createAlertSuccess && <p style={styles.success}>{createAlertSuccess}</p>}
-
-            <button type="submit" disabled={createAlertLoading} style={styles.button}>
-              {createAlertLoading ? 'Creating...' : 'Create Alert'}
-            </button>
-          </form>
+            <div style={styles.statCard}>
+              <div style={styles.statLabel}>Best Live Market Price</div>
+              <div style={styles.statValue}>{lowestLivePrice !== null ? `$${lowestLivePrice.toFixed(2)}` : '—'}</div>
+              <div style={styles.statHint}>Based on currently active route checks</div>
+            </div>
+          </div>
 
           <h3 style={styles.resultsHeading}>My Active Alerts</h3>
           {activeAlertsLoading ? (
@@ -730,11 +613,11 @@ export default function Dashboard() {
             <p style={styles.empty}>Loading trips...</p>
           ) : alertsError ? (
             <p style={styles.error}>{alertsError}</p>
-          ) : myAlerts.filter((a) => a.is_purchased).length === 0 ? (
+          ) : purchasedAlerts.length === 0 ? (
             <p style={styles.empty}>No purchased flights tracked yet.</p>
           ) : (
             <div style={styles.alertList}>
-              {myAlerts.filter((a) => a.is_purchased).map((alert) => {
+              {purchasedAlerts.map((alert) => {
                 const purchased = Number(alert.purchase_price || alert.max_price);
                 const live = alert.last_triggered_price ? Number(alert.last_triggered_price) : null;
                 const pct = live !== null && purchased > 0 ? Math.max(0, Math.min(100, (live / purchased) * 100)) : null;
@@ -843,6 +726,21 @@ const styles = {
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '1.5rem' },
   results: { marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' },
   resultsHeading: { fontSize: '1rem', fontWeight: '700', color: '#374151', marginBottom: '0.5rem' },
+  statsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '0.75rem',
+    marginBottom: '1.25rem',
+  },
+  statCard: {
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    padding: '0.875rem',
+    background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+  },
+  statLabel: { fontSize: '0.78rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em' },
+  statValue: { fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginTop: '0.35rem' },
+  statHint: { fontSize: '0.8rem', color: '#64748b', marginTop: '0.35rem' },
   card: {
     border: '1px solid #e5e7eb',
     borderRadius: '6px',
