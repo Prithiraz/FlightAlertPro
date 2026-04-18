@@ -234,14 +234,15 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             .maybe_single()
             .execute()
         )
-        existing_profile_data = existing_profile.data if isinstance(existing_profile.data, dict) else None
-        if existing_profile.data is not None and not existing_profile_data:
+        raw_profile_data = existing_profile.data
+        existing_profile_data = raw_profile_data if isinstance(raw_profile_data, dict) else None
+        if raw_profile_data is not None and not isinstance(raw_profile_data, dict):
             logger.warning("Unexpected profile payload type while updating preferences for %s", user_email)
         fetched_user_id = existing_profile_data.get("id") if existing_profile_data else None
         if existing_profile_data and not fetched_user_id:
             logger.warning("Profile exists but id missing for %s; falling back to auth.users lookup", user_email)
         if not fetched_user_id:
-            if not existing_profile_data:
+            if raw_profile_data is None:
                 logger.info("No user_profiles row found for %s; resolving auth.users id for upsert", user_email)
             fetched_user_id = get_auth_user_id(user_email, supabase)
         if not fetched_user_id:
