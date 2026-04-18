@@ -85,6 +85,7 @@ export default function Pricing() {
       const { data: userResult } = await supabase.auth.getUser();
       const userEmail = userResult?.user?.email || user?.email;
       if (!userEmail) {
+        setCheckoutPlan(null);
         navigate('/auth');
         return;
       }
@@ -102,16 +103,15 @@ export default function Pricing() {
         method: 'POST',
       });
 
-      const checkoutUrl = data?.checkout_url || data?.url;
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+      if (data?.checkout_url) {
+        window.location.href = data.checkout_url;
       } else {
+        setCheckoutPlan(null);
         alert('Checkout URL not received. Please try again.');
       }
     } catch (err) {
-      alert(err.message || 'Unable to start checkout. Please try again.');
-    } finally {
       setCheckoutPlan(null);
+      alert(err.message || 'Unable to start checkout. Please try again.');
     }
   };
 

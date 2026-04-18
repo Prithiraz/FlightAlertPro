@@ -266,7 +266,14 @@ async def create_checkout(user_email: str, success_url: str, cancel_url: str, pl
     if not session:
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
-    return session
+    checkout_url = None
+    if isinstance(session, dict):
+        checkout_url = session.get("checkout_url") or session.get("url")
+
+    if not checkout_url:
+        raise HTTPException(status_code=500, detail="Checkout URL missing from Stripe session")
+
+    return {"checkout_url": checkout_url}
 
 @app.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
