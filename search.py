@@ -7,6 +7,7 @@ import asyncio
 import logging
 import hashlib
 import time
+import re
 
 import openai
 from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
@@ -335,6 +336,21 @@ async def search_serpapi(segment: FlightSegment, request: SearchRequest) -> List
 def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
     """Normalize offer from different suppliers to common format"""
     try:
+        def _duration_to_minutes(duration: Any) -> int:
+            if isinstance(duration, (int, float)):
+                return max(0, int(duration))
+            if isinstance(duration, str):
+                value = duration.strip().upper()
+                if value.isdigit():
+                    return int(value)
+                match = re.match(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$", value)
+                if match:
+                    hours = int(match.group(1) or 0)
+                    minutes = int(match.group(2) or 0)
+                    seconds = int(match.group(3) or 0)
+                    return (hours * 60) + minutes + (1 if seconds >= 30 else 0)
+            return 0
+
         if source == 'aerodatabox':
             return FlightOffer(
                 id=f"adb-{raw_offer.get('flight_number', 'unknown')}",
@@ -381,7 +397,9 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
             if not segments:
                 return None
 
-            total_duration = sum(s.get('duration', 0) for s in segments)
+            total_duration = sum(_duration_to_minutes(s.get('duration')) for s in segments)
+            if total_duration == 0:
+                total_duration = _duration_to_minutes(first_slice.get('duration'))
 
             return FlightOffer(
                 id=f"dfl-{raw_offer.get('id', 'unknown')}",
