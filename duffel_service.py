@@ -26,8 +26,7 @@ class DuffelService:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            # Duffel accepts "beta" as a supported version header value.
-            "Duffel-Version": "beta"
+            "Duffel-Version": "2021-12-21"
         }
 
         try:

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../App';
+import { supabase } from '../lib/supabase';
 import AirportAutocomplete from '../components/AirportAutocomplete';
 import Toast from '../components/Toast';
 import { getPreferences, updatePreferences } from '../lib/api';
@@ -98,7 +99,12 @@ export default function Settings() {
     setSaving(true);
     setError('');
     try {
-      await updatePreferences(user.email, {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser?.id || !currentUser?.email) {
+        throw new Error('Authentication session expired. Please sign in again.');
+      }
+
+      await updatePreferences(currentUser.email, currentUser.id, {
         home_airport: prefs.home_airport || null,
         default_cabin: prefs.default_cabin,
         currency: prefs.currency,
@@ -240,4 +246,3 @@ const styles = {
   button: { alignSelf: 'flex-start', marginTop: '0.25rem', padding: '0.625rem 1.5rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer' },
   error: { color: '#dc2626', fontSize: '0.875rem', margin: 0 },
 };
-
