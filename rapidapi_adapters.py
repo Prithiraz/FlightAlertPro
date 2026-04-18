@@ -265,7 +265,11 @@ class AirScraperAdapter(RapidAPIAdapter):
                 if isinstance(amount, str):
                     normalized_amount = amount.replace(",", "")
                     parsed_match = re.search(r"\d+(?:\.\d+)?", normalized_amount)
-                    amount = float(parsed_match.group(0)) if parsed_match else 0
+                    if parsed_match:
+                        amount = float(parsed_match.group(0))
+                    else:
+                        logger.warning("Sky Scrapper price parse failed for formatted amount: %s", amount)
+                        amount = 0
 
                 origin_airport = first_segment.get("departure", {}).get("airport", "")
                 destination_airport = last_segment.get("arrival", {}).get("airport", "")
