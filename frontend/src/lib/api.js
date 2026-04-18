@@ -99,8 +99,9 @@ export function getPreferences(userEmail) {
   return request('GET', `/api/users/me/preferences?user_email=${encodeURIComponent(userEmail)}`);
 }
 
-export function updatePreferences(userEmail, prefs) {
-  return request('PUT', `/api/users/me/preferences?user_email=${encodeURIComponent(userEmail)}`, prefs);
+export function updatePreferences(userEmail, userId, prefs) {
+  const payload = { ...prefs, user_id: userId, user_email: userEmail };
+  return request('PUT', `/api/users/me/preferences?user_email=${encodeURIComponent(userEmail)}`, payload);
 }
 
 export function exploreFlights(origin) {

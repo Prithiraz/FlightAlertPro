@@ -166,6 +166,20 @@ class AirScraperAdapter(RapidAPIAdapter):
 
         try:
             with httpx.Client(timeout=30) as client:
+                def extract_lookup_ids(payload: Any) -> tuple[Optional[str], Optional[str]]:
+                    items = payload.get("data", []) if isinstance(payload, dict) else []
+                    if not isinstance(items, list):
+                        return None, None
+                    for item in items:
+                        if not isinstance(item, dict):
+                            continue
+                        sky_id = item.get("skyId")
+                        navigation = item.get("navigation") if isinstance(item.get("navigation"), dict) else {}
+                        entity_id = navigation.get("entityId")
+                        if sky_id and entity_id:
+                            return sky_id, entity_id
+                    return None, None
+
                 origin_lookup = client.get(
                     f"{self.BASE_URL}/api/v1/flights/searchAirport",
                     headers=headers,
@@ -173,8 +187,8 @@ class AirScraperAdapter(RapidAPIAdapter):
                 )
                 origin_lookup.raise_for_status()
                 origin_payload = origin_lookup.json()
-                origin_airports = origin_payload.get("data") if isinstance(origin_payload, dict) else None
-                if not origin_airports:
+                origin_sky_id, origin_entity_id = extract_lookup_ids(origin_payload)
+                if not origin_sky_id or not origin_entity_id:
                     logger.error(f"Sky Scrapper origin lookup returned empty for {from_iata}")
                     return []
 
@@ -185,21 +199,9 @@ class AirScraperAdapter(RapidAPIAdapter):
                 )
                 destination_lookup.raise_for_status()
                 destination_payload = destination_lookup.json()
-                destination_airports = destination_payload.get("data") if isinstance(destination_payload, dict) else None
-                if not destination_airports:
+                destination_sky_id, destination_entity_id = extract_lookup_ids(destination_payload)
+                if not destination_sky_id or not destination_entity_id:
                     logger.error(f"Sky Scrapper destination lookup returned empty for {to_iata}")
-                    return []
-
-                origin = origin_airports[0]
-                destination = destination_airports[0]
-                origin_sky_id = origin.get("skyId")
-                destination_sky_id = destination.get("skyId")
-                origin_entity_id = (origin.get("navigation") or {}).get("entityId")
-                destination_entity_id = (destination.get("navigation") or {}).get("entityId")
-                if not all([origin_sky_id, destination_sky_id, origin_entity_id, destination_entity_id]):
-                    logger.error(
-                        f"Sky Scrapper lookup missing identifiers for route {from_iata}->{to_iata}"
-                    )
                     return []
 
                 search_response = client.get(

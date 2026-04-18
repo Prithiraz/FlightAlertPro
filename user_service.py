@@ -146,6 +146,8 @@ def grant_referral_reward(referrer_code: str) -> bool:
 
 
 class PreferencesUpdate(BaseModel):
+    user_id: Optional[str] = None
+    user_email: Optional[str] = None
     home_airport: Optional[str] = None
     default_cabin: Optional[str] = None
     currency: Optional[str] = None
@@ -186,10 +188,15 @@ async def get_preferences(user_email: str):
 
 
 @router.put("/me/preferences")
-async def update_preferences(user_email: str, body: PreferencesUpdate):
+async def update_preferences(body: PreferencesUpdate, user_email: Optional[str] = None):
     """Update the current user's travel preferences."""
-    if not user_email:
+    request_user_email = (body.user_email or user_email or "").strip()
+    request_user_id = (body.user_id or "").strip()
+
+    if not request_user_email:
         raise HTTPException(status_code=400, detail="user_email is required")
+    if not request_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
 
     if body.default_cabin and body.default_cabin not in VALID_CABINS:
         raise HTTPException(
@@ -227,29 +234,8 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
         if not updates:
             return {"success": True, "message": "No changes provided"}
 
-        existing_profile = (
-            supabase.table("user_profiles")
-            .select("id")
-            .eq("email", user_email)
-            .maybe_single()
-            .execute()
-        )
-        raw_profile_data = existing_profile.data
-        existing_profile_data = raw_profile_data if isinstance(raw_profile_data, dict) else None
-        if raw_profile_data is not None and existing_profile_data is None:
-            logger.warning("Unexpected profile payload type while updating preferences for %s", user_email)
-        fetched_user_id = existing_profile_data.get("id") if existing_profile_data else None
-        if not fetched_user_id and existing_profile_data:
-            logger.warning("Profile exists but id missing for %s; falling back to auth.users lookup", user_email)
-        if not fetched_user_id:
-            if raw_profile_data is None:
-                logger.info("No user_profiles row found for %s; resolving auth.users id for upsert", user_email)
-            fetched_user_id = get_auth_user_id(user_email, supabase)
-        if not fetched_user_id:
-            raise HTTPException(status_code=404, detail="Auth user not found for provided email")
-
         supabase.table("user_profiles").upsert(
-            {"id": fetched_user_id, "email": user_email, **updates}
+            {"id": request_user_id, "email": request_user_email, **updates}
         ).execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
