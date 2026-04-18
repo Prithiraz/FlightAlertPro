@@ -44,7 +44,7 @@ const TIERS = [
     features: [
       '20 Active Alerts',
       'Email & Telegram Notifications',
-      'AI Flight Insights (OpenAI)',
+      'AI Flight Insights',
       'Instant Background Checking',
       'Priority Support',
     ],
@@ -62,7 +62,7 @@ const TIERS = [
     features: [
       'Unlimited Alerts',
       'All Notification Channels',
-      'AI Flight Insights (OpenAI)',
+      'AI Flight Insights',
       'Instant Background Checking',
       'Dedicated Support',
       'Team Access',
