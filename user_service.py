@@ -36,7 +36,7 @@ def get_or_create_referral_code(user_email: str) -> str:
         supabase.table("user_profiles")
         .select("referral_code")
         .eq("email", user_email)
-        .single()
+        .maybe_single()
         .execute()
     )
     existing_code = result.data.get("referral_code") if result.data else None
@@ -62,14 +62,14 @@ def get_or_create_referral_code(user_email: str) -> str:
 
 
 def grant_referral_reward(referrer_code: str) -> bool:
-    """Add REFERRAL_REWARD_DAYS days of Elite access to the owner of referrer_code.
+    """Add REFERRAL_REWARD_DAYS days of Pro referral access to the owner of referrer_code.
 
     Returns True if the reward was applied, False if the code was not found.
     """
     supabase = get_supabase()
     result = (
         supabase.table("user_profiles")
-        .select("email, elite_until")
+        .select("email, elite_until, subscription_tier")
         .eq("referral_code", referrer_code)
         .execute()
     )
@@ -95,12 +95,15 @@ def grant_referral_reward(referrer_code: str) -> bool:
     base = max(now, current_until)
     new_until = base + timedelta(days=REFERRAL_REWARD_DAYS)
 
-    supabase.table("user_profiles").update(
-        {"elite_until": new_until.isoformat()}
-    ).eq("referral_code", referrer_code).execute()
+    updates = {"elite_until": new_until.isoformat()}
+    current_tier = row.get("subscription_tier")
+    if current_tier in (None, "free"):
+        updates["subscription_tier"] = "pro"
+
+    supabase.table("user_profiles").update(updates).eq("referral_code", referrer_code).execute()
 
     logger.info(
-        "Referral reward granted: code=%s, new elite_until=%s",
+        "Referral reward granted: code=%s, new pro access until=%s",
         referrer_code,
         new_until.isoformat(),
     )
@@ -258,7 +261,7 @@ async def register_user(body: RegisterUserRequest):
 
 @router.get("/me/referral")
 async def get_referral_info(user_email: str):
-    """Return the user's referral code, number of successful referrals, and elite_until timestamp."""
+    """Return the user's referral code, number of successful referrals, and referral expiry timestamp."""
     if not user_email:
         raise HTTPException(status_code=400, detail="user_email is required")
 
@@ -269,7 +272,7 @@ async def get_referral_info(user_email: str):
             supabase.table("user_profiles")
             .select("referral_code, elite_until")
             .eq("email", user_email)
-            .single()
+            .maybe_single()
             .execute()
         )
 

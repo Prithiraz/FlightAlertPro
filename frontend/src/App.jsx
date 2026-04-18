@@ -31,11 +31,14 @@ async function fetchSubscriptionTier(userId) {
     .single();
   if (!data) return 'free';
 
-  // If the user has an active elite_until timestamp, treat them as elite
+  // Referral rewards use elite_until as a temporary Pro-access expiry timestamp.
   if (data.elite_until) {
     const eliteUntil = new Date(data.elite_until);
     if (eliteUntil > new Date()) {
-      return 'elite';
+      if ((data.subscription_tier ?? 'free') === 'free') {
+        return 'pro';
+      }
+      return data.subscription_tier ?? 'free';
     }
   }
 
