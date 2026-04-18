@@ -234,7 +234,8 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             .maybe_single()
             .execute()
         )
-        fetched_user_id = existing_profile.data.get("id") if existing_profile.data else None
+        existing_profile_data = existing_profile.data if isinstance(existing_profile.data, dict) else None
+        fetched_user_id = existing_profile_data.get("id") if existing_profile_data else None
         if not fetched_user_id:
             fetched_user_id = get_auth_user_id(user_email, supabase)
         if not fetched_user_id:
