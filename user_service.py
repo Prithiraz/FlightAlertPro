@@ -163,17 +163,17 @@ async def get_preferences(user_email: str):
 
     try:
         supabase = get_supabase()
-        result = (
+        response = (
             supabase.table("user_profiles")
             .select("home_airport, default_cabin, preferred_currency, preferred_reward_program, passport_nationality")
             .eq("email", user_email)
             .maybe_single()
             .execute()
         )
-        if not result.data:
-            return DEFAULT_PREFERENCES
+        if not response.data:
+            return {}
 
-        data = result.data
+        data = response.data
         return {
             "home_airport": data.get("home_airport"),
             "default_cabin": data.get("default_cabin") or "economy",
@@ -218,11 +218,6 @@ async def update_preferences(body: PreferencesUpdate):
 
     try:
         supabase = get_supabase()
-        auth_user_id = get_auth_user_id(request_user_email, supabase)
-        if not auth_user_id:
-            raise HTTPException(status_code=404, detail="Auth user not found for provided email")
-        if auth_user_id != request_user_id:
-            raise HTTPException(status_code=403, detail="user_id does not match authenticated email")
 
         updates: dict = {}
         if body.home_airport is not None:
@@ -247,7 +242,7 @@ async def update_preferences(body: PreferencesUpdate):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating preferences for {user_email}: {e}")
+        logger.error(f"Error updating preferences for {request_user_email}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update preferences")
 
 
