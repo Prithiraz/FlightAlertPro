@@ -30,7 +30,8 @@ def resolve_user_id_by_email(supabase, user_email: str) -> Optional[str]:
         .maybe_single()
         .execute()
     )
-    profile_id = profile.data.get("id") if profile.data else None
+    profile_data = profile.data if isinstance(profile.data, dict) else None
+    profile_id = profile_data.get("id") if profile_data else None
     if profile_id:
         return profile_id
 
@@ -42,7 +43,8 @@ def resolve_user_id_by_email(supabase, user_email: str) -> Optional[str]:
         .maybe_single()
         .execute()
     )
-    auth_user_id = auth_user.data.get("id") if auth_user.data else None
+    auth_user_data = auth_user.data if isinstance(auth_user.data, dict) else None
+    auth_user_id = auth_user_data.get("id") if auth_user_data else None
     if auth_user_id:
         return auth_user_id
 
@@ -225,7 +227,7 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
         # Upsert so new users get a profile row automatically
         updates["id"] = user_id
         updates["email"] = user_email
-        supabase.table("user_profiles").upsert(updates, on_conflict="email").execute()
+        supabase.table("user_profiles").upsert(updates, on_conflict="id").execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
     except HTTPException:
