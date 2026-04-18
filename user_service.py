@@ -146,8 +146,8 @@ def grant_referral_reward(referrer_code: str) -> bool:
 
 
 class PreferencesUpdate(BaseModel):
-    user_id: Optional[str] = None
-    user_email: Optional[str] = None
+    user_id: str
+    user_email: str
     home_airport: Optional[str] = None
     default_cabin: Optional[str] = None
     currency: Optional[str] = None
@@ -188,9 +188,9 @@ async def get_preferences(user_email: str):
 
 
 @router.put("/me/preferences")
-async def update_preferences(body: PreferencesUpdate, user_email: Optional[str] = None):
+async def update_preferences(body: PreferencesUpdate):
     """Update the current user's travel preferences."""
-    request_user_email = (body.user_email or user_email or "").strip()
+    request_user_email = (body.user_email or "").strip()
     request_user_id = (body.user_id or "").strip()
 
     if not request_user_email:
@@ -218,6 +218,11 @@ async def update_preferences(body: PreferencesUpdate, user_email: Optional[str] 
 
     try:
         supabase = get_supabase()
+        auth_user_id = get_auth_user_id(request_user_email, supabase)
+        if not auth_user_id:
+            raise HTTPException(status_code=404, detail="Auth user not found for provided email")
+        if auth_user_id != request_user_id:
+            raise HTTPException(status_code=403, detail="user_id does not match authenticated email")
 
         updates: dict = {}
         if body.home_airport is not None:

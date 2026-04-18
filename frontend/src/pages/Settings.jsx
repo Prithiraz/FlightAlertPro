@@ -101,7 +101,7 @@ export default function Settings() {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser?.id || !currentUser?.email) {
-        throw new Error('Unable to resolve authenticated user');
+        throw new Error('Authentication session expired. Please sign in again.');
       }
 
       await updatePreferences(currentUser.email, currentUser.id, {
