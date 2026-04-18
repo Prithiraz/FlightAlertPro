@@ -49,6 +49,7 @@ const TIERS = [
       'Instant Background Checking',
       'Priority Support',
     ],
+    buttonText: 'Upgrade to Elite',
     cta: 'Upgrade to Elite',
     badge: 'Most Popular',
   },
@@ -67,6 +68,7 @@ const TIERS = [
       'Dedicated Support',
       'Team Access',
     ],
+    buttonText: 'Upgrade to Business',
     cta: 'Upgrade to Business',
     badge: null,
   },
@@ -78,20 +80,19 @@ export default function Pricing() {
   const [checkoutPlan, setCheckoutPlan] = useState(null);
 
   const handleCheckout = async (planId) => {
-    if (!user?.email) {
-      navigate('/auth');
-      return;
-    }
-
-    const successUrl = `${window.location.origin}/dashboard?upgraded=true`;
-    const cancelUrl = `${window.location.origin}/pricing`;
-
     try {
       setCheckoutPlan(planId);
-      const sessionResult = await supabase.auth.getSession();
-      const accessToken = sessionResult?.data?.session?.access_token;
+      const { data: userResult } = await supabase.auth.getUser();
+      const userEmail = userResult?.user?.email || user?.email;
+      if (!userEmail) {
+        navigate('/auth');
+        return;
+      }
+
+      const successUrl = `${window.location.origin}/dashboard?upgraded=true`;
+      const cancelUrl = `${window.location.origin}/pricing`;
       const params = new URLSearchParams({
-        user_email: user.email,
+        user_email: userEmail,
         success_url: successUrl,
         cancel_url: cancelUrl,
         plan: planId,
@@ -99,7 +100,6 @@ export default function Pricing() {
 
       const data = await apiFetch(`/api/payments/checkout?${params.toString()}`, {
         method: 'POST',
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
 
       const checkoutUrl = data?.checkout_url || data?.url;
@@ -194,12 +194,12 @@ export default function Pricing() {
                   style={{
                     ...styles.btnUpgrade,
                     background: isGradient ? '#fff' : tier.color,
-                    color: isGradient ? tier.color : '#fff',
+                    color: isGradient ? '#111827' : '#fff',
                   }}
                   disabled={checkoutPlan !== null}
                   onClick={() => handleCheckout(tier.id)}
                 >
-                  {checkoutPlan === tier.id ? 'Starting checkout…' : tier.cta}
+                  {checkoutPlan === tier.id ? 'Starting checkout…' : (tier.buttonText || tier.cta)}
                 </button>
               )}
             </div>
