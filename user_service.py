@@ -235,8 +235,14 @@ async def update_preferences(user_email: str, body: PreferencesUpdate):
             .execute()
         )
         existing_profile_data = existing_profile.data if isinstance(existing_profile.data, dict) else None
+        if existing_profile.data is not None and not existing_profile_data:
+            logger.warning("Unexpected profile payload type while updating preferences for %s", user_email)
         fetched_user_id = existing_profile_data.get("id") if existing_profile_data else None
+        if existing_profile_data and not fetched_user_id:
+            logger.warning("Profile exists but id missing for %s; falling back to auth.users lookup", user_email)
         if not fetched_user_id:
+            if not existing_profile_data:
+                logger.info("No user_profiles row found for %s; resolving auth.users id for upsert", user_email)
             fetched_user_id = get_auth_user_id(user_email, supabase)
         if not fetched_user_id:
             raise HTTPException(status_code=404, detail="Auth user not found for provided email")
