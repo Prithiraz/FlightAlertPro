@@ -14,6 +14,8 @@ import {
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
 const CHANNELS = ['email', 'telegram'];
 const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
+const formatCabinClassName = (cabinClass) =>
+  cabinClass.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
 const emptyForm = {
   from_iata: '',
@@ -267,7 +269,7 @@ export default function Alerts() {
               >
                 {CABIN_CLASSES.map((c) => (
                   <option key={c} value={c}>
-                    {c.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {formatCabinClassName(c)}
                   </option>
                 ))}
               </select>

@@ -169,7 +169,7 @@ export default function Search() {
           from_iata: offer.from_iata ?? form.from_iata.toUpperCase(),
           to_iata: offer.to_iata ?? form.to_iata.toUpperCase(),
           departure_date: form.departure_date,
-          return_date: form.trip_type === 'round_trip' ? form.return_date : '',
+          return_date: form.return_date,
           trip_type: form.trip_type,
           cabin_class: form.cabin_class,
           currency: offer.currency ?? 'USD',
