@@ -169,7 +169,7 @@ export default function Pricing() {
                 </h2>
                 <div style={styles.price}>
                   <span style={{ ...styles.priceAmount, color: isGradient ? '#fff' : '#111827' }}>
-                    ${tier.price}
+                    {tier.id === 'free' ? '$' : '£'}{tier.price}
                   </span>
                   <span style={{ ...styles.pricePeriod, color: isGradient ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>
                     /month
