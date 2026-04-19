@@ -21,7 +21,7 @@ const TIERS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 9,
+    price: 9.99,
     color: '#1d4ed8',
     background: '#eff6ff',
     cardStyle: { borderColor: '#93c5fd' },
@@ -37,7 +37,7 @@ const TIERS = [
   {
     id: 'elite',
     name: 'Elite',
-    price: 19,
+    price: 19.99,
     color: '#fff',
     background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
     cardStyle: { boxShadow: '0 8px 32px rgba(29,78,216,0.35)' },
@@ -55,7 +55,7 @@ const TIERS = [
   {
     id: 'business',
     name: 'Business',
-    price: 39,
+    price: 39.99,
     color: '#fff',
     background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
     cardStyle: { boxShadow: '0 8px 32px rgba(0,0,0,0.35)' },
