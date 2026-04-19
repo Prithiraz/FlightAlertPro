@@ -133,42 +133,24 @@ export default function Search() {
     }
 
     try {
+      // Your original, working payload format
       const payload = {
-        segments: [
-          {
-            from_iata: form.from_iata.toUpperCase(),
-            to_iata: form.to_iata.toUpperCase(),
-            departure_date: form.departure_date,
-          }
-        ],
-        passengers: { adults: Number(form.passengers) },
+        from_iata: form.from_iata.toUpperCase(),
+        to_iata: form.to_iata.toUpperCase(),
+        departure_date: form.departure_date,
+        passengers: Number(form.passengers),
         cabin_class: form.cabin_class,
         currency: form.currency,
+        trip_type: form.trip_type,
       };
-
       if (form.trip_type === 'round_trip' && form.return_date) {
-        payload.segments.push({
-          from_iata: form.to_iata.toUpperCase(),
-          to_iata: form.from_iata.toUpperCase(),
-          departure_date: form.return_date,
-        });
+        payload.return_date = form.return_date;
       }
 
-      // Make a direct, bulletproof fetch to our backend
-      const response = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      // Your original, working API call
+      const data = await searchFlights(payload);
 
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Catch the offers exactly how our backend formats them
-      const offers = Array.isArray(data) ? data : (data.offers ?? []);
+      const offers = Array.isArray(data) ? data : (data.offers ?? data.results ?? []);
       const sorted = [...offers].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
       setResults(sorted);
 
