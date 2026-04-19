@@ -81,45 +81,51 @@ export default function Pricing() {
 
   const handleCheckout = async (planId) => {
     try {
+      console.log("1. Stripe button clicked for plan:", planId);
       setCheckoutPlan(planId);
-      setIsLoading(true);
+
       const { data: userResult } = await supabase.auth.getUser();
       const userEmail = userResult?.user?.email || user?.email;
+      console.log("2. User email found:", userEmail);
+
       if (!userEmail) {
+        alert("You must be logged in to upgrade!");
         setCheckoutPlan(null);
-        navigate('/auth');
         return;
       }
 
-      const successUrl = `${window.location.origin}/dashboard?upgraded=true`;
-      const cancelUrl = `${window.location.origin}/pricing`;
-      
-      // The backend needs these as URL Parameters, NOT a JSON body
-      const params = new URLSearchParams({
-        user_email: userEmail,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        plan: planId,
-      });
+      const payload = {
+        plan_id: planId.toLowerCase(),
+        success_url: `${window.location.origin}/dashboard?checkout=success`,
+        cancel_url: `${window.location.origin}/pricing?checkout=cancelled`
+      };
+      console.log("3. Sending JSON payload to backend:", payload);
 
-      const response = await fetch(`/api/payments/checkout?${params.toString()}`, {
+      const response = await fetch('/api/payments/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
+      console.log("4. Backend responded with status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
+      }
+
       const data = await response.json();
-      console.log("Stripe response:", data); 
+      console.log("5. Stripe data received:", data); 
 
       if (data && data.checkout_url) {
         window.location.href = data.checkout_url;
       } else {
-        setIsLoading(false);
-        alert("Checkout failed to generate a link. Please check backend logs.");
+        throw new Error("Backend did not return a checkout_url.");
       }
     } catch (err) {
+      console.error("STRIPE CRASH DETECTED:", err);
+      alert(`Checkout failed: ${err.message}. Check browser console for details.`);
       setCheckoutPlan(null);
-      setIsLoading(false);
-      alert(err.message || 'Unable to start checkout. Please try again.');
     }
   };
 
