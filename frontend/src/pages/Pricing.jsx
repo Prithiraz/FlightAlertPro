@@ -169,7 +169,7 @@ export default function Pricing() {
                 </h2>
                 <div style={styles.price}>
                   <span style={{ ...styles.priceAmount, color: isGradient ? '#fff' : '#111827' }}>
-                    ${tier.price}
+                    £{tier.id === 'pro' ? '9.99' : tier.id === 'elite' ? '19.99' : tier.id === 'business' ? '39.99' : tier.price}
                   </span>
                   <span style={{ ...styles.pricePeriod, color: isGradient ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>
                     /month
@@ -178,7 +178,31 @@ export default function Pricing() {
               </div>
 
               <ul style={styles.featureList}>
-                {tier.features.map((f) => (
+                {(tier.id === 'pro'
+                  ? [
+                      '5 Active Alerts',
+                      'Email, Telegram & WhatsApp Alerts',
+                      'Instant Background Checking',
+                      'Priority Support',
+                    ]
+                  : tier.id === 'elite'
+                    ? [
+                        '20 Active Alerts',
+                        'Email, Telegram & WhatsApp Alerts',
+                        'AI Flight Insights',
+                        'Instant Background Checking',
+                        'Priority Support',
+                      ]
+                    : tier.id === 'business'
+                      ? [
+                          'Unlimited Alerts',
+                          'All Notification Channels',
+                          'AI Flight Insights',
+                          'API Access',
+                          'Dedicated Support',
+                          'Team Access',
+                        ]
+                      : tier.features).map((f) => (
                   <li key={f} style={{ ...styles.featureItem, color: isGradient ? 'rgba(255,255,255,0.9)' : '#374151' }}>
                     <span style={{ ...styles.checkIcon, color: isGradient ? 'rgba(255,255,255,0.7)' : '#16a34a' }}>✓</span>
                     {' '}{f}
