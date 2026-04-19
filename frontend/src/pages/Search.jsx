@@ -330,52 +330,85 @@ export default function Search() {
       {!loading && results.length > 0 && (
         <div style={styles.results}>
           <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
-          {results.map((offer, idx) => (
-            <Fragment key={offer.id ?? idx}>
-              {offer.is_hacker_fare && !['elite', 'business'].includes(subscriptionTier || 'free') ? (
-                <div style={styles.hackerFareWrapper}>
-                  <div style={styles.hackerFareBlur}>
-                    <FlightResultCard
-                      offer={offer}
-                      cabinClass={form.cabin_class}
-                      onCreateAlert={handleCreateAlert}
-                      subscriptionTier={subscriptionTier}
-                    />
+          {results.map((offer, idx) => {
+            
+            // The New Sleek Green Flight Card
+            const greenCard = (
+              <div style={{ border: '1px solid #bbf7d0', borderRadius: '8px', padding: '1.5rem', backgroundColor: '#f0fdf4', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                  <div>
+                    <h4 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e3a8a', margin: '0 0 0.5rem 0' }}>
+                      {offer.from_iata} ➔ {offer.to_iata}
+                    </h4>
+                    <p style={{ color: '#4b5563', margin: 0, fontSize: '0.9rem' }}>
+                      {offer.airline_name || offer.airline_iata || 'Airline'} • {offer.stops !== undefined ? offer.stops : 0} stop(s) • {offer.cabin_class || form.cabin_class}
+                    </p>
                   </div>
-                  <div style={styles.hackerFareOverlay}>
-                    <div style={styles.hackerFareCTA}>
-                      <div style={styles.hackerFareIcon}>🥷</div>
-                      <p style={styles.hackerFareHeadline}>
-                        We found a Hacker Fare that saves you{' '}
-                        <strong style={{ color: '#a3e635' }}>
-                          ${Number(offer.savings ?? 0).toFixed(2)}
-                        </strong>
-                      </p>
-                      <p style={styles.hackerFareSub}>
-                        Upgrade to Elite to unlock the airlines and book.
-                      </p>
-                      <Link to="/pricing" style={styles.hackerFareBtn}>
-                        Upgrade to Elite →
-                      </Link>
-                    </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#16a34a', margin: 0 }}>
+                      {offer.currency} {offer.price}
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <FlightResultCard
-                  offer={offer}
-                  cabinClass={form.cabin_class}
-                  onCreateAlert={handleCreateAlert}
-                  subscriptionTier={subscriptionTier}
-                />
-              )}
-              {idx === AD_INSERTION_INDEX && (
-                <AncillaryAdCard
-                  destination={form.to_iata.toUpperCase()}
-                  checkinDate={form.departure_date}
-                />
-              )}
-            </Fragment>
-          ))}
+
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '1.5rem' }}>
+                  {offer.booking_url && (
+                    <a
+                      href={offer.booking_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ backgroundColor: '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem' }}
+                    >
+                      ✈️ Book Flight
+                    </a>
+                  )}
+                  <button
+                    onClick={() => handleCreateAlert(offer)}
+                    style={{ backgroundColor: 'white', color: '#2563eb', border: '1px solid #2563eb', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
+                  >
+                    🔔 Track Price Drop
+                  </button>
+                </div>
+              </div>
+            );
+
+            return (
+              <Fragment key={offer.id ?? idx}>
+                {offer.is_hacker_fare && !['elite', 'business'].includes(subscriptionTier || 'free') ? (
+                  <div style={styles.hackerFareWrapper}>
+                    <div style={styles.hackerFareBlur}>
+                      {greenCard}
+                    </div>
+                    <div style={styles.hackerFareOverlay}>
+                      <div style={styles.hackerFareCTA}>
+                        <div style={styles.hackerFareIcon}>🥷</div>
+                        <p style={styles.hackerFareHeadline}>
+                          We found a Hacker Fare that saves you{' '}
+                          <strong style={{ color: '#a3e635' }}>
+                            ${Number(offer.savings ?? 0).toFixed(2)}
+                          </strong>
+                        </p>
+                        <p style={styles.hackerFareSub}>
+                          Upgrade to Elite to unlock the airlines and book.
+                        </p>
+                        <Link to="/pricing" style={styles.hackerFareBtn}>
+                          Upgrade to Elite →
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  greenCard
+                )}
+                {idx === AD_INSERTION_INDEX && (
+                  <AncillaryAdCard
+                    destination={form.to_iata.toUpperCase()}
+                    checkinDate={form.departure_date}
+                  />
+                )}
+              </Fragment>
+            );
+          })}
         </div>
       )}
 

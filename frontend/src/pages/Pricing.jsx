@@ -83,31 +83,35 @@ export default function Pricing() {
     try {
       console.log("1. Stripe button clicked for plan:", planId);
       setCheckoutPlan(planId);
+      setIsLoading(true);
 
-      const { data: userResult } = await supabase.auth.getUser();
-      const userEmail = userResult?.user?.email || user?.email;
-      console.log("2. User email found:", userEmail);
+      // RIP OUT the database check. Just use the local user session.
+      const userEmail = user?.email;
+      console.log("2. Local user email found:", userEmail);
 
       if (!userEmail) {
         alert("You must be logged in to upgrade!");
         setCheckoutPlan(null);
+        setIsLoading(false);
         return;
       }
 
-      const payload = {
-        plan_id: planId.toLowerCase(),
-        success_url: `${window.location.origin}/dashboard?checkout=success`,
-        cancel_url: `${window.location.origin}/pricing?checkout=cancelled`
-      };
-      console.log("3. Sending JSON payload to backend:", payload);
-
-      const response = await fetch('/api/payments/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      const successUrl = `${window.location.origin}/dashboard?upgraded=true`;
+      const cancelUrl = `${window.location.origin}/pricing`;
+      
+      const params = new URLSearchParams({
+        user_email: userEmail,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        plan: planId,
       });
 
-      console.log("4. Backend responded with status:", response.status);
+      console.log("3. Sending URL params to backend:", params.toString());
+
+      const response = await fetch(`/api/payments/checkout?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -115,7 +119,7 @@ export default function Pricing() {
       }
 
       const data = await response.json();
-      console.log("5. Stripe data received:", data); 
+      console.log("4. Stripe checkout URL received:", data.checkout_url); 
 
       if (data && data.checkout_url) {
         window.location.href = data.checkout_url;
@@ -126,6 +130,7 @@ export default function Pricing() {
       console.error("STRIPE CRASH DETECTED:", err);
       alert(`Checkout failed: ${err.message}. Check browser console for details.`);
       setCheckoutPlan(null);
+      setIsLoading(false);
     }
   };
 
