@@ -707,6 +707,7 @@ async def search_flights(request: SearchRequest):
                 enriched_offers.insert(0, hacker_fare)
 
     # Force currency conversion via Frankfurter API
+    # Force currency conversion via Frankfurter API
     import requests
     target_currency = request.currency.upper()
     for offer in enriched_offers:
