@@ -218,11 +218,20 @@ async def update_preferences(request: PreferencesUpdate):
             return {"success": True, "message": "No changes provided"}
 
         # Assume request.user_id is provided by the frontend
+        # Assume request.user_id is provided by the frontend
         if not getattr(request, 'user_id', None):
             raise HTTPException(status_code=400, detail="user_id is required in the payload")
-        supabase.table("user_profiles").upsert({"id": request.user_id, "email": request.user_email, **updates}).execute()
+            
+        supabase.table("user_profiles").upsert({
+            "id": request.user_id, 
+            "email": request_user_email, 
+            "user_email": request_user_email, 
+            **updates
+        }).execute()
 
         return {"success": True, "message": "Preferences updated successfully"}
+
+        
     except HTTPException:
         raise
     except Exception as e:
