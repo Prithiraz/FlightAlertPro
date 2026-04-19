@@ -253,7 +253,12 @@ async def send_notification(user_email: str, message: str, channels: List[str],
 
     return result
 
-# We define the exact shape of the JSON package we expect
+from pydantic import BaseModel
+from stripe_service import stripe_service # Import the correct service
+from fastapi import Request, HTTPException
+from fastapi.responses import JSONResponse
+
+# Define the exact JSON package we expect from React
 class CheckoutRequest(BaseModel):
     user_email: str
     success_url: str
@@ -262,17 +267,16 @@ class CheckoutRequest(BaseModel):
 
 @app.post("/api/payments/checkout")
 async def create_checkout(request: CheckoutRequest):
-    if not payments_service.enabled:
+    if not stripe_service.enabled:
         raise HTTPException(status_code=503, detail="Payment service unavailable")
 
     if request.plan not in {"pro", "elite", "business"}:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
-    session = payments_service.create_checkout_session(
+    session = stripe_service.create_checkout_session(
         request.user_email, request.plan, request.success_url, request.cancel_url
     )
 
-    # FIX: session is a dictionary, so we must access it with brackets ["url"], not .url
     if not session or "url" not in session:
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
@@ -286,7 +290,7 @@ async def stripe_webhook(request: Request):
     if not sig_header:
         raise HTTPException(status_code=400, detail="Missing signature")
 
-    event = payments_service.verify_webhook_signature(payload, sig_header)
+    event = stripe_service.verify_webhook_signature(payload, sig_header)
 
     if not event:
         raise HTTPException(status_code=400, detail="Invalid signature")
@@ -295,11 +299,11 @@ async def stripe_webhook(request: Request):
     data = event.get('data', {}).get('object', {})
 
     if event_type == 'checkout.session.completed':
-        result = payments_service.handle_checkout_completed(data)
+        result = stripe_service.handle_checkout_completed(data)
         logger.info(f"Checkout completed: {result}")
 
     elif event_type == 'invoice.paid':
-        result = payments_service.handle_invoice_paid(data)
+        result = stripe_service.handle_invoice_paid(data)
         logger.info(f"Invoice paid: {result}")
 
     return JSONResponse(content={"status": "success"}, status_code=200)

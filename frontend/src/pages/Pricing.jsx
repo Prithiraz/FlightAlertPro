@@ -93,17 +93,21 @@ export default function Pricing() {
         return;
       }
 
-      // Pack the exact JSON data the Python backend is expecting
       const payload = {
         user_email: userEmail,
         success_url: `${window.location.origin}/dashboard?upgraded=true`,
         cancel_url: `${window.location.origin}/pricing`,
         plan: planId.toLowerCase()
       };
-
       console.log("2. Sending JSON payload:", payload);
 
-      const response = await fetch('/api/payments/checkout', {
+      // FIX: Dynamically target the Python Backend (Port 8000) in Codespaces
+      const currentUrl = window.location.origin;
+      const backendUrl = currentUrl.includes('5173') 
+        ? currentUrl.replace('5173', '8000') 
+        : (import.meta.env.VITE_API_URL || '');
+
+      const response = await fetch(`${backendUrl}/api/payments/checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
