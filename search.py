@@ -706,6 +706,21 @@ async def search_flights(request: SearchRequest):
                 }
                 enriched_offers.insert(0, hacker_fare)
 
+    # Force currency conversion via Frankfurter API
+    import requests
+    target_currency = request.currency.upper()
+    for offer in enriched_offers:
+        current_currency = str(offer.get("currency", "")).upper()
+        if current_currency and current_currency != target_currency:
+            try:
+                frankfurter_url = getattr(config, 'FRANKFURTER_API_URL', "https://api.frankfurter.app")
+                res = requests.get(f"{frankfurter_url}/latest?amount={offer['price']}&from={current_currency}&to={target_currency}", timeout=3)
+                if res.status_code == 200:
+                    offer["price"] = round(res.json()["rates"][target_currency], 2)
+                    offer["currency"] = target_currency
+            except Exception as e:
+                logger.warning(f"Failed to convert {current_currency} to {target_currency}: {e}")
+
     response = {
         "query": {
             "from": segment.from_iata,
