@@ -82,6 +82,7 @@ export default function Pricing() {
   const handleCheckout = async (planId) => {
     try {
       setCheckoutPlan(planId);
+      setIsLoading(true);
       const { data: userResult } = await supabase.auth.getUser();
       const userEmail = userResult?.user?.email || user?.email;
       if (!userEmail) {
@@ -92,6 +93,8 @@ export default function Pricing() {
 
       const successUrl = `${window.location.origin}/dashboard?upgraded=true`;
       const cancelUrl = `${window.location.origin}/pricing`;
+      
+      // The backend needs these as URL Parameters, NOT a JSON body
       const params = new URLSearchParams({
         user_email: userEmail,
         success_url: successUrl,
@@ -101,9 +104,7 @@ export default function Pricing() {
 
       const response = await fetch(`/api/payments/checkout?${params.toString()}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
       const data = await response.json();
@@ -117,6 +118,7 @@ export default function Pricing() {
       }
     } catch (err) {
       setCheckoutPlan(null);
+      setIsLoading(false);
       alert(err.message || 'Unable to start checkout. Please try again.');
     }
   };
