@@ -253,23 +253,30 @@ async def send_notification(user_email: str, message: str, channels: List[str],
 
     return result
 
+# We define the exact shape of the JSON package we expect
+class CheckoutRequest(BaseModel):
+    user_email: str
+    success_url: str
+    cancel_url: str
+    plan: str = "pro"
+
 @app.post("/api/payments/checkout")
-async def create_checkout(user_email: str, success_url: str, cancel_url: str, plan: str = "pro"):
+async def create_checkout(request: CheckoutRequest):
     if not payments_service.enabled:
         raise HTTPException(status_code=503, detail="Payment service unavailable")
 
-    if plan not in {"pro", "elite", "business"}:
-        raise HTTPException(status_code=400, detail="Invalid plan. Must be one of: pro, elite, business")
+    if request.plan not in {"pro", "elite", "business"}:
+        raise HTTPException(status_code=400, detail="Invalid plan")
 
-    session = payments_service.create_checkout_session(user_email, plan, success_url, cancel_url)
+    session = payments_service.create_checkout_session(
+        request.user_email, request.plan, request.success_url, request.cancel_url
+    )
 
-    if not session:
+    # FIX: session is a dictionary, so we must access it with brackets ["url"], not .url
+    if not session or "url" not in session:
         raise HTTPException(status_code=500, detail="Failed to create checkout session")
 
-    if not getattr(session, "url", None):
-        raise HTTPException(status_code=500, detail="Checkout URL missing from Stripe session")
-
-    return {"checkout_url": session.url}
+    return {"checkout_url": session["url"]}
 
 @app.post("/webhook/stripe")
 async def stripe_webhook(request: Request):

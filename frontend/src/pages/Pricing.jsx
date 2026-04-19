@@ -85,10 +85,7 @@ export default function Pricing() {
       setCheckoutPlan(planId);
       setIsLoading(true);
 
-      // RIP OUT the database check. Just use the local user session.
       const userEmail = user?.email;
-      console.log("2. Local user email found:", userEmail);
-
       if (!userEmail) {
         alert("You must be logged in to upgrade!");
         setCheckoutPlan(null);
@@ -96,21 +93,20 @@ export default function Pricing() {
         return;
       }
 
-      const successUrl = `${window.location.origin}/dashboard?upgraded=true`;
-      const cancelUrl = `${window.location.origin}/pricing`;
-      
-      const params = new URLSearchParams({
+      // Pack the exact JSON data the Python backend is expecting
+      const payload = {
         user_email: userEmail,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-        plan: planId,
-      });
+        success_url: `${window.location.origin}/dashboard?upgraded=true`,
+        cancel_url: `${window.location.origin}/pricing`,
+        plan: planId.toLowerCase()
+      };
 
-      console.log("3. Sending URL params to backend:", params.toString());
+      console.log("2. Sending JSON payload:", payload);
 
-      const response = await fetch(`/api/payments/checkout?${params.toString()}`, {
+      const response = await fetch('/api/payments/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -119,7 +115,7 @@ export default function Pricing() {
       }
 
       const data = await response.json();
-      console.log("4. Stripe checkout URL received:", data.checkout_url); 
+      console.log("3. Stripe checkout URL received:", data); 
 
       if (data && data.checkout_url) {
         window.location.href = data.checkout_url;
