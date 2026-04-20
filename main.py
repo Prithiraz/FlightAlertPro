@@ -10,8 +10,8 @@ from config import config, validate_env_vars
 from secrets import secrets_manager
 from duffel_service import duffel_service
 from aerodatabox_service import aerodatabox_service
-from airscraper_service import airscraper_service
 from serpapi_service import serpapi_service
+from amadeus_service import amadeus_service
 from currency_service import currency_service
 from prediction_service import prediction_service
 from notifications import notification_service
@@ -71,6 +71,7 @@ class SimpleSearchRequest(BaseModel):
     return_date: Optional[str] = None
     passengers: int = 1
     cabin_class: str = "economy"
+    currency: str = "USD"
 
 class AlertRequest(BaseModel):
     user_email: str
@@ -185,14 +186,17 @@ async def search_flights_simple(request: SimpleSearchRequest):
     all_offers.extend(aerodatabox_offers)
     logger.info(f"AeroDataBox returned {len(aerodatabox_offers)} offers")
 
-    if len(all_offers) == 0:
-        logger.info("No results from primary providers, using fallback")
-        fallback_offers = airscraper_service.search_flights(
-            request.from_iata,
-            request.to_iata,
-            request.departure_date
-        )
-        all_offers.extend(fallback_offers)
+    amadeus_offers = amadeus_service.search_flights(
+        request.from_iata,
+        request.to_iata,
+        request.departure_date,
+        request.return_date,
+        request.passengers,
+        request.cabin_class,
+        request.currency,
+    )
+    all_offers.extend(amadeus_offers)
+    logger.info(f"Amadeus returned {len(amadeus_offers)} offers")
 
     all_offers = sorted(all_offers, key=lambda x: x.get('price', 999999))
 

@@ -17,6 +17,8 @@ _FEATURE_ENV_VARS: dict[str, str] = {
     "STRIPE_SECRET_KEY": "Payments (Stripe)",
     "OPENAI_API_KEY": "AI search / insights",
     "DUFFEL_ACCESS_TOKEN": "Flight data (Duffel)",
+    "AMADEUS_CLIENT_ID": "Flight data (Amadeus)",
+    "AMADEUS_CLIENT_SECRET": "Flight data (Amadeus)",
     "RAPIDAPI_KEY": "Flight data (RapidAPI)",
     "GMAIL_USER": "Email notifications",
     "GMAIL_APP_PASSWORD": "Email notifications",
@@ -51,6 +53,8 @@ class Config:
     # Accept either so that both .env conventions work.
     DUFFEL_ACCESS_TOKEN = os.getenv('DUFFEL_ACCESS_TOKEN') or os.getenv('DUFFEL_API_KEY')
     DUFFEL_API_KEY = os.getenv('DUFFEL_API_KEY') or os.getenv('DUFFEL_ACCESS_TOKEN')
+    AMADEUS_CLIENT_ID = os.getenv('AMADEUS_CLIENT_ID')
+    AMADEUS_CLIENT_SECRET = os.getenv('AMADEUS_CLIENT_SECRET')
     FLIGHT_API_KEY = os.getenv('FLIGHT_API_KEY')
 
     YCLOUD_API_KEY = os.getenv('YCLOUD_API_KEY')
