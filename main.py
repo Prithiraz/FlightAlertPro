@@ -71,6 +71,7 @@ class SimpleSearchRequest(BaseModel):
     return_date: Optional[str] = None
     passengers: int = 1
     cabin_class: str = "economy"
+    currency: str = "USD"
 
 class AlertRequest(BaseModel):
     user_email: str
@@ -192,6 +193,7 @@ async def search_flights_simple(request: SimpleSearchRequest):
         request.return_date,
         request.passengers,
         request.cabin_class,
+        request.currency,
     )
     all_offers.extend(amadeus_offers)
     logger.info(f"Amadeus returned {len(amadeus_offers)} offers")

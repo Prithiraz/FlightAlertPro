@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from amadeus import Client, ResponseError
-except Exception:  # pragma: no cover - import safety when dependency is absent
+except ImportError:  # pragma: no cover - import safety when dependency is absent
     Client = None
     ResponseError = Exception
 
@@ -59,11 +59,16 @@ class AmadeusService:
             return []
 
         travel_class = _TRAVEL_CLASS_MAP.get((cabin_class or "").lower(), "ECONOMY")
+        try:
+            adults = int(passengers) if passengers else 1
+        except (TypeError, ValueError):
+            adults = 1
+
         params: Dict[str, Any] = {
             "originLocationCode": from_iata,
             "destinationLocationCode": to_iata,
             "departureDate": departure_date,
-            "adults": max(1, int(passengers or 1)),
+            "adults": max(1, adults),
             "currencyCode": (currency or "USD").upper(),
             "travelClass": travel_class,
             "max": 25,
