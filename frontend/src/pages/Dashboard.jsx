@@ -178,22 +178,10 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateAlert = (offer) => {
-    navigate('/alerts', {
-      state: {
-        prefill: {
-          from_iata: offer.from_iata ?? form.from_iata.toUpperCase(),
-          to_iata: offer.to_iata ?? form.to_iata.toUpperCase(),
-          departure_date: form.departure_date,
-          currency: offer.currency ?? 'USD',
-          max_price: offer.price ? String(Math.ceil(offer.price)) : '',
-        },
-      },
-    });
-  };
-
   const formatSliceTime = (timeValue) => {
     if (!timeValue) return '--:--';
+    const isoMatch = String(timeValue).match(/T(\d{2}):(\d{2})/);
+    if (isoMatch) return `${isoMatch[1]}:${isoMatch[2]}`;
     const parsed = new Date(timeValue);
     if (Number.isNaN(parsed.getTime())) {
       const fallback = String(timeValue).split('T')[1];
@@ -202,19 +190,20 @@ export default function Dashboard() {
     return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  const formatStops = (stops) => (stops === 0 ? 'direct' : `${stops ?? 0} stop(s)`);
-
-  const formatCheckedBags = (offer) => {
-    const checkedBags = offer?.slices?.[0]?.segments?.[0]?.checked_bags;
-    if (checkedBags === undefined || checkedBags === null || checkedBags === '') return 'N/A';
-    if (typeof checkedBags === 'number' || typeof checkedBags === 'string') return checkedBags;
-    if (typeof checkedBags === 'object') {
-      if (checkedBags.quantity !== undefined && checkedBags.quantity !== null) return checkedBags.quantity;
-      if (checkedBags.count !== undefined && checkedBags.count !== null) return checkedBags.count;
-      if (checkedBags.weight !== undefined && checkedBags.weight !== null) return checkedBags.weight;
-    }
-    return 'N/A';
+  const formatIsoDuration = (durationValue) => {
+    if (!durationValue) return '—';
+    const match = String(durationValue).match(/^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?/);
+    if (!match) return '—';
+    const days = Number(match[1] || 0);
+    const hours = Number(match[2] || 0) + (days * 24);
+    const minutes = Number(match[3] || 0);
+    const parts = [];
+    if (hours) parts.push(`${hours}h`);
+    if (minutes) parts.push(`${minutes}m`);
+    return parts.length > 0 ? parts.join(' ') : '0m';
   };
+
+  const formatStops = (stops) => (stops === 0 ? 'direct' : `${stops ?? 0} stop(s)`);
 
   const handlePurchaseFormChange = (e) => {
     const { name, value } = e.target;
@@ -402,8 +391,8 @@ export default function Dashboard() {
             <div style={styles.results}>
               <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
               {results.map((offer, idx) => {
-                const checkedBags = formatCheckedBags(offer);
-                const bookingLink = offer.booking_link || offer.booking_url;
+                const checkedBags = offer?.slices?.[0]?.segments?.[0]?.checked_bags || 0;
+                const bookingLink = offer.booking_link;
                 const hasSlices = Array.isArray(offer.slices) && offer.slices.length > 0;
                 const priceText = offer.price !== undefined && offer.price !== null ? offer.price : '--';
 
@@ -420,7 +409,7 @@ export default function Dashboard() {
                             <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(slice?.departure_time)} - {formatSliceTime(slice?.arrival_time)}</span>
                             <span style={{ color: '#475569' }}>{slice?.origin_iata || '--'} - {slice?.destination_iata || '--'}</span>
                             <span style={{ color: '#64748b' }}>{formatStops(slice?.stops)}</span>
-                            <span style={{ color: '#64748b' }}>{slice?.duration || '—'}</span>
+                            <span style={{ color: '#64748b' }}>{formatIsoDuration(slice?.duration)}</span>
                           </div>
                         ))
                       ) : (
@@ -429,7 +418,7 @@ export default function Dashboard() {
                           <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(offer.departure)} - {formatSliceTime(offer.arrival)}</span>
                           <span style={{ color: '#475569' }}>{offer.from_iata || '--'} - {offer.to_iata || '--'}</span>
                           <span style={{ color: '#64748b' }}>{formatStops(offer.stops)}</span>
-                          <span style={{ color: '#64748b' }}>{offer.duration || '—'}</span>
+                          <span style={{ color: '#64748b' }}>{formatIsoDuration(offer.duration)}</span>
                         </div>
                       )}
                     </div>
@@ -437,18 +426,14 @@ export default function Dashboard() {
                       <span style={{ fontSize: '0.85rem', color: '#475569' }}>👜 {checkedBags} checked bags</span>
                       <span style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{offer.currency || form.currency || 'USD'} {priceText}</span>
                       {bookingLink && (
-                        <a
-                          href={bookingLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => window.open(offer.booking_link, '_blank')}
                           style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.5rem 1.1rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 800, fontSize: '0.92rem' }}
                         >
                           Select
-                        </a>
+                        </button>
                       )}
-                      <button onClick={() => handleCreateAlert(offer)} style={{ backgroundColor: '#fff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0.45rem 0.9rem', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
-                        Track price
-                      </button>
                     </div>
                   </div>
                 );
