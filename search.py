@@ -10,9 +10,10 @@ import time
 import re
 
 import openai
-from rapidapi_adapters import aerodatabox_adapter, airscraper_adapter
+from rapidapi_adapters import aerodatabox_adapter
 from duffel_service import duffel_service
 from serpapi_service import serpapi_service
+from amadeus_service import amadeus_service
 from config import config
 from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
 
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/api", tags=["search"])
 # Circuit breaker state
 CIRCUIT_BREAKER = {
     'aerodatabox': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
-    'airscraper': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
+    'amadeus': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
     'duffel': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
     'serpapi': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
 }
@@ -261,26 +262,33 @@ async def search_aerodatabox(segment: FlightSegment, request: SearchRequest) -> 
         record_failure('aerodatabox')
         return []
 
-async def search_airscraper(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
-    """Search via AirScraper"""
-    if not check_circuit_breaker('airscraper'):
+async def search_amadeus(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
+    """Search via Amadeus Flight Offers Search"""
+    if not check_circuit_breaker('amadeus'):
+        return []
+
+    if not amadeus_service or not amadeus_service.enabled:
         return []
 
     try:
-        results = airscraper_adapter.search_flights(
-            segment.from_iata,
-            segment.to_iata,
-            segment.departure_date,
-            adults=request.passengers.adults,
-            children=request.passengers.children,
-            currency=request.currency,
+        return_date = None
+        if len(request.segments) > 1:
+            return_date = request.segments[1].departure_date
+
+        results = amadeus_service.search_flights(
+            from_iata=segment.from_iata,
+            to_iata=segment.to_iata,
+            departure_date=segment.departure_date,
+            return_date=return_date,
+            passengers=request.passengers.adults,
             cabin_class=request.cabin_class,
+            currency=request.currency,
         )
-        record_success('airscraper')
+        record_success('amadeus')
         return results or []
     except Exception as e:
-        logger.error(f"AirScraper search failed: {e}")
-        record_failure('airscraper')
+        logger.error(f"Amadeus search failed: {e}")
+        record_failure('amadeus')
         return []
 
 async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
@@ -439,6 +447,28 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
                 baggage_kg=None,
                 booking_url=raw_offer.get('booking_link'),
             )
+        elif source == 'amadeus':
+            slices = raw_offer.get('slices', [])
+            if not slices:
+                return None
+            first_slice = slices[0]
+            return FlightOffer(
+                id=f"amd-{raw_offer.get('id', 'unknown')}",
+                source='amadeus',
+                airline_iata=raw_offer.get('airline', 'XX'),
+                airline_name=raw_offer.get('airline_name', 'Unknown'),
+                from_iata=first_slice.get('origin_iata', raw_offer.get('from_iata', '')),
+                to_iata=first_slice.get('destination_iata', raw_offer.get('to_iata', '')),
+                departure_time=first_slice.get('departure_time') or raw_offer.get('departure', ''),
+                arrival_time=first_slice.get('arrival_time') or raw_offer.get('arrival', ''),
+                duration_minutes=_duration_to_minutes(first_slice.get('duration')),
+                stops=first_slice.get('stops', 0),
+                price=float(raw_offer.get('price', 0)),
+                currency=raw_offer.get('currency', 'USD'),
+                cabin_class=raw_offer.get('cabin_class', 'economy'),
+                baggage_kg=None,
+                booking_url=raw_offer.get('booking_link'),
+            )
 
         return None
     except Exception as e:
@@ -512,7 +542,7 @@ async def generate_flight_insight(top_flights: List[FlightOffer]) -> Optional[st
 _HACKER_FARE_THRESHOLD = 0.10  # 10% cheaper required
 
 # Sources list used when gathering multi-supplier results
-_SOURCES = ['aerodatabox', 'airscraper', 'duffel', 'serpapi']
+_SOURCES = ['aerodatabox', 'amadeus', 'duffel', 'serpapi']
 
 
 @router.post("/search")
@@ -556,21 +586,21 @@ async def search_flights(request: SearchRequest):
         # Search A tasks (standard round-trip suppliers)
         rt_tasks = [
             search_aerodatabox(segment, request),
-            search_airscraper(segment, request),
+            search_amadeus(segment, request),
             search_duffel(segment, request),
             search_serpapi(segment, request),
         ]
         # Search B tasks (one-way outbound)
         out_tasks = [
             search_aerodatabox(segment, req_out_only),
-            search_airscraper(segment, req_out_only),
+            search_amadeus(segment, req_out_only),
             search_duffel(segment, req_out_only),
             search_serpapi(segment, req_out_only),
         ]
         # Search C tasks (one-way inbound)
         in_tasks = [
             search_aerodatabox(seg_in, req_in_only),
-            search_airscraper(seg_in, req_in_only),
+            search_amadeus(seg_in, req_in_only),
             search_duffel(seg_in, req_in_only),
             search_serpapi(seg_in, req_in_only),
         ]
@@ -582,7 +612,7 @@ async def search_flights(request: SearchRequest):
         # Single-segment search
         tasks = [
             search_aerodatabox(segment, request),
-            search_airscraper(segment, request),
+            search_amadeus(segment, request),
             search_duffel(segment, request),
             search_serpapi(segment, request),
         ]
@@ -598,7 +628,7 @@ async def search_flights(request: SearchRequest):
             logger.error(f"Supplier {idx} raised exception: {result}")
             continue
 
-        source = ['aerodatabox', 'airscraper', 'duffel', 'serpapi'][idx]
+        source = ['aerodatabox', 'amadeus', 'duffel', 'serpapi'][idx]
 
         for raw_offer in result:
             normalized = normalize_offer(raw_offer, source)
@@ -731,7 +761,7 @@ async def search_flights(request: SearchRequest):
         },
         "total_offers": len(sorted_offers),
         "offers": enriched_offers,
-        "sources_queried": ['aerodatabox', 'airscraper', 'duffel', 'serpapi'],
+        "sources_queried": ['aerodatabox', 'amadeus', 'duffel', 'serpapi'],
         "search_time_ms": int((time.time() - start_time) * 1000),
         "ai_insight": ai_insight,
     }
@@ -796,19 +826,21 @@ async def get_live_price(from_iata: str, to_iata: str, departure_date: str):
         if best_duffel:
             return best_duffel
 
-    if airscraper_adapter and airscraper_adapter.enabled:
-        attempted_suppliers.append("airscraper")
-        rapidapi_offers = await asyncio.to_thread(
-            airscraper_adapter.search_flights,
+    if amadeus_service and amadeus_service.enabled:
+        attempted_suppliers.append("amadeus")
+        amadeus_offers = await asyncio.to_thread(
+            amadeus_service.search_flights,
             from_iata,
             to_iata,
             departure_date,
             None,
             1,
+            "economy",
+            "USD",
         )
-        best_rapidapi = _lowest_economy_offer(rapidapi_offers)
-        if best_rapidapi:
-            return best_rapidapi
+        best_amadeus = _lowest_economy_offer(amadeus_offers)
+        if best_amadeus:
+            return best_amadeus
 
     if not attempted_suppliers:
         raise HTTPException(status_code=503, detail="No live flight-price provider is configured")
@@ -858,7 +890,7 @@ async def _search_cheapest_for_destination(
 
     tasks = [
         search_serpapi(segment, stub_request),
-        search_airscraper(segment, stub_request),
+        search_amadeus(segment, stub_request),
         search_duffel(segment, stub_request),
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -867,7 +899,7 @@ async def _search_cheapest_for_destination(
     for idx, result in enumerate(results):
         if isinstance(result, Exception):
             continue
-        source = ["serpapi", "airscraper", "duffel"][idx]
+        source = ["serpapi", "amadeus", "duffel"][idx]
         for raw in result:
             normalized = normalize_offer(raw, source)
             if normalized:
