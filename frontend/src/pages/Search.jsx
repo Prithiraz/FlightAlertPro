@@ -177,15 +177,20 @@ export default function Search() {
 
   const formatIsoDuration = (durationValue) => {
     if (!durationValue) return '—';
-    const match = String(durationValue).match(/^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?/);
-    if (!match) return '—';
-    const days = Number(match[1] || 0);
-    const hours = Number(match[2] || 0) + (days * 24);
-    const minutes = Number(match[3] || 0);
-    const parts = [];
-    if (hours) parts.push(`${hours}h`);
-    if (minutes) parts.push(`${minutes}m`);
-    return parts.length > 0 ? parts.join(' ') : '0m';
+    
+    // Fallback: If it's just a number (e.g. RapidAPI sending total minutes)
+    if (!isNaN(durationValue)) {
+      const mins = Number(durationValue);
+      return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+    }
+
+    // Duffel ISO format (e.g. PT11H25M)
+    const match = String(durationValue).match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+    if (!match) return String(durationValue);
+    
+    const hours = match[1] ? `${match[1]}h ` : "";
+    const minutes = match[2] ? `${match[2]}m` : "";
+    return `${hours}${minutes}`.trim() || '—';
   };
 
   const formatStops = (stops) => (stops === 0 ? 'direct' : `${stops ?? 0} stop(s)`);
@@ -346,40 +351,77 @@ export default function Search() {
             const priceText = offer.price !== undefined && offer.price !== null ? offer.price : '--';
 
             const greenCard = (
-              <div style={{ border: '1px solid #dbe3f0', borderRadius: '12px', padding: '1rem 1.25rem', background: '#fff', boxShadow: '0 4px 14px rgba(15, 23, 42, 0.06)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', gap: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 420px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {hasSlices ? (
-                    offer.slices.map((slice, sliceIndex) => (
-                      <div key={`${offer.id ?? idx}-slice-${sliceIndex}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', borderBottom: sliceIndex === offer.slices.length - 1 ? 'none' : '1px solid #f1f5f9', paddingBottom: sliceIndex === offer.slices.length - 1 ? 0 : '0.65rem' }}>
-                        <span style={{ fontWeight: 700, color: '#0f172a' }}>{offer.airline_name || offer.airline_iata || 'Airline'}</span>
-                        <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(slice?.departure_time)} - {formatSliceTime(slice?.arrival_time)}</span>
-                        <span style={{ color: '#475569' }}>{slice?.origin_iata || '--'} - {slice?.destination_iata || '--'}</span>
-                        <span style={{ color: '#64748b' }}>{formatStops(slice?.stops)}</span>
-                        <span style={{ color: '#64748b' }}>{formatIsoDuration(slice?.duration)}</span>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', marginBottom: '1rem', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+                  
+                  {/* Left: Flight Details */}
+                  <div style={{ flex: '1', paddingRight: '2rem' }}>
+                    {hasSlices ? (
+                      offer.slices.map((slice, sliceIndex) => (
+                        <div key={`${offer.id ?? idx}-slice-${sliceIndex}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: sliceIndex === offer.slices.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                          <div style={{ width: '25%', fontWeight: '700', color: '#1e293b' }}>
+                            {slice.segments?.[0]?.airline || offer.airline_name || 'Airline'}
+                          </div>
+                          <div style={{ width: '25%', textAlign: 'center' }}>
+                            <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1.1rem' }}>
+                              {formatSliceTime(slice.departure_time)} - {formatSliceTime(slice.arrival_time)}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                              {slice.origin_iata} - {slice.destination_iata}
+                            </div>
+                          </div>
+                          <div style={{ width: '25%', textAlign: 'right' }}>
+                            <div style={{ fontWeight: '500', color: '#334155' }}>
+                              {formatIsoDuration(slice.duration)}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                              {formatStops(slice.stops)}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      // Fallback for RapidAPI
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0' }}>
+                        <div style={{ width: '25%', fontWeight: '700', color: '#1e293b' }}>{offer.airline_name || offer.airline || 'Airline'}</div>
+                        <div style={{ width: '25%', textAlign: 'center' }}>
+                          <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1.1rem' }}>
+                            {formatSliceTime(offer.departure)} - {formatSliceTime(offer.arrival)}
+                          </div>
+                          <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{offer.from_iata} - {offer.to_iata}</div>
+                        </div>
+                        <div style={{ width: '25%', textAlign: 'right' }}>
+                          <div style={{ fontWeight: '500', color: '#334155' }}>{formatIsoDuration(offer.duration_minutes || offer.duration)}</div>
+                          <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{formatStops(offer.stops)}</div>
+                        </div>
                       </div>
-                    ))
-                  ) : (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
-                      <span style={{ fontWeight: 700, color: '#0f172a' }}>{offer.airline_name || offer.airline_iata || 'Airline'}</span>
-                      <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(offer.departure)} - {formatSliceTime(offer.arrival)}</span>
-                      <span style={{ color: '#475569' }}>{offer.from_iata || '--'} - {offer.to_iata || '--'}</span>
-                      <span style={{ color: '#64748b' }}>{formatStops(offer.stops)}</span>
-                      <span style={{ color: '#64748b' }}>{formatIsoDuration(offer.duration)}</span>
+                    )}
+                  </div>
+
+                  {/* Right: Price & Action */}
+                  <div style={{ width: '200px', borderLeft: '1px solid #e2e8f0', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      👜 {checkedBags} checked bags
                     </div>
-                  )}
-                </div>
-                <div style={{ minWidth: '170px', borderLeft: '1px solid #e5e7eb', paddingLeft: '1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: '0.6rem' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#475569' }}>👜 {checkedBags} checked bags</span>
-                  <span style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{offer.currency || form.currency || 'USD'} {priceText}</span>
-                  {bookingLink && (
-                    <button
-                      type="button"
-                      onClick={() => window.open(bookingLink, '_blank', 'noopener,noreferrer')}
-                      style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.92rem', cursor: 'pointer', border: 'none' }}
-                    >
-                      Select
-                    </button>
-                  )}
+                    <div style={{ textAlign: 'right', marginTop: 'auto', marginBottom: '1rem' }}>
+                      <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', lineHeight: '1' }}>
+                        {offer.currency || form.currency || 'USD'} {priceText}
+                      </div>
+                    </div>
+                    {bookingLink ? (
+                      <button
+                        type="button"
+                        onClick={() => window.open(bookingLink, '_blank', 'noopener,noreferrer')}
+                        style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', border: 'none', width: '100%' }}
+                      >
+                        Select
+                      </button>
+                    ) : (
+                      <button disabled style={{ backgroundColor: '#e2e8f0', color: '#94a3b8', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'not-allowed', border: 'none', width: '100%' }}>
+                        No Link
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
