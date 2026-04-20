@@ -181,6 +181,30 @@ export default function Search() {
     });
   };
 
+  const formatSliceTime = (timeValue) => {
+    if (!timeValue) return '--:--';
+    const parsed = new Date(timeValue);
+    if (Number.isNaN(parsed.getTime())) {
+      const fallback = String(timeValue).split('T')[1];
+      return fallback ? fallback.slice(0, 5) : '--:--';
+    }
+    return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  const formatStops = (stops) => (stops === 0 ? 'direct' : `${stops ?? 0} stop(s)`);
+
+  const formatCheckedBags = (offer) => {
+    const checkedBags = offer?.slices?.[0]?.segments?.[0]?.checked_bags;
+    if (checkedBags === undefined || checkedBags === null || checkedBags === '') return 'N/A';
+    if (typeof checkedBags === 'number' || typeof checkedBags === 'string') return checkedBags;
+    if (typeof checkedBags === 'object') {
+      if (checkedBags.quantity !== undefined && checkedBags.quantity !== null) return checkedBags.quantity;
+      if (checkedBags.count !== undefined && checkedBags.count !== null) return checkedBags.count;
+      if (checkedBags.weight !== undefined && checkedBags.weight !== null) return checkedBags.weight;
+    }
+    return 'N/A';
+  };
+
   return (
     <div style={styles.page}>
       <h2 style={styles.heading}>Search Flights</h2>
@@ -331,42 +355,52 @@ export default function Search() {
         <div style={styles.results}>
           <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
           {results.map((offer, idx) => {
-            
-            // The New Sleek Green Flight Card
-            const greenCard = (
-              <div style={{ border: '1px solid #bbf7d0', borderRadius: '8px', padding: '1.5rem', backgroundColor: '#f0fdf4', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '0.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                  <div>
-                    <h4 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1e3a8a', margin: '0 0 0.5rem 0' }}>
-                      {offer.from_iata} ➔ {offer.to_iata}
-                    </h4>
-                    <p style={{ color: '#4b5563', margin: 0, fontSize: '0.9rem' }}>
-                      {offer.airline_name || offer.airline_iata || 'Airline'} • {offer.stops !== undefined ? offer.stops : 0} stop(s) • {offer.cabin_class || form.cabin_class}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#16a34a', margin: 0 }}>
-                      {offer.currency} {offer.price}
-                    </p>
-                  </div>
-                </div>
+            const checkedBags = formatCheckedBags(offer);
+            const bookingLink = offer.booking_link || offer.booking_url;
+            const hasSlices = Array.isArray(offer.slices) && offer.slices.length > 0;
+            const priceText = offer.price !== undefined && offer.price !== null ? offer.price : '--';
 
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginTop: '1.5rem' }}>
-                  {offer.booking_url && (
+            const greenCard = (
+              <div style={{ border: '1px solid #dbe3f0', borderRadius: '12px', padding: '1rem 1.25rem', background: '#fff', boxShadow: '0 4px 14px rgba(15, 23, 42, 0.06)', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 420px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {hasSlices ? (
+                    offer.slices.map((slice, sliceIndex) => (
+                      <div key={`${offer.id ?? idx}-slice-${sliceIndex}`} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', borderBottom: sliceIndex === offer.slices.length - 1 ? 'none' : '1px solid #f1f5f9', paddingBottom: sliceIndex === offer.slices.length - 1 ? 0 : '0.65rem' }}>
+                        <span style={{ fontWeight: 700, color: '#0f172a' }}>{offer.airline_name || offer.airline_iata || 'Airline'}</span>
+                        <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(slice?.departure_time)} - {formatSliceTime(slice?.arrival_time)}</span>
+                        <span style={{ color: '#475569' }}>{slice?.origin_iata || '--'} - {slice?.destination_iata || '--'}</span>
+                        <span style={{ color: '#64748b' }}>{formatStops(slice?.stops)}</span>
+                        <span style={{ color: '#64748b' }}>{slice?.duration || '—'}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ fontWeight: 700, color: '#0f172a' }}>{offer.airline_name || offer.airline_iata || 'Airline'}</span>
+                      <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(offer.departure)} - {formatSliceTime(offer.arrival)}</span>
+                      <span style={{ color: '#475569' }}>{offer.from_iata || '--'} - {offer.to_iata || '--'}</span>
+                      <span style={{ color: '#64748b' }}>{formatStops(offer.stops)}</span>
+                      <span style={{ color: '#64748b' }}>{offer.duration || '—'}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ minWidth: '170px', borderLeft: '1px solid #e5e7eb', paddingLeft: '1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#475569' }}>👜 {checkedBags} checked bags</span>
+                  <span style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>{offer.currency || form.currency || 'USD'} {priceText}</span>
+                  {bookingLink && (
                     <a
-                      href={offer.booking_url}
+                      href={bookingLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ backgroundColor: '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: '6px', textDecoration: 'none', fontWeight: 'bold', fontSize: '0.9rem' }}
+                      style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.5rem 1.1rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 800, fontSize: '0.92rem' }}
                     >
-                      ✈️ Book Flight
+                      Select
                     </a>
                   )}
                   <button
                     onClick={() => handleCreateAlert(offer)}
-                    style={{ backgroundColor: 'white', color: '#2563eb', border: '1px solid #2563eb', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
+                    style={{ backgroundColor: '#fff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0.45rem 0.9rem', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}
                   >
-                    🔔 Track Price Drop
+                    Track price
                   </button>
                 </div>
               </div>
