@@ -30,6 +30,7 @@ export default function Dashboard() {
   const [form, setForm] = useState({
     from_iata: '',
     to_iata: '',
+    trip_type: 'one_way',
     departure_date: '',
     return_date: '',
     passengers: 1,
@@ -137,7 +138,12 @@ export default function Dashboard() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      if (name === 'trip_type' && value !== 'round_trip') {
+        return { ...prev, trip_type: value, return_date: '' };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleSearch = async (e) => {
@@ -152,6 +158,16 @@ export default function Dashboard() {
       setLoading(false);
       return;
     }
+    if (form.trip_type === 'multi_city') {
+      setError('Multi-city UI coming soon.');
+      setLoading(false);
+      return;
+    }
+    if (form.trip_type === 'round_trip' && !form.return_date) {
+      setError('Please select a return date for round-trip searches.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const payload = {
@@ -161,8 +177,9 @@ export default function Dashboard() {
         passengers: Number(form.passengers),
         cabin_class: form.cabin_class,
         currency: form.currency,
+        trip_type: form.trip_type,
       };
-      if (form.return_date) {
+      if (form.trip_type === 'round_trip' && form.return_date) {
         payload.return_date = form.return_date;
       }
 
@@ -278,20 +295,20 @@ export default function Dashboard() {
     <div style={styles.page}>
       <div style={styles.content}>
         {/* Flight Search */}
-        <section style={styles.section}>
-          <h2 style={styles.sectionTitle}>Search Flights</h2>
-          <form onSubmit={handleSearch} style={styles.form}>
-            <div style={styles.row}>
-              <div style={styles.field}>
-                <label style={styles.label}>From</label>
+        <section style={styles.searchSection}>
+          <h2 style={styles.heading}>Search Flights</h2>
+          <form onSubmit={handleSearch} style={styles.searchForm}>
+            <div style={styles.searchRow}>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>From</label>
                 <AirportAutocomplete
                   placeholder="LAX – Los Angeles"
                   value={form.from_iata}
                   onChange={(iata) => setForm((prev) => ({ ...prev, from_iata: iata }))}
                 />
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>To</label>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>To</label>
                 <AirportAutocomplete
                   placeholder="JFK – New York"
                   value={form.to_iata}
@@ -300,33 +317,55 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div style={styles.row}>
-              <div style={styles.field}>
-                <label style={styles.label}>Departure Date</label>
+            <div style={styles.searchRow}>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>Trip Type</label>
+                <select
+                  name="trip_type"
+                  value={form.trip_type}
+                  onChange={handleChange}
+                  style={styles.searchInput}
+                >
+                  <option value="one_way">One-Way</option>
+                  <option value="round_trip">Round-Trip</option>
+                  <option value="multi_city">Multi-City</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={styles.searchRow}>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>Departure Date</label>
                 <input
                   type="date"
                   name="departure_date"
                   value={form.departure_date}
                   onChange={handleChange}
                   required
-                  style={styles.input}
+                  style={styles.searchInput}
                 />
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Return Date (optional)</label>
-                <input
-                  type="date"
-                  name="return_date"
-                  value={form.return_date}
-                  onChange={handleChange}
-                  style={styles.input}
-                />
-              </div>
+              {form.trip_type === 'round_trip' && (
+                <div style={styles.searchField}>
+                  <label style={styles.searchLabel}>Return Date</label>
+                  <input
+                    type="date"
+                    name="return_date"
+                    value={form.return_date}
+                    onChange={handleChange}
+                    style={styles.searchInput}
+                  />
+                </div>
+              )}
             </div>
 
-            <div style={styles.row}>
-              <div style={styles.field}>
-                <label style={styles.label}>Passengers</label>
+            {form.trip_type === 'multi_city' && (
+              <p style={styles.info}>Multi-city UI coming soon.</p>
+            )}
+
+            <div style={styles.searchRow}>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>Passengers</label>
                 <input
                   type="number"
                   name="passengers"
@@ -335,16 +374,16 @@ export default function Dashboard() {
                   min={1}
                   max={9}
                   required
-                  style={styles.input}
+                  style={styles.searchInput}
                 />
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Cabin Class</label>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>Cabin Class</label>
                 <select
                   name="cabin_class"
                   value={form.cabin_class}
                   onChange={handleChange}
-                  style={styles.input}
+                  style={styles.searchInput}
                 >
                   {CABIN_CLASSES.map((c) => (
                     <option key={c} value={c}>
@@ -355,21 +394,21 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div style={styles.row}>
-              <div style={styles.field}>
-                <label style={styles.label}>Airline (optional)</label>
+            <div style={styles.searchRow}>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>Airline (optional)</label>
                 <AirlineAutocomplete
                   value={form.airline}
                   onChange={(iata) => setForm((prev) => ({ ...prev, airline: iata }))}
                 />
               </div>
-              <div style={styles.field}>
-                <label style={styles.label}>Currency</label>
+              <div style={styles.searchField}>
+                <label style={styles.searchLabel}>Currency</label>
                 <select
                   name="currency"
                   value={form.currency}
                   onChange={handleChange}
-                  style={styles.input}
+                  style={styles.searchInput}
                 >
                   {CURRENCIES.map((currency) => (
                     <option key={currency} value={currency}>
@@ -382,7 +421,7 @@ export default function Dashboard() {
 
             {error && <p style={styles.error}>{error}</p>}
 
-            <button type="submit" disabled={loading} style={styles.button}>
+            <button type="submit" disabled={loading} style={styles.searchButton}>
               {loading ? 'Searching...' : 'Search Flights'}
             </button>
           </form>
@@ -688,6 +727,8 @@ export default function Dashboard() {
 const styles = {
   page: { minHeight: '100vh', background: '#f3f4f6' },
   content: { maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' },
+  heading: { fontSize: '1.75rem', marginBottom: '1.5rem', color: '#1d4ed8' },
+  searchSection: { marginBottom: '2rem' },
   section: {
     background: '#fff',
     borderRadius: '8px',
@@ -699,6 +740,12 @@ const styles = {
   alertsHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' },
   manageLink: { fontSize: '0.9rem', color: '#1d4ed8', textDecoration: 'none', fontWeight: '600' },
   inlineLink: { color: '#1d4ed8', textDecoration: 'none', fontWeight: '600' },
+  searchForm: { background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '2rem' },
+  searchRow: { display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' },
+  searchField: { flex: '1', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '0.25rem' },
+  searchLabel: { fontWeight: '600', fontSize: '0.875rem', color: '#374151' },
+  searchInput: { padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
+  searchButton: { marginTop: '0.5rem', padding: '0.75rem 2rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer' },
   form: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
   row: { display: 'flex', gap: '1rem', flexWrap: 'wrap' },
   field: { flex: '1', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '0.25rem' },
@@ -729,6 +776,7 @@ const styles = {
     fontSize: '0.875rem',
   },
   error: { color: '#dc2626', fontSize: '0.875rem', margin: 0 },
+  info: { color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' },
   empty: { textAlign: 'center', color: '#6b7280', marginTop: '1.5rem' },
   results: { marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' },
   resultsHeading: { fontSize: '1rem', fontWeight: '700', color: '#374151', marginBottom: '0.5rem' },
