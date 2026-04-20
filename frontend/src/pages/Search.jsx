@@ -346,7 +346,7 @@ export default function Search() {
           <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
           {results.map((offer, idx) => {
             const checkedBags = offer?.slices?.[0]?.segments?.[0]?.checked_bags || 0;
-            const bookingLink = offer.booking_link;
+            const bookingLink = offer.booking_link || offer.booking_url;
             const hasSlices = Array.isArray(offer.slices) && offer.slices.length > 0;
             const priceText = offer.price !== undefined && offer.price !== null ? offer.price : '--';
 
@@ -386,7 +386,7 @@ export default function Search() {
                         <div style={{ width: '25%', fontWeight: '700', color: '#1e293b' }}>{offer.airline_name || offer.airline || 'Airline'}</div>
                         <div style={{ width: '25%', textAlign: 'center' }}>
                           <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1.1rem' }}>
-                            {formatSliceTime(offer.departure)} - {formatSliceTime(offer.arrival)}
+                            {formatSliceTime(offer.departure_time || offer.departure)} - {formatSliceTime(offer.arrival_time || offer.arrival)}
                           </div>
                           <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{offer.from_iata} - {offer.to_iata}</div>
                         </div>
