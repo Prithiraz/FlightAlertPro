@@ -202,7 +202,7 @@ export default function Dashboard() {
     return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  const formatSliceStops = (stops) => (Number(stops) === 0 ? 'direct' : `${stops ?? 0} stop(s)`);
+  const formatStops = (stops) => (stops === 0 ? 'direct' : `${stops ?? 0} stop(s)`);
 
   const formatCheckedBags = (offer) => {
     const checkedBags = offer?.slices?.[0]?.segments?.[0]?.checked_bags;
@@ -419,7 +419,7 @@ export default function Dashboard() {
                             <span style={{ fontWeight: 700, color: '#0f172a' }}>{offer.airline_name || offer.airline_iata || 'Airline'}</span>
                             <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(slice?.departure_time)} - {formatSliceTime(slice?.arrival_time)}</span>
                             <span style={{ color: '#475569' }}>{slice?.origin_iata || '--'} - {slice?.destination_iata || '--'}</span>
-                            <span style={{ color: '#64748b' }}>{formatSliceStops(slice?.stops)}</span>
+                            <span style={{ color: '#64748b' }}>{formatStops(slice?.stops)}</span>
                             <span style={{ color: '#64748b' }}>{slice?.duration || '—'}</span>
                           </div>
                         ))
@@ -428,7 +428,7 @@ export default function Dashboard() {
                           <span style={{ fontWeight: 700, color: '#0f172a' }}>{offer.airline_name || offer.airline_iata || 'Airline'}</span>
                           <span style={{ color: '#334155', fontWeight: 600 }}>{formatSliceTime(offer.departure)} - {formatSliceTime(offer.arrival)}</span>
                           <span style={{ color: '#475569' }}>{offer.from_iata || '--'} - {offer.to_iata || '--'}</span>
-                          <span style={{ color: '#64748b' }}>{formatSliceStops(offer.stops)}</span>
+                          <span style={{ color: '#64748b' }}>{formatStops(offer.stops)}</span>
                           <span style={{ color: '#64748b' }}>{offer.duration || '—'}</span>
                         </div>
                       )}
