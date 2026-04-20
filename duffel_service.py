@@ -128,39 +128,66 @@ class DuffelService:
 
         for offer in duffel_offers:
             try:
-                slices = offer.get("slices", [])
-                if not slices:
+                raw_slices = offer.get("slices", [])
+                if not raw_slices:
                     continue
-
-                first_slice = slices[0]
-                segments = first_slice.get("segments", [])
-
-                if not segments:
-                    continue
-
-                first_segment = segments[0]
-                last_segment = segments[-1]
 
                 price_data = offer.get("total_amount", "0")
                 currency = offer.get("total_currency", "USD")
+                
+                # Grab the main airline from the first segment
+                first_segment = raw_slices[0].get("segments", [{}])[0]
+                main_airline = first_segment.get("owner", {}).get("name") or first_segment.get("marketing_carrier", {}).get("name", "Unknown Airline")
 
+                # Build the outer "Doll" (The Offer)
                 normalized_offer = {
                     "id": offer.get("id"),
                     "provider": "duffel",
                     "price": float(price_data),
                     "currency": currency,
-                    "airline": first_segment.get("marketing_carrier", {}).get("iata_code", ""),
-                    "airline_name": first_segment.get("marketing_carrier", {}).get("name", ""),
-                    "from_iata": first_segment.get("origin", {}).get("iata_code", ""),
-                    "to_iata": last_segment.get("destination", {}).get("iata_code", ""),
-                    "departure": first_segment.get("departing_at", ""),
-                    "arrival": last_segment.get("arriving_at", ""),
-                    "stops": len(segments) - 1,
-                    "duration_minutes": first_slice.get("duration"),
+                    "airline_name": main_airline,
                     "cabin_class": offer.get("cabin_class", "economy"),
+                    "slices": [], # We will put outbound and return flights in here
                     "booking_link": f"https://duffel.com/book/{offer.get('id')}",
-                    "raw_data": offer
                 }
+
+                # Build the inner "Dolls" (The Slices and Segments)
+                for raw_slice in raw_slices:
+                    segments = raw_slice.get("segments", [])
+                    if not segments:
+                        continue
+
+                    slice_data = {
+                        "departure_time": segments[0].get("departing_at"),
+                        "arrival_time": segments[-1].get("arriving_at"),
+                        "duration": raw_slice.get("duration"),
+                        "origin_iata": raw_slice.get("origin", {}).get("iata_code", ""),
+                        "destination_iata": raw_slice.get("destination", {}).get("iata_code", ""),
+                        "stops": len(segments) - 1,
+                        "segments": []
+                    }
+
+                    for segment in segments:
+                        # Extract baggage (Duffel hides this deep in the passenger list)
+                        checked_bags = 0
+                        passengers = segment.get("passengers", [])
+                        if passengers:
+                            baggages = passengers[0].get("baggages", [])
+                            for bag in baggages:
+                                if bag.get("type") == "checked":
+                                    checked_bags += bag.get("quantity", 1)
+
+                        slice_data["segments"].append({
+                            "flight_number": segment.get("operating_carrier_flight_number", ""),
+                            "airline": segment.get("operating_carrier", {}).get("name", ""),
+                            "departing_at": segment.get("departing_at"),
+                            "arriving_at": segment.get("arriving_at"),
+                            "origin_iata": segment.get("origin", {}).get("iata_code", ""),
+                            "destination_iata": segment.get("destination", {}).get("iata_code", ""),
+                            "checked_bags": checked_bags
+                        })
+
+                    normalized_offer["slices"].append(slice_data)
 
                 normalized.append(normalized_offer)
 
