@@ -428,8 +428,8 @@ export default function Dashboard() {
                       {bookingLink && (
                         <button
                           type="button"
-                          onClick={() => window.open(offer.booking_link, '_blank')}
-                          style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.5rem 1.1rem', borderRadius: '8px', textDecoration: 'none', fontWeight: 800, fontSize: '0.92rem' }}
+                          onClick={() => window.open(bookingLink, '_blank', 'noopener,noreferrer')}
+                          style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.5rem 1.1rem', borderRadius: '8px', fontWeight: 800, fontSize: '0.92rem', cursor: 'pointer', border: 'none' }}
                         >
                           Select
                         </button>
