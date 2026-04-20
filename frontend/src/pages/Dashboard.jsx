@@ -195,6 +195,18 @@ export default function Dashboard() {
     });
   };
 
+  const formatCabinClass = (cabinClass) =>
+    (cabinClass || 'Economy')
+      .toString()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  const handleContactAirline = (offer) => {
+    const airlineName = offer.airline_name || offer.airline_iata || 'Airline';
+    const query = encodeURIComponent(`${airlineName} contact`);
+    window.open(`https://www.google.com/search?q=${query}`, '_blank', 'noopener,noreferrer');
+  };
+
   const handlePurchaseFormChange = (e) => {
     const { name, value } = e.target;
     setPurchaseForm((prev) => ({ ...prev, [name]: value }));
@@ -413,9 +425,9 @@ export default function Dashboard() {
                     <span style={styles.arrow}> → </span>
                     <span style={styles.iata}>{offer.to_iata}</span>
                   </div>
-                  {(offer.source || offer.provider) && (
-                    <div style={styles.meta}>Provider: {offer.source || offer.provider}</div>
-                  )}
+                  <div style={styles.meta}>
+                    {(offer.airline_name || offer.airline_iata || 'Airline')} | {offer.stops ?? 0} stop(s) | {formatCabinClass(offer.cabin_class)}.
+                  </div>
                   <div style={styles.price}>
                     {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
                   </div>
@@ -466,9 +478,25 @@ export default function Dashboard() {
                       <Link to="/pricing" style={{ color: '#1d4ed8', fontWeight: '600' }}>Upgrade →</Link>
                     </div>
                   )}
-                  <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
-                    Create alert
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <button onClick={() => handleCreateAlert(offer)} style={styles.createAlertBtn}>
+                      Create alert
+                    </button>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleContactAirline(offer)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleContactAirline(offer);
+                        }
+                      }}
+                      style={{ color: '#6b7280', fontSize: '0.875rem', cursor: 'pointer' }}
+                    >
+                      Contact airline
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
