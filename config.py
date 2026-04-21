@@ -48,6 +48,7 @@ def validate_env_vars() -> list[str]:
 
 class Config:
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
+    RAPIDAPI_HOST = os.getenv('RAPIDAPI_HOST', 'sky-scrapper.p.rapidapi.com')
     FLIGHTAPI_KEY = os.getenv('FLIGHTAPI_KEY')
     # DUFFEL_ACCESS_TOKEN is the dashboard token name; DUFFEL_API_KEY is the internal alias.
     # Accept either so that both .env conventions work.

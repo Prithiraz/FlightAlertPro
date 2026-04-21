@@ -14,6 +14,7 @@ from rapidapi_adapters import aerodatabox_adapter
 from duffel_service import duffel_service
 from serpapi_service import serpapi_service
 from amadeus_service import amadeus_service
+from skyscanner_service import skyscanner_provider
 from config import config
 from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
 
@@ -562,179 +563,49 @@ async def search_flights(request: SearchRequest):
             return cached_result
 
     start_time = time.time()
-
-    # Search first segment only for now (multi-city requires sequential booking)
     segment = request.segments[0]
-
     is_round_trip = len(request.segments) == 2
+    return_date = request.segments[1].departure_date if is_round_trip else None
 
-    if is_round_trip:
-        # Run three parallel searches: A (round-trip), B (outbound one-way), C (inbound one-way)
-        seg_in = request.segments[1]
-        req_out_only = SearchRequest(
-            segments=[segment],
-            passengers=request.passengers,
-            cabin_class=request.cabin_class,
-            currency=request.currency,
-        )
-        req_in_only = SearchRequest(
-            segments=[seg_in],
-            passengers=request.passengers,
-            cabin_class=request.cabin_class,
-            currency=request.currency,
-        )
-        # Search A tasks (standard round-trip suppliers)
-        rt_tasks = [
-            search_aerodatabox(segment, request),
-            search_amadeus(segment, request),
-            search_duffel(segment, request),
-            search_serpapi(segment, request),
-        ]
-        # Search B tasks (one-way outbound)
-        out_tasks = [
-            search_aerodatabox(segment, req_out_only),
-            search_amadeus(segment, req_out_only),
-            search_duffel(segment, req_out_only),
-            search_serpapi(segment, req_out_only),
-        ]
-        # Search C tasks (one-way inbound)
-        in_tasks = [
-            search_aerodatabox(seg_in, req_in_only),
-            search_amadeus(seg_in, req_in_only),
-            search_duffel(seg_in, req_in_only),
-            search_serpapi(seg_in, req_in_only),
-        ]
-        all_results = await asyncio.gather(*(rt_tasks + out_tasks + in_tasks), return_exceptions=True)
-        rt_results = all_results[:4]
-        out_results = all_results[4:8]
-        in_results = all_results[8:12]
-    else:
-        # Single-segment search
-        tasks = [
-            search_aerodatabox(segment, request),
-            search_amadeus(segment, request),
-            search_duffel(segment, request),
-            search_serpapi(segment, request),
-        ]
-        rt_results = await asyncio.gather(*tasks, return_exceptions=True)
-        out_results = None
-        in_results = None
-
-    # Flatten and normalize results
-    all_offers = []
-
-    for idx, result in enumerate(rt_results):
-        if isinstance(result, Exception):
-            logger.error(f"Supplier {idx} raised exception: {result}")
-            continue
-
-        source = ['aerodatabox', 'amadeus', 'duffel', 'serpapi'][idx]
-
-        for raw_offer in result:
-            normalized = normalize_offer(raw_offer, source)
-            if normalized:
-                # Apply filters
-                if request.max_stops is not None and normalized.stops > request.max_stops:
-                    continue
-
-                if segment.airline_filter:
-                    if normalized.airline_iata.upper() != segment.airline_filter.upper():
-                        continue
-
-                if request.baggage_min_kg and normalized.baggage_kg:
-                    if normalized.baggage_kg < request.baggage_min_kg:
-                        continue
-
-                if request.baggage_max_kg and normalized.baggage_kg:
-                    if normalized.baggage_kg > request.baggage_max_kg:
-                        continue
-
-                all_offers.append(normalized)
-
-    # Dedupe and sort by price
-    unique_offers = dedupe_offers(all_offers)
-    sorted_offers = sorted(unique_offers, key=lambda x: x.price)
-
-    # Generate AI insight for the top 3 cheapest flights
-    ai_insight = await generate_flight_insight(sorted_offers)
-
-    # Serialise offers and enrich with error-fare / AI market advice
-    serialised_offers = [offer.dict() for offer in sorted_offers[:50]]
-    enriched_offers = await asyncio.to_thread(
-        _enrich_offers_with_market_insights,
-        serialised_offers,
+    offers = await asyncio.to_thread(
+        skyscanner_provider.search_flights,
         segment.from_iata,
         segment.to_iata,
+        segment.departure_date,
+        return_date,
+        request.passengers.adults,
+        request.passengers.adults,
+        request.passengers.children,
+        request.currency,
+        request.cabin_class,
     )
-    enriched_offers = _inject_points_valuation(enriched_offers)
 
-    # Check for a hacker fare (split ticketing) on round-trip searches
-    if is_round_trip:
-        # Build normalised offer lists from the one-way results already gathered
-        out_offers: List[FlightOffer] = []
-        in_offers: List[FlightOffer] = []
-        for idx, result in enumerate(out_results or []):
-            if not isinstance(result, Exception):
-                for raw in (result or []):
-                    o = normalize_offer(raw, _SOURCES[idx])
-                    if o:
-                        out_offers.append(o)
-        for idx, result in enumerate(in_results or []):
-            if not isinstance(result, Exception):
-                for raw in (result or []):
-                    o = normalize_offer(raw, _SOURCES[idx])
-                    if o:
-                        in_offers.append(o)
-        out_offers = dedupe_offers(out_offers)
-        in_offers = dedupe_offers(in_offers)
+    filtered_offers: List[Dict[str, Any]] = []
+    for offer in offers:
+        slices = offer.get("slices", []) if isinstance(offer, dict) else []
+        first_slice = slices[0] if slices else {}
+        first_segments = first_slice.get("segments", []) if isinstance(first_slice, dict) else []
+        first_segment = first_segments[0] if first_segments else {}
 
-        if out_offers and in_offers and unique_offers:
-            cheapest_rt = min(o.price for o in unique_offers)
-            best_out = min(out_offers, key=lambda o: o.price)
-            best_in = min(in_offers, key=lambda o: o.price)
-            combined = best_out.price + best_in.price
-            if combined < cheapest_rt * (1 - _HACKER_FARE_THRESHOLD):
-                savings = round(cheapest_rt - combined, 2)
-                logger.info(
-                    f"Hacker fare: {segment.from_iata}->{segment.to_iata} "
-                    f"RT={cheapest_rt:.2f} split={combined:.2f} saves={savings:.2f}"
-                )
-                hacker_fare = {
-                    'id': f'hacker-{best_out.id}-{best_in.id}',
-                    'source': 'hacker_fare',
-                    'airline_iata': best_out.airline_iata,
-                    'airline_name': best_out.airline_name,
-                    'from_iata': segment.from_iata,
-                    'to_iata': segment.to_iata,
-                    'departure_time': best_out.departure_time,
-                    'arrival_time': best_out.arrival_time,
-                    'duration_minutes': None,  # N/A: two separate tickets
-                    'stops': best_out.stops,
-                    'price': round(combined, 2),
-                    'currency': best_out.currency,
-                    'cabin_class': request.cabin_class,
-                    'baggage_kg': None,
-                    'booking_url': best_out.booking_url,
-                    'is_error_fare': False,
-                    'is_hacker_fare': True,
-                    'outbound_airline_iata': best_out.airline_iata,
-                    'outbound_airline_name': best_out.airline_name,
-                    'outbound_booking_url': best_out.booking_url,
-                    'outbound_departure': best_out.departure_time,
-                    'outbound_arrival': best_out.arrival_time,
-                    'outbound_price': round(best_out.price, 2),
-                    'inbound_airline_iata': best_in.airline_iata,
-                    'inbound_airline_name': best_in.airline_name,
-                    'inbound_booking_url': best_in.booking_url,
-                    'inbound_departure': best_in.departure_time,
-                    'inbound_arrival': best_in.arrival_time,
-                    'inbound_price': round(best_in.price, 2),
-                    'savings': savings,
-                    'roundtrip_price': round(cheapest_rt, 2),
-                    'estimated_points_cost': calculate_points_cost(round(combined, 2)),
-                    'cpp_value': BASELINE_CPP,
-                }
-                enriched_offers.insert(0, hacker_fare)
+        stops = int(first_slice.get("stops", offer.get("stops", 0)) or 0)
+        if request.max_stops is not None and stops > request.max_stops:
+            continue
+
+        if segment.airline_filter:
+            airline_iata = (offer.get("airline_iata") or first_slice.get("airline_iata") or "").upper()
+            if airline_iata != segment.airline_filter.upper():
+                continue
+
+        checked_bags = first_segment.get("checked_bags", 0)
+        if request.baggage_min_kg is not None and checked_bags < request.baggage_min_kg:
+            continue
+        if request.baggage_max_kg is not None and checked_bags > request.baggage_max_kg:
+            continue
+
+        filtered_offers.append(offer)
+
+    filtered_offers.sort(key=lambda item: float(item.get("price", 0) or 0))
+    enriched_offers = _inject_points_valuation(filtered_offers[:50])
 
     # Force currency conversion via Frankfurter API
     # Force currency conversion via Frankfurter API
@@ -759,11 +630,11 @@ async def search_flights(request: SearchRequest):
             "date": segment.departure_date,
             "passengers": request.passengers.dict()
         },
-        "total_offers": len(sorted_offers),
+        "total_offers": len(filtered_offers),
         "offers": enriched_offers,
-        "sources_queried": ['aerodatabox', 'amadeus', 'duffel', 'serpapi'],
+        "sources_queried": ['skyscanner'],
         "search_time_ms": int((time.time() - start_time) * 1000),
-        "ai_insight": ai_insight,
+        "ai_insight": None,
     }
 
     # Cache result

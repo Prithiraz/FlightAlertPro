@@ -12,6 +12,7 @@ from duffel_service import duffel_service
 from aerodatabox_service import aerodatabox_service
 from serpapi_service import serpapi_service
 from amadeus_service import amadeus_service
+from skyscanner_service import skyscanner_provider
 from currency_service import currency_service
 from prediction_service import prediction_service
 from notifications import notification_service
@@ -163,48 +164,24 @@ async def run_worker(authorization: Optional[str] = Header(default=None, alias="
 async def search_flights_simple(request: SimpleSearchRequest):
     logger.info(f"Flight search: {request.from_iata} -> {request.to_iata}")
 
-    all_offers = []
-
-    duffel_offers = duffel_service.search_flights(
+    all_offers = skyscanner_provider.search_flights(
         request.from_iata,
         request.to_iata,
         request.departure_date,
         request.return_date,
         request.passengers,
-        request.cabin_class
-    )
-    all_offers.extend(duffel_offers)
-    logger.info(f"Duffel returned {len(duffel_offers)} offers")
-
-    aerodatabox_offers = aerodatabox_service.search_flights(
-        request.from_iata,
-        request.to_iata,
-        request.departure_date,
-        request.return_date,
-        request.passengers
-    )
-    all_offers.extend(aerodatabox_offers)
-    logger.info(f"AeroDataBox returned {len(aerodatabox_offers)} offers")
-
-    amadeus_offers = amadeus_service.search_flights(
-        request.from_iata,
-        request.to_iata,
-        request.departure_date,
-        request.return_date,
         request.passengers,
-        request.cabin_class,
+        0,
         request.currency,
+        request.cabin_class,
     )
-    all_offers.extend(amadeus_offers)
-    logger.info(f"Amadeus returned {len(amadeus_offers)} offers")
-
     all_offers = sorted(all_offers, key=lambda x: x.get('price', 999999))
 
     return {
         "results": all_offers,
         "count": len(all_offers),
         "route": f"{request.from_iata} -> {request.to_iata}",
-        "providers": list(set([o.get('provider') for o in all_offers]))
+        "providers": ["skyscanner"] if all_offers else []
     }
 
 @app.post("/api/predict")
