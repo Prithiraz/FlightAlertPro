@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -17,9 +18,18 @@ class SkyscannerProvider:
     def __init__(self, api_key: Optional[str] = None, api_host: Optional[str] = None):
         self.api_key = api_key or config.RAPIDAPI_KEY
         raw_host = api_host or config.RAPIDAPI_HOST or self.DEFAULT_HOST
-        self.api_host = str(raw_host).replace("https://", "").replace("http://", "").strip().strip("/")
+        self.api_host = self._normalize_host(raw_host)
         self.base_url = f"https://{self.api_host}" if self.api_host else ""
         self.enabled = bool(self.api_key and self.api_host)
+
+    @staticmethod
+    def _normalize_host(raw_host: Optional[str]) -> str:
+        host = str(raw_host or "").strip().strip("/")
+        if not host:
+            return ""
+        parsed = urlsplit(host if "://" in host else f"https://{host}")
+        normalized = parsed.netloc or parsed.path
+        return normalized.strip().strip("/")
 
     def _headers(self) -> Dict[str, str]:
         return {
