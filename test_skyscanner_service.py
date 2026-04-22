@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import MagicMock, patch
 
 from skyscanner_service import SkyscannerProvider
 
@@ -114,6 +115,31 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(offer["booking_url"], "https://www.skyscanner.com")
         self.assertEqual(offer["slices"][0]["duration_minutes"], 90)
         self.assertEqual(offer["slices"][0]["segments"][0]["checked_bags"], 0)
+
+    def test_builds_base_url_from_configured_host(self):
+        provider = SkyscannerProvider(api_key="test", api_host="skyscanner-flights-travel-api.p.rapidapi.com")
+        self.assertEqual(provider.base_url, "https://skyscanner-flights-travel-api.p.rapidapi.com")
+        self.assertEqual(provider._headers()["X-RapidAPI-Host"], "skyscanner-flights-travel-api.p.rapidapi.com")
+
+    @patch("skyscanner_service.httpx.Client")
+    def test_search_uses_configured_host_for_request_routing(self, client_cls):
+        provider = SkyscannerProvider(api_key="test", api_host="https://skyscanner-flights-travel-api.p.rapidapi.com/")
+
+        mock_client = MagicMock()
+        client_cls.return_value.__enter__.return_value = mock_client
+        provider._airport_identifiers = MagicMock(side_effect=[("LAX-sky", "95565050"), ("JFK-sky", "95565058")])
+        provider._normalize_response = MagicMock(return_value=[{"id": "offer-1"}])
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"data": {"itineraries": []}}
+        mock_client.get.return_value = mock_response
+
+        offers = provider.search_flights("LAX", "JFK", "2026-08-01")
+
+        self.assertEqual(offers, [{"id": "offer-1"}])
+        request_url = mock_client.get.call_args.args[0]
+        self.assertTrue(request_url.startswith("https://skyscanner-flights-travel-api.p.rapidapi.com/"))
+        self.assertIn("searchFlightsComplete", request_url)
 
 
 if __name__ == "__main__":

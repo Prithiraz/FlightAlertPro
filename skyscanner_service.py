@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -10,14 +11,25 @@ logger = logging.getLogger(__name__)
 
 
 class SkyscannerProvider:
-    BASE_URL = "https://sky-scrapper.p.rapidapi.com"
+    DEFAULT_HOST = "sky-scrapper.p.rapidapi.com"
     AIRPORT_SEARCH_ENDPOINT = "/api/v1/flights/searchAirport"
     FLIGHT_SEARCH_ENDPOINT = "/api/v2/flights/searchFlightsComplete"
 
     def __init__(self, api_key: Optional[str] = None, api_host: Optional[str] = None):
         self.api_key = api_key or config.RAPIDAPI_KEY
-        self.api_host = api_host or config.RAPIDAPI_HOST or "sky-scrapper.p.rapidapi.com"
+        raw_host = api_host or config.RAPIDAPI_HOST or self.DEFAULT_HOST
+        self.api_host = self._normalize_host(raw_host)
+        self.base_url = f"https://{self.api_host}" if self.api_host else ""
         self.enabled = bool(self.api_key and self.api_host)
+
+    @staticmethod
+    def _normalize_host(raw_host: Optional[str]) -> str:
+        host = str(raw_host or "").strip().strip("/")
+        if not host:
+            return ""
+        parsed = urlsplit(host if "://" in host else f"https://{host}")
+        normalized = parsed.netloc or parsed.path
+        return normalized.strip().strip("/")
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -68,7 +80,7 @@ class SkyscannerProvider:
 
     def _airport_identifiers(self, client: httpx.Client, iata: str) -> Tuple[Optional[str], Optional[str]]:
         response = client.get(
-            f"{self.BASE_URL}{self.AIRPORT_SEARCH_ENDPOINT}",
+            f"{self.base_url}{self.AIRPORT_SEARCH_ENDPOINT}",
             headers=self._headers(),
             params={"query": iata},
         )
@@ -276,7 +288,7 @@ class SkyscannerProvider:
 
                 trip_type = "round_trip" if return_date else "one_way"
                 response = client.get(
-                    f"{self.BASE_URL}{self.FLIGHT_SEARCH_ENDPOINT}",
+                    f"{self.base_url}{self.FLIGHT_SEARCH_ENDPOINT}",
                     headers=self._headers(),
                     params={
                         "originSkyId": origin_sky_id,
