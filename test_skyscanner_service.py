@@ -201,6 +201,13 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertAlmostEqual(offer["efficiency_score"], expected, places=4)
         # Efficiency must be strictly less than 1 (route overhead > 0)
         self.assertLess(offer["efficiency_score"], 1.0)
+        # Phase 1 canonical fields must also be present
+        self.assertIn("gcd_km", offer)
+        self.assertIn("co2_kg", offer)
+        self.assertIn("efficiency_pct", offer)
+        self.assertAlmostEqual(offer["gcd_km"], gcd, places=4)
+        self.assertAlmostEqual(offer["efficiency_pct"], round(expected * 100, 1), places=1)
+        self.assertIsNotNone(offer["co2_kg"])
 
     def test_efficiency_score_fallback_for_unknown_iata(self):
         """Offers with unknown IATA codes fall back to the 1.1x-multiplier baseline."""
@@ -239,6 +246,10 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertAlmostEqual(offer["efficiency_score"], round(1 / 1.1, 4), places=4)
         self.assertIsNone(offer["gcd_distance"])
         self.assertIsNone(offer["co2_emissions_kg"])
+        # Phase 1 canonical fields
+        self.assertIsNone(offer["gcd_km"])
+        self.assertIsNone(offer["co2_kg"])
+        self.assertAlmostEqual(offer["efficiency_pct"], round(round(1 / 1.1, 4) * 100, 1), places=1)
 
     # ── Carbon Footprint Engine ───────────────────────────────────────────────
 
@@ -477,6 +488,94 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(len(offers[0]["slices"]), 2)
         self.assertEqual(offers[0]["slices"][0]["origin_iata"], "LAX")
         self.assertEqual(offers[0]["slices"][1]["origin_iata"], "JFK")
+
+
+    def test_legs_embedded_in_itinerary_are_resolved(self):
+        """Legs stored inside each itinerary object (elis-lab format) must be resolved."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-elis",
+                        "outboundLegId": "leg-elis",
+                        "pricingOptions": [{"price": {"amount": "250", "unit": "USD"}}],
+                        # legs embedded inside the itinerary instead of the top-level list
+                        "legs": [
+                            {
+                                "id": "leg-elis",
+                                "originPlaceId": "p1",
+                                "destinationPlaceId": "p2",
+                                "departure": "2026-10-01T07:00:00Z",
+                                "arrival": "2026-10-01T09:30:00Z",
+                                "durationInMinutes": 150,
+                                "stopCount": 0,
+                                "carrierIds": ["c1"],
+                                "segments": [],
+                            }
+                        ],
+                    }
+                ],
+                "legs": [],  # top-level legs list is empty
+                "carriers": [{"id": "c1", "name": "Elite Air", "iata": "EA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "LHR"},
+                    {"id": "p2", "displayCode": "CDG"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        offer = offers[0]
+        self.assertEqual(offer["airline_name"], "Elite Air")
+        self.assertEqual(offer["slices"][0]["origin_iata"], "LHR")
+        self.assertEqual(offer["slices"][0]["destination_iata"], "CDG")
+        self.assertEqual(offer["slices"][0]["departure_time"], "2026-10-01T07:00:00+00:00")
+        self.assertEqual(offer["slices"][0]["arrival_time"], "2026-10-01T09:30:00+00:00")
+
+    def test_departure_arrival_derived_from_segments_when_leg_fields_absent(self):
+        """When the leg has no top-level departure/arrival, times must come from segments."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-seg-times",
+                        "outboundLegId": "leg-out",
+                        "pricingOptions": [{"price": {"amount": "180", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        # No top-level departure/arrival — must be derived from segments
+                        "durationInMinutes": 90,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [
+                            {
+                                "originPlaceId": "p1",
+                                "destinationPlaceId": "p2",
+                                "departure": "2026-11-01T10:00:00Z",
+                                "arrival": "2026-11-01T11:30:00Z",
+                                "carrierIds": ["c1"],
+                            }
+                        ],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Segment Air", "iata": "SA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "AMS"},
+                    {"id": "p2", "displayCode": "FRA"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        dep = offers[0]["slices"][0]["departure_time"]
+        arr = offers[0]["slices"][0]["arrival_time"]
+        self.assertEqual(dep, "2026-11-01T10:00:00+00:00")
+        self.assertEqual(arr, "2026-11-01T11:30:00+00:00")
 
 
 if __name__ == "__main__":
