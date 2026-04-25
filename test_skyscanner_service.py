@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from skyscanner_service import SkyscannerProvider
+from skyscanner_service import SkyscannerProvider, calculate_haversine_distance
 
 
 class TestSkyscannerProvider(unittest.TestCase):
@@ -140,6 +140,267 @@ class TestSkyscannerProvider(unittest.TestCase):
         request_url = mock_client.get.call_args.args[0]
         self.assertTrue(request_url.startswith("https://skyscanner-flights-travel-api.p.rapidapi.com/"))
         self.assertIn("searchFlightsComplete", request_url)
+
+    # ── Phase 1: Haversine distance ──────────────────────────────────────────
+
+    def test_haversine_distance_lhr_jfk(self):
+        # LHR: 51.4706, -0.461941  |  JFK: 40.63980103, -73.77890015
+        dist = calculate_haversine_distance(51.4706, -0.461941, 40.63980103, -73.77890015)
+        # Great-circle distance is approximately 5,540 km
+        self.assertGreater(dist, 5_000)
+        self.assertLess(dist, 6_000)
+
+    def test_haversine_distance_same_point_is_zero(self):
+        self.assertAlmostEqual(calculate_haversine_distance(0.0, 0.0, 0.0, 0.0), 0.0, places=4)
+
+    def test_efficiency_score_in_offer(self):
+        """Offers for known IATA pairs must include a numeric efficiency_score."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-eff",
+                        "outboundLegId": "leg-out",
+                        "pricingOptions": [{"price": {"amount": "300", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-09-01T08:00:00Z",
+                        "arrival": "2026-09-01T16:00:00Z",
+                        "durationInMinutes": 480,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Test Airline", "iata": "TA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "LAX"},
+                    {"id": "p2", "displayCode": "JFK"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        offer = offers[0]
+        self.assertIn("efficiency_score", offer)
+        self.assertIn("great_circle_distance_km", offer)
+        self.assertIsInstance(offer["efficiency_score"], float)
+        # LAX→JFK coords are known; efficiency_score should be ~1/1.1
+        self.assertAlmostEqual(offer["efficiency_score"], round(1 / 1.1, 4), places=4)
+
+    def test_efficiency_score_fallback_for_unknown_iata(self):
+        """Offers with unknown IATA codes fall back to the 1.1x-multiplier baseline."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-unk",
+                        "outboundLegId": "leg-out",
+                        "pricingOptions": [{"price": {"amount": "150", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-09-01T08:00:00Z",
+                        "arrival": "2026-09-01T10:00:00Z",
+                        "durationInMinutes": 120,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Mystery Air", "iata": "MA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "ZZZ"},
+                    {"id": "p2", "displayCode": "XXX"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        offer = offers[0]
+        self.assertAlmostEqual(offer["efficiency_score"], round(1 / 1.1, 4), places=4)
+        self.assertIsNone(offer["great_circle_distance_km"])
+
+    # ── UTC standardisation ───────────────────────────────────────────────────
+
+    def test_to_utc_iso_converts_offset_to_utc(self):
+        result = SkyscannerProvider._to_utc_iso("2026-06-01T10:00:00+02:00")
+        self.assertEqual(result, "2026-06-01T08:00:00+00:00")
+
+    def test_to_utc_iso_passes_through_utc_unchanged(self):
+        result = SkyscannerProvider._to_utc_iso("2026-06-01T08:00:00+00:00")
+        self.assertEqual(result, "2026-06-01T08:00:00+00:00")
+
+    def test_to_utc_iso_naive_datetime_treated_as_utc(self):
+        result = SkyscannerProvider._to_utc_iso("2026-06-01T08:00:00")
+        self.assertEqual(result, "2026-06-01T08:00:00+00:00")
+
+    def test_to_utc_iso_z_suffix_converted(self):
+        result = SkyscannerProvider._to_utc_iso("2026-06-01T08:00:00Z")
+        self.assertEqual(result, "2026-06-01T08:00:00+00:00")
+
+    def test_build_slice_stores_utc_times(self):
+        """departure_time and arrival_time in built slices must be UTC ISO strings."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-utc",
+                        "outboundLegId": "leg-out",
+                        "pricingOptions": [{"price": {"amount": "200", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        # +05:30 offset → UTC 02:30
+                        "departure": "2026-09-01T08:00:00+05:30",
+                        "arrival": "2026-09-01T12:00:00+05:30",
+                        "durationInMinutes": 240,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Test Air", "iata": "TA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "BOM"},
+                    {"id": "p2", "displayCode": "DEL"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        dep = offers[0]["slices"][0]["departure_time"]
+        arr = offers[0]["slices"][0]["arrival_time"]
+        self.assertEqual(dep, "2026-09-01T02:30:00+00:00")
+        self.assertEqual(arr, "2026-09-01T06:30:00+00:00")
+
+    # ── Round-trip stitching & itinerary validation ───────────────────────────
+
+    def test_is_valid_itinerary_accepts_correct_pairing(self):
+        outbound = {"arrival_time": "2026-06-01T10:00:00+00:00"}
+        inbound = {"departure_time": "2026-06-10T08:00:00+00:00"}
+        self.assertTrue(SkyscannerProvider.is_valid_itinerary(outbound, inbound))
+
+    def test_is_valid_itinerary_rejects_impossible_pairing(self):
+        outbound = {"arrival_time": "2026-06-10T15:00:00+00:00"}
+        inbound = {"departure_time": "2026-06-10T08:00:00+00:00"}
+        self.assertFalse(SkyscannerProvider.is_valid_itinerary(outbound, inbound))
+
+    def test_is_valid_itinerary_allows_same_time(self):
+        outbound = {"arrival_time": "2026-06-01T10:00:00+00:00"}
+        inbound = {"departure_time": "2026-06-01T10:00:00+00:00"}
+        self.assertTrue(SkyscannerProvider.is_valid_itinerary(outbound, inbound))
+
+    def test_is_valid_itinerary_missing_times_are_accepted(self):
+        self.assertTrue(SkyscannerProvider.is_valid_itinerary({}, {}))
+
+    def test_invalid_round_trip_itinerary_is_discarded(self):
+        """Itineraries where outbound arrives after inbound departs must be dropped."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-bad",
+                        "outboundLegId": "leg-out",
+                        "inboundLegId": "leg-in",
+                        "pricingOptions": [{"price": {"amount": "500", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-06-10T06:00:00Z",
+                        "arrival": "2026-06-10T20:00:00Z",  # arrives after inbound departs
+                        "durationInMinutes": 840,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    },
+                    {
+                        "id": "leg-in",
+                        "originPlaceId": "p2",
+                        "destinationPlaceId": "p1",
+                        "departure": "2026-06-10T08:00:00Z",  # departs before outbound arrives
+                        "arrival": "2026-06-10T18:00:00Z",
+                        "durationInMinutes": 600,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    },
+                ],
+                "carriers": [{"id": "c1", "name": "Test Air", "iata": "TA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "LAX"},
+                    {"id": "p2", "displayCode": "JFK"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="round_trip")
+        self.assertEqual(len(offers), 0)
+
+    def test_valid_round_trip_itinerary_is_kept(self):
+        """Valid round-trip pairings produce an itinerary with two slices."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-ok",
+                        "outboundLegId": "leg-out",
+                        "inboundLegId": "leg-in",
+                        "pricingOptions": [{"price": {"amount": "600", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-06-01T08:00:00Z",
+                        "arrival": "2026-06-01T16:00:00Z",
+                        "durationInMinutes": 480,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    },
+                    {
+                        "id": "leg-in",
+                        "originPlaceId": "p2",
+                        "destinationPlaceId": "p1",
+                        "departure": "2026-06-10T10:00:00Z",
+                        "arrival": "2026-06-10T18:00:00Z",
+                        "durationInMinutes": 480,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    },
+                ],
+                "carriers": [{"id": "c1", "name": "Test Air", "iata": "TA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "LAX"},
+                    {"id": "p2", "displayCode": "JFK"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="round_trip")
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(len(offers[0]["slices"]), 2)
+        self.assertEqual(offers[0]["slices"][0]["origin_iata"], "LAX")
+        self.assertEqual(offers[0]["slices"][1]["origin_iata"], "JFK")
 
 
 if __name__ == "__main__":
