@@ -1,5 +1,8 @@
+import json
 import logging
-from datetime import datetime
+import math
+import os
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
@@ -8,6 +11,43 @@ import httpx
 from config import config
 
 logger = logging.getLogger(__name__)
+
+# ── Airport coordinate lookup ────────────────────────────────────────────────
+_AIRPORTS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "airports_openflights.json")
+
+
+def _load_airport_coords() -> Dict[str, Tuple[float, float]]:
+    """Load IATA → (latitude, longitude) mapping from the bundled airport data file."""
+    try:
+        with open(_AIRPORTS_JSON_PATH, encoding="utf-8") as fh:
+            data = json.load(fh)
+        coords: Dict[str, Tuple[float, float]] = {}
+        for entry in data:
+            iata = (entry.get("iata") or "").strip().upper()
+            lat = entry.get("latitude")
+            lon = entry.get("longitude")
+            if iata and lat is not None and lon is not None:
+                try:
+                    coords[iata] = (float(lat), float(lon))
+                except (TypeError, ValueError):
+                    pass
+        return coords
+    except Exception as exc:
+        logger.warning("Could not load airport coordinates: %s", exc)
+        return {}
+
+
+_AIRPORT_COORDS: Dict[str, Tuple[float, float]] = _load_airport_coords()
+
+
+def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the great-circle distance in kilometres between two points (decimal degrees)."""
+    EARTH_RADIUS_KM = 6_371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lon2 - lon1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    return EARTH_RADIUS_KM * 2 * math.asin(math.sqrt(a))
 
 
 class SkyscannerProvider:
@@ -58,9 +98,42 @@ class SkyscannerProvider:
         if not value:
             return None
         try:
-            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            # Ensure timezone-aware; assume UTC when no tzinfo is present
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
         except ValueError:
             return None
+
+    @classmethod
+    def _to_utc_iso(cls, value: Optional[str]) -> str:
+        """Parse a datetime string, normalize to UTC, and return an ISO 8601 string.
+
+        Any timezone offset is converted to UTC.  If the input has no timezone
+        information it is assumed to already be in UTC.  Returns an empty string
+        when *value* is empty or None; returns the original string when it cannot
+        be parsed.
+        """
+        if not value:
+            return ""
+        dt = cls._parse_dt(value)
+        if dt is None:
+            return value
+        utc_dt = dt.astimezone(timezone.utc)
+        return utc_dt.isoformat()
+
+    @classmethod
+    def is_valid_itinerary(cls, outbound_slice: Dict[str, Any], inbound_slice: Dict[str, Any]) -> bool:
+        """Return *False* when the outbound arrival is after the inbound departure.
+
+        Such a pairing is physically impossible and must be discarded.
+        """
+        outbound_arrival = cls._parse_dt(outbound_slice.get("arrival_time"))
+        inbound_departure = cls._parse_dt(inbound_slice.get("departure_time"))
+        if outbound_arrival is not None and inbound_departure is not None:
+            return outbound_arrival <= inbound_departure
+        return True
 
     @classmethod
     def _duration_minutes(cls, duration: Any, departure: Optional[str], arrival: Optional[str]) -> int:
@@ -121,8 +194,8 @@ class SkyscannerProvider:
     ) -> Dict[str, Any]:
         segments = leg.get("segments", []) if isinstance(leg.get("segments"), list) else []
 
-        departure_time = leg.get("departure") or leg.get("departureDateTime") or ""
-        arrival_time = leg.get("arrival") or leg.get("arrivalDateTime") or ""
+        departure_time = self._to_utc_iso(leg.get("departure") or leg.get("departureDateTime") or "")
+        arrival_time = self._to_utc_iso(leg.get("arrival") or leg.get("arrivalDateTime") or "")
         duration_raw = leg.get("durationInMinutes")
         if duration_raw is None:
             duration_raw = leg.get("duration")
@@ -158,8 +231,8 @@ class SkyscannerProvider:
                     "flight_number": seg.get("flightNumber") or seg.get("number") or "",
                     "origin_iata": self._resolve_place(seg.get("originPlaceId"), places_by_id).get("iata", ""),
                     "destination_iata": self._resolve_place(seg.get("destinationPlaceId"), places_by_id).get("iata", ""),
-                    "departing_at": seg.get("departure") or "",
-                    "arriving_at": seg.get("arrival") or "",
+                    "departing_at": self._to_utc_iso(seg.get("departure") or ""),
+                    "arriving_at": self._to_utc_iso(seg.get("arrival") or ""),
                 }
             )
 
@@ -232,10 +305,30 @@ class SkyscannerProvider:
             outbound_slice = self._build_slice(outbound_leg, places_by_id, carriers_by_id)
             slices = [outbound_slice]
             if trip_type == "round_trip" and inbound_leg:
-                slices.append(self._build_slice(inbound_leg, places_by_id, carriers_by_id))
+                inbound_slice = self._build_slice(inbound_leg, places_by_id, carriers_by_id)
+                if not self.is_valid_itinerary(outbound_slice, inbound_slice):
+                    logger.debug(
+                        "Discarding round-trip itinerary %s: outbound arrival is after inbound departure",
+                        itinerary.get("id"),
+                    )
+                    continue
+                slices.append(inbound_slice)
 
             airline_name = outbound_slice.get("airline_name") or "Unknown Airline"
             airline_iata = outbound_slice.get("airline_iata") or ""
+
+            from_iata = outbound_slice.get("origin_iata", "")
+            to_iata = outbound_slice.get("destination_iata", "")
+            from_coords = _AIRPORT_COORDS.get(from_iata.upper()) if from_iata else None
+            to_coords = _AIRPORT_COORDS.get(to_iata.upper()) if to_iata else None
+
+            if from_coords and to_coords:
+                gc_km = calculate_haversine_distance(*from_coords, *to_coords)
+            else:
+                gc_km = None
+            # Skyscanner does not supply actual flight-path distance; use the standard
+            # 1.1× great-circle multiplier as the baseline (efficiency = 1 / 1.1 ≈ 0.9091).
+            efficiency_score = round(1 / 1.1, 4)
 
             offers.append(
                 {
@@ -252,10 +345,12 @@ class SkyscannerProvider:
                     "cabin_class": str(itinerary.get("cabinClass") or "economy").lower(),
                     "stops": int(outbound_slice.get("stops", 0)),
                     "duration_minutes": int(outbound_slice.get("duration_minutes", 0)),
-                    "from_iata": outbound_slice.get("origin_iata", ""),
-                    "to_iata": outbound_slice.get("destination_iata", ""),
+                    "from_iata": from_iata,
+                    "to_iata": to_iata,
                     "departure_time": outbound_slice.get("departure_time", ""),
                     "arrival_time": outbound_slice.get("arrival_time", ""),
+                    "great_circle_distance_km": gc_km,
+                    "efficiency_score": efficiency_score,
                 }
             )
 
