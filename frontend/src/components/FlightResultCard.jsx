@@ -152,30 +152,32 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
       )}
 
       {/* Aerospace metrics: distance, efficiency, carbon footprint */}
-      {(offer.gcd_distance != null || offer.efficiency_score != null || offer.co2_emissions_kg != null) && (
+      {(offer.gcd_km != null || offer.gcd_distance != null || offer.efficiency_pct != null || offer.efficiency_score != null || offer.co2_kg != null || offer.co2_emissions_kg != null) && (
         <div className="flex flex-wrap gap-2 mt-0.5">
-          {offer.gcd_distance != null && (
+          {(offer.gcd_km != null || offer.gcd_distance != null) && (
             <span
               className="text-xs font-medium px-2 py-0.5 rounded-full"
               style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
             >
-              📍 {Math.round(offer.gcd_distance).toLocaleString()} km GCD
+              📍 {Math.round(offer.gcd_km ?? offer.gcd_distance).toLocaleString()} km GCD
             </span>
           )}
-          {offer.efficiency_score != null && (
+          {(offer.efficiency_pct != null || offer.efficiency_score != null) && (
             <span
               className="text-xs font-medium px-2 py-0.5 rounded-full"
               style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
             >
-              ⚡ {(Number(offer.efficiency_score) * 100).toFixed(1)}% Route Efficiency
+              ⚡ {offer.efficiency_pct != null
+                ? Number(offer.efficiency_pct).toFixed(1)
+                : (Number(offer.efficiency_score) * 100).toFixed(1)}% Route Efficiency
             </span>
           )}
-          {offer.co2_emissions_kg != null && (
+          {(offer.co2_kg != null || offer.co2_emissions_kg != null) && (
             <span
               className="text-xs font-medium px-2 py-0.5 rounded-full"
               style={{ background: '#fefce8', color: '#854d0e', border: '1px solid #fde68a' }}
             >
-              🌿 {Math.round(offer.co2_emissions_kg).toLocaleString()} kg CO₂
+              🌿 {Math.round(offer.co2_kg ?? offer.co2_emissions_kg).toLocaleString()} kg CO₂
             </span>
           )}
         </div>

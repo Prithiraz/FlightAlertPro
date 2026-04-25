@@ -1,7 +1,5 @@
-import json
 import logging
 import math
-import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
@@ -12,32 +10,25 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
-# ── Airport coordinate lookup ────────────────────────────────────────────────
-_AIRPORTS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "airports_openflights.json")
+# ── Airport coordinate lookup (airportsdata) ─────────────────────────────────
+try:
+    import airportsdata as _airportsdata_lib
+
+    _AIRPORTSDATA_DB: Dict[str, Any] = _airportsdata_lib.load("IATA")
+except Exception as _exc:  # pragma: no cover
+    logger.warning("airportsdata library unavailable: %s", _exc)
+    _AIRPORTSDATA_DB = {}
 
 
-def _load_airport_coords() -> Dict[str, Tuple[float, float]]:
-    """Load IATA → (latitude, longitude) mapping from the bundled airport data file."""
+def _get_airport_coords(iata: str) -> Optional[Tuple[float, float]]:
+    """Return (latitude, longitude) for an IATA code using the airportsdata library."""
+    entry = _AIRPORTSDATA_DB.get(iata.upper() if iata else "")
+    if entry is None:
+        return None
     try:
-        with open(_AIRPORTS_JSON_PATH, encoding="utf-8") as fh:
-            data = json.load(fh)
-        coords: Dict[str, Tuple[float, float]] = {}
-        for entry in data:
-            iata = (entry.get("iata") or "").strip().upper()
-            lat = entry.get("latitude")
-            lon = entry.get("longitude")
-            if iata and lat is not None and lon is not None:
-                try:
-                    coords[iata] = (float(lat), float(lon))
-                except (TypeError, ValueError):
-                    pass
-        return coords
-    except Exception as exc:
-        logger.warning("Could not load airport coordinates: %s", exc)
-        return {}
-
-
-_AIRPORT_COORDS: Dict[str, Tuple[float, float]] = _load_airport_coords()
+        return (float(entry["lat"]), float(entry["lon"]))
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -221,8 +212,26 @@ class SkyscannerProvider:
     ) -> Dict[str, Any]:
         segments = leg.get("segments", []) if isinstance(leg.get("segments"), list) else []
 
-        departure_time = self._to_utc_iso(leg.get("departure") or leg.get("departureDateTime") or "")
-        arrival_time = self._to_utc_iso(leg.get("arrival") or leg.get("arrivalDateTime") or "")
+        # Resolve departure/arrival from the leg's own fields first; fall back
+        # to the first/last segment when the top-level fields are absent (elis-lab
+        # API format stores times on segments rather than on the parent leg).
+        departure_time = self._to_utc_iso(
+            leg.get("departure") or leg.get("departureDateTime") or leg.get("departureTime") or ""
+        )
+        if not departure_time and segments:
+            first_seg = segments[0] if isinstance(segments[0], dict) else {}
+            departure_time = self._to_utc_iso(
+                first_seg.get("departure") or first_seg.get("departureDateTime") or first_seg.get("departureTime") or ""
+            )
+
+        arrival_time = self._to_utc_iso(
+            leg.get("arrival") or leg.get("arrivalDateTime") or leg.get("arrivalTime") or ""
+        )
+        if not arrival_time and segments:
+            last_seg = segments[-1] if isinstance(segments[-1], dict) else {}
+            arrival_time = self._to_utc_iso(
+                last_seg.get("arrival") or last_seg.get("arrivalDateTime") or last_seg.get("arrivalTime") or ""
+            )
         duration_raw = leg.get("durationInMinutes")
         if duration_raw is None:
             duration_raw = leg.get("duration")
@@ -294,7 +303,16 @@ class SkyscannerProvider:
         if not isinstance(places, list):
             places = []
 
-        legs_by_id = {str(leg.get("id")): leg for leg in legs if isinstance(leg, dict) and leg.get("id") is not None}
+        # Merge top-level legs with any legs embedded within individual itineraries
+        # (elis-lab API variant stores legs inside each itinerary object).
+        all_legs: List[Dict[str, Any]] = list(legs)
+        for itin in itineraries:
+            if isinstance(itin, dict):
+                embedded = itin.get("legs", [])
+                if isinstance(embedded, list):
+                    all_legs.extend(l for l in embedded if isinstance(l, dict))
+
+        legs_by_id = {str(leg.get("id")): leg for leg in all_legs if isinstance(leg, dict) and leg.get("id") is not None}
         carriers_by_id = {str(carrier.get("id")): carrier for carrier in carriers if isinstance(carrier, dict) and carrier.get("id") is not None}
         places_by_id = {str(place.get("id")): place for place in places if isinstance(place, dict) and place.get("id") is not None}
 
@@ -346,14 +364,16 @@ class SkyscannerProvider:
 
             from_iata = outbound_slice.get("origin_iata", "")
             to_iata = outbound_slice.get("destination_iata", "")
-            from_coords = _AIRPORT_COORDS.get(from_iata.upper()) if from_iata else None
-            to_coords = _AIRPORT_COORDS.get(to_iata.upper()) if to_iata else None
+            from_coords = _get_airport_coords(from_iata) if from_iata else None
+            to_coords = _get_airport_coords(to_iata) if to_iata else None
 
             if from_coords and to_coords:
                 gc_km = calculate_haversine_distance(*from_coords, *to_coords)
             else:
                 gc_km = None
             # Efficiency score: GCD / (GCD + 100 km estimated route overhead).
+            # Expressed as a 0–1 fraction (efficiency_score) and as a 0–100
+            # percentage (efficiency_pct) per the Aerospace Phase 1 spec.
             # When coordinates are unknown fall back to the 1.1× baseline (≈ 0.9091).
             if gc_km is not None:
                 efficiency_score = round(gc_km / (gc_km + 100), 4)
@@ -361,6 +381,8 @@ class SkyscannerProvider:
             else:
                 efficiency_score = round(1 / 1.1, 4)
                 co2_emissions_kg = None
+
+            efficiency_pct = round(efficiency_score * 100, 1)
 
             offers.append(
                 {
@@ -381,6 +403,11 @@ class SkyscannerProvider:
                     "to_iata": to_iata,
                     "departure_time": outbound_slice.get("departure_time", ""),
                     "arrival_time": outbound_slice.get("arrival_time", ""),
+                    # Aerospace Phase 1 canonical field names
+                    "gcd_km": gc_km,
+                    "co2_kg": co2_emissions_kg,
+                    "efficiency_pct": efficiency_pct,
+                    # Legacy aliases kept for backward compatibility
                     "gcd_distance": gc_km,
                     "efficiency_score": efficiency_score,
                     "co2_emissions_kg": co2_emissions_kg,
