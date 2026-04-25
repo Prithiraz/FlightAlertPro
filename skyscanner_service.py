@@ -50,6 +50,33 @@ def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: fl
     return EARTH_RADIUS_KM * 2 * math.asin(math.sqrt(a))
 
 
+# Emissions factors (ICAO/DEFRA) and Radiative Forcing multiplier
+_EMISSIONS_FACTOR_SHORT_HAUL = 0.15   # kg CO₂ per km  (< 3,700 km)
+_EMISSIONS_FACTOR_LONG_HAUL  = 0.11   # kg CO₂ per km  (≥ 3,700 km)
+_SHORT_HAUL_THRESHOLD_KM     = 3_700
+_RADIATIVE_FORCING_MULTIPLIER = 1.9   # high-altitude RF correction
+
+
+def estimate_carbon_footprint(distance_km: float) -> float:
+    """Estimate CO₂-equivalent emissions (kg) for a single flight segment.
+
+    Formula: CO₂ = distance × emissions_factor × RF_multiplier
+
+    Emissions factors (ICAO/DEFRA):
+      - Short-haul (< 3,700 km): 0.15 kg/km
+      - Long-haul  (≥ 3,700 km): 0.11 kg/km
+
+    A Radiative Forcing (RF) multiplier of 1.9× is applied to account for
+    the additional warming effect of high-altitude emissions.
+    """
+    factor = (
+        _EMISSIONS_FACTOR_SHORT_HAUL
+        if distance_km < _SHORT_HAUL_THRESHOLD_KM
+        else _EMISSIONS_FACTOR_LONG_HAUL
+    )
+    return distance_km * factor * _RADIATIVE_FORCING_MULTIPLIER
+
+
 class SkyscannerProvider:
     DEFAULT_HOST = "sky-scrapper.p.rapidapi.com"
     AIRPORT_SEARCH_ENDPOINT = "/api/v1/flights/searchAirport"
@@ -326,9 +353,14 @@ class SkyscannerProvider:
                 gc_km = calculate_haversine_distance(*from_coords, *to_coords)
             else:
                 gc_km = None
-            # Skyscanner does not supply actual flight-path distance; use the standard
-            # 1.1× great-circle multiplier as the baseline (efficiency = 1 / 1.1 ≈ 0.9091).
-            efficiency_score = round(1 / 1.1, 4)
+            # Efficiency score: GCD / (GCD + 100 km estimated route overhead).
+            # When coordinates are unknown fall back to the 1.1× baseline (≈ 0.9091).
+            if gc_km is not None:
+                efficiency_score = round(gc_km / (gc_km + 100), 4)
+                co2_emissions_kg = round(estimate_carbon_footprint(gc_km), 2)
+            else:
+                efficiency_score = round(1 / 1.1, 4)
+                co2_emissions_kg = None
 
             offers.append(
                 {
@@ -349,8 +381,9 @@ class SkyscannerProvider:
                     "to_iata": to_iata,
                     "departure_time": outbound_slice.get("departure_time", ""),
                     "arrival_time": outbound_slice.get("arrival_time", ""),
-                    "great_circle_distance_km": gc_km,
+                    "gcd_distance": gc_km,
                     "efficiency_score": efficiency_score,
+                    "co2_emissions_kg": co2_emissions_kg,
                 }
             )
 

@@ -151,6 +151,36 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
         </div>
       )}
 
+      {/* Aerospace metrics: distance, efficiency, carbon footprint */}
+      {(offer.gcd_distance != null || offer.efficiency_score != null || offer.co2_emissions_kg != null) && (
+        <div className="flex flex-wrap gap-2 mt-0.5">
+          {offer.gcd_distance != null && (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-full"
+              style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
+            >
+              📍 {Math.round(offer.gcd_distance).toLocaleString()} km GCD
+            </span>
+          )}
+          {offer.efficiency_score != null && (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-full"
+              style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+            >
+              ⚡ {(Number(offer.efficiency_score) * 100).toFixed(1)}% Route Efficiency
+            </span>
+          )}
+          {offer.co2_emissions_kg != null && (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-full"
+              style={{ background: '#fefce8', color: '#854d0e', border: '1px solid #fde68a' }}
+            >
+              🌿 {Math.round(offer.co2_emissions_kg).toLocaleString()} kg CO₂
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="text-2xl font-bold mt-1" style={{ color: isHackerFare ? '#86efac' : '#16a34a' }}>
         {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
         {isHackerFare && offer.savings > 0 && (

@@ -1,7 +1,11 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from skyscanner_service import SkyscannerProvider, calculate_haversine_distance
+from skyscanner_service import (
+    SkyscannerProvider,
+    calculate_haversine_distance,
+    estimate_carbon_footprint,
+)
 
 
 class TestSkyscannerProvider(unittest.TestCase):
@@ -188,10 +192,15 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(len(offers), 1)
         offer = offers[0]
         self.assertIn("efficiency_score", offer)
-        self.assertIn("great_circle_distance_km", offer)
+        self.assertIn("gcd_distance", offer)
         self.assertIsInstance(offer["efficiency_score"], float)
-        # LAX→JFK coords are known; efficiency_score should be ~1/1.1
-        self.assertAlmostEqual(offer["efficiency_score"], round(1 / 1.1, 4), places=4)
+        # LAX→JFK coords are known; efficiency = GCD / (GCD + 100).
+        gcd = offer["gcd_distance"]
+        self.assertIsNotNone(gcd)
+        expected = round(gcd / (gcd + 100), 4)
+        self.assertAlmostEqual(offer["efficiency_score"], expected, places=4)
+        # Efficiency must be strictly less than 1 (route overhead > 0)
+        self.assertLess(offer["efficiency_score"], 1.0)
 
     def test_efficiency_score_fallback_for_unknown_iata(self):
         """Offers with unknown IATA codes fall back to the 1.1x-multiplier baseline."""
@@ -228,7 +237,74 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(len(offers), 1)
         offer = offers[0]
         self.assertAlmostEqual(offer["efficiency_score"], round(1 / 1.1, 4), places=4)
-        self.assertIsNone(offer["great_circle_distance_km"])
+        self.assertIsNone(offer["gcd_distance"])
+        self.assertIsNone(offer["co2_emissions_kg"])
+
+    # ── Carbon Footprint Engine ───────────────────────────────────────────────
+
+    def test_carbon_footprint_short_haul(self):
+        """Short-haul route (< 3700 km) uses 0.15 kg/km × 1.9 RF."""
+        # 1000 km short-haul: 1000 × 0.15 × 1.9 = 285.0 kg
+        result = estimate_carbon_footprint(1000.0)
+        self.assertAlmostEqual(result, 285.0, places=4)
+
+    def test_carbon_footprint_long_haul(self):
+        """Long-haul route (≥ 3700 km) uses 0.11 kg/km × 1.9 RF."""
+        # 10000 km long-haul: 10000 × 0.11 × 1.9 = 2090.0 kg
+        result = estimate_carbon_footprint(10_000.0)
+        self.assertAlmostEqual(result, 2090.0, places=4)
+
+    def test_carbon_footprint_boundary_short_haul(self):
+        """Route exactly at 3,699 km is short-haul."""
+        result = estimate_carbon_footprint(3699.0)
+        self.assertAlmostEqual(result, 3699.0 * 0.15 * 1.9, places=4)
+
+    def test_carbon_footprint_boundary_long_haul(self):
+        """Route at exactly 3,700 km is long-haul."""
+        result = estimate_carbon_footprint(3700.0)
+        self.assertAlmostEqual(result, 3700.0 * 0.11 * 1.9, places=4)
+
+    def test_co2_in_offer_known_iata(self):
+        """Offers for known IATA pairs must include a non-None co2_emissions_kg."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-co2",
+                        "outboundLegId": "leg-out",
+                        "pricingOptions": [{"price": {"amount": "250", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-09-01T08:00:00Z",
+                        "arrival": "2026-09-01T16:00:00Z",
+                        "durationInMinutes": 480,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Test Airline", "iata": "TA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "LAX"},
+                    {"id": "p2", "displayCode": "JFK"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        offer = offers[0]
+        self.assertIn("co2_emissions_kg", offer)
+        self.assertIsNotNone(offer["co2_emissions_kg"])
+        self.assertIsInstance(offer["co2_emissions_kg"], float)
+        # LAX→JFK is ~3975 km (long-haul): 3975 × 0.11 × 1.9
+        gcd = offer["gcd_distance"]
+        expected_co2 = round(estimate_carbon_footprint(gcd), 2)
+        self.assertAlmostEqual(offer["co2_emissions_kg"], expected_co2, places=2)
 
     # ── UTC standardisation ───────────────────────────────────────────────────
 
