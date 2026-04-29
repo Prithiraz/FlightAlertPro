@@ -17,11 +17,34 @@ _AIRPORTS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "
 
 
 def _load_airport_coords() -> Dict[str, Tuple[float, float]]:
-    """Load IATA → (latitude, longitude) mapping from the bundled airport data file."""
+    """Load IATA → (latitude, longitude) mapping.
+
+    Primary source: the *airportsdata* library (DEFRA-aligned, kept up to date).
+    Fallback: the bundled airports_openflights.json file.
+    """
+    try:
+        import airportsdata  # type: ignore[import]
+
+        db = airportsdata.load("IATA")
+        coords: Dict[str, Tuple[float, float]] = {}
+        for iata, entry in db.items():
+            lat = entry.get("lat")
+            lon = entry.get("lon")
+            if iata and lat is not None and lon is not None:
+                try:
+                    coords[iata.upper()] = (float(lat), float(lon))
+                except (TypeError, ValueError):
+                    pass
+        if coords:
+            return coords
+    except Exception as exc:
+        logger.warning("airportsdata library unavailable, falling back to bundled JSON: %s", exc)
+
+    # Fallback: bundled OpenFlights JSON
     try:
         with open(_AIRPORTS_JSON_PATH, encoding="utf-8") as fh:
             data = json.load(fh)
-        coords: Dict[str, Tuple[float, float]] = {}
+        coords = {}
         for entry in data:
             iata = (entry.get("iata") or "").strip().upper()
             lat = entry.get("latitude")
@@ -382,8 +405,11 @@ class SkyscannerProvider:
                     "departure_time": outbound_slice.get("departure_time", ""),
                     "arrival_time": outbound_slice.get("arrival_time", ""),
                     "gcd_distance": gc_km,
+                    "gcd_km": gc_km,
                     "efficiency_score": efficiency_score,
+                    "efficiency_pct": round(efficiency_score * 100, 2),
                     "co2_emissions_kg": co2_emissions_kg,
+                    "co2_kg": co2_emissions_kg,
                 }
             )
 
