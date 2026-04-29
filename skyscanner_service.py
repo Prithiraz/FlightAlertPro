@@ -1,62 +1,37 @@
-import json
 import logging
 import math
-import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
 import httpx
 
+try:
+    import airportsdata as _airportsdata
+    _AIRPORTSDATA_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _AIRPORTSDATA_AVAILABLE = False
+
 from config import config
 
 logger = logging.getLogger(__name__)
 
 # ── Airport coordinate lookup ────────────────────────────────────────────────
-_AIRPORTS_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "airports_openflights.json")
-
 
 def _load_airport_coords() -> Dict[str, Tuple[float, float]]:
-    """Load IATA → (latitude, longitude) mapping.
-
-    Primary source: the *airportsdata* library (DEFRA-aligned, kept up to date).
-    Fallback: the bundled airports_openflights.json file.
-    """
+    """Load IATA → (latitude, longitude) mapping using the airportsdata library."""
+    if not _AIRPORTSDATA_AVAILABLE:
+        logger.warning("airportsdata library not installed; GCD calculations will be skipped")
+        return {}
     try:
-        import airportsdata  # type: ignore[import]
-
-        db = airportsdata.load("IATA")
-        coords: Dict[str, Tuple[float, float]] = {}
-        for iata, entry in db.items():
-            lat = entry.get("lat")
-            lon = entry.get("lon")
-            if iata and lat is not None and lon is not None:
-                try:
-                    coords[iata.upper()] = (float(lat), float(lon))
-                except (TypeError, ValueError):
-                    pass
-        if coords:
-            return coords
+        airports = _airportsdata.load("IATA")
+        return {
+            iata.upper(): (float(info["lat"]), float(info["lon"]))
+            for iata, info in airports.items()
+            if info.get("lat") is not None and info.get("lon") is not None
+        }
     except Exception as exc:
-        logger.warning("airportsdata library unavailable, falling back to bundled JSON: %s", exc)
-
-    # Fallback: bundled OpenFlights JSON
-    try:
-        with open(_AIRPORTS_JSON_PATH, encoding="utf-8") as fh:
-            data = json.load(fh)
-        coords = {}
-        for entry in data:
-            iata = (entry.get("iata") or "").strip().upper()
-            lat = entry.get("latitude")
-            lon = entry.get("longitude")
-            if iata and lat is not None and lon is not None:
-                try:
-                    coords[iata] = (float(lat), float(lon))
-                except (TypeError, ValueError):
-                    pass
-        return coords
-    except Exception as exc:
-        logger.warning("Could not load airport coordinates: %s", exc)
+        logger.warning("Could not load airport coordinates from airportsdata: %s", exc)
         return {}
 
 
@@ -385,6 +360,7 @@ class SkyscannerProvider:
                 efficiency_score = round(1 / 1.1, 4)
                 co2_emissions_kg = None
 
+            efficiency_pct = round(efficiency_score * 100, 2)
             offers.append(
                 {
                     "id": itinerary.get("id") or f"skyscanner-{len(offers)}",
@@ -407,7 +383,7 @@ class SkyscannerProvider:
                     "gcd_distance": gc_km,
                     "gcd_km": gc_km,
                     "efficiency_score": efficiency_score,
-                    "efficiency_pct": round(efficiency_score * 100, 2),
+                    "efficiency_pct": efficiency_pct,
                     "co2_emissions_kg": co2_emissions_kg,
                     "co2_kg": co2_emissions_kg,
                 }
