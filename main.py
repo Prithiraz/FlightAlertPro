@@ -17,6 +17,7 @@ from currency_service import currency_service
 from prediction_service import prediction_service
 from notifications import notification_service
 from payments import payments_service
+from weather_service import get_density_altitude_data
 from worker import AlertWorker
 
 # Import new routes
@@ -176,6 +177,13 @@ async def search_flights_simple(request: SimpleSearchRequest):
         request.cabin_class,
     )
     all_offers = sorted(all_offers, key=lambda x: x.get('price', 999999))
+
+    # Aerospace Phase 2: enrich first leg's departure airport with
+    # density-altitude and takeoff performance risk data.
+    da_ft, risk_level = get_density_altitude_data(request.from_iata)
+    for offer in all_offers:
+        offer["density_altitude_ft"] = da_ft
+        offer["takeoff_risk_level"] = risk_level
 
     return {
         "results": all_offers,
