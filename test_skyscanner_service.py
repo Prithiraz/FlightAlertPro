@@ -491,6 +491,103 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(offers[0]["slices"][0]["origin_iata"], "LAX")
         self.assertEqual(offers[0]["slices"][1]["origin_iata"], "JFK")
 
+    # ── Data Contract: gcd_km / co2_kg / efficiency_pct ──────────────────────
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_data_contract_fields_present_known_iata(self):
+        """Every offer for a known IATA pair must expose gcd_km, co2_kg, efficiency_pct."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-dc",
+                        "outboundLegId": "leg-out",
+                        "pricingOptions": [{"price": {"amount": "350", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-10-01T09:00:00Z",
+                        "arrival": "2026-10-01T14:00:00Z",
+                        "durationInMinutes": 300,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Test Carrier", "iata": "TC"}],
+                "places": [
+                    {"id": "p1", "displayCode": "LAX"},
+                    {"id": "p2", "displayCode": "JFK"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        offer = offers[0]
+
+        # gcd_km must be present and equal to gcd_distance
+        self.assertIn("gcd_km", offer)
+        self.assertIsNotNone(offer["gcd_km"])
+        self.assertEqual(offer["gcd_km"], offer["gcd_distance"])
+
+        # co2_kg must be present and equal to co2_emissions_kg
+        self.assertIn("co2_kg", offer)
+        self.assertIsNotNone(offer["co2_kg"])
+        self.assertEqual(offer["co2_kg"], offer["co2_emissions_kg"])
+
+        # efficiency_pct must be present and equal to efficiency_score × 100
+        self.assertIn("efficiency_pct", offer)
+        self.assertIsInstance(offer["efficiency_pct"], float)
+        self.assertAlmostEqual(
+            offer["efficiency_pct"], round(offer["efficiency_score"] * 100, 2), places=4
+        )
+
+    def test_data_contract_fields_present_unknown_iata(self):
+        """Every offer, even with unknown IATA codes, exposes gcd_km, co2_kg, efficiency_pct."""
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-dc-unk",
+                        "outboundLegId": "leg-out",
+                        "pricingOptions": [{"price": {"amount": "100", "unit": "USD"}}],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-10-01T09:00:00Z",
+                        "arrival": "2026-10-01T11:00:00Z",
+                        "durationInMinutes": 120,
+                        "stopCount": 0,
+                        "carrierIds": ["c1"],
+                        "segments": [],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Ghost Air", "iata": "GA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "ZZZ"},
+                    {"id": "p2", "displayCode": "XXX"},
+                ],
+            }
+        }
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        offer = offers[0]
+
+        # gcd_km and co2_kg are None for unknown airports
+        self.assertIn("gcd_km", offer)
+        self.assertIsNone(offer["gcd_km"])
+        self.assertIn("co2_kg", offer)
+        self.assertIsNone(offer["co2_kg"])
+
+        # efficiency_pct is the fallback value × 100
+        self.assertIn("efficiency_pct", offer)
+        self.assertAlmostEqual(
+            offer["efficiency_pct"], round(offer["efficiency_score"] * 100, 2), places=4
+        )
