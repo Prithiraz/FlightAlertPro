@@ -193,12 +193,18 @@ class TestSkyscannerProvider(unittest.TestCase):
         offer = offers[0]
         self.assertIn("efficiency_score", offer)
         self.assertIn("gcd_distance", offer)
+        self.assertIn("gcd_km", offer)
+        self.assertIn("efficiency_pct", offer)
         self.assertIsInstance(offer["efficiency_score"], float)
         # LAX→JFK coords are known; efficiency = GCD / (GCD + 100).
         gcd = offer["gcd_distance"]
         self.assertIsNotNone(gcd)
         expected = round(gcd / (gcd + 100), 4)
         self.assertAlmostEqual(offer["efficiency_score"], expected, places=4)
+        # gcd_km is an alias for gcd_distance
+        self.assertEqual(offer["gcd_km"], gcd)
+        # efficiency_pct is efficiency_score * 100
+        self.assertAlmostEqual(offer["efficiency_pct"], round(expected * 100, 2), places=2)
         # Efficiency must be strictly less than 1 (route overhead > 0)
         self.assertLess(offer["efficiency_score"], 1.0)
 
@@ -239,6 +245,10 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertAlmostEqual(offer["efficiency_score"], round(1 / 1.1, 4), places=4)
         self.assertIsNone(offer["gcd_distance"])
         self.assertIsNone(offer["co2_emissions_kg"])
+        # Alias fields must also be present
+        self.assertIsNone(offer["gcd_km"])
+        self.assertIsNone(offer["co2_kg"])
+        self.assertAlmostEqual(offer["efficiency_pct"], round(round(1 / 1.1, 4) * 100, 2), places=2)
 
     # ── Carbon Footprint Engine ───────────────────────────────────────────────
 
@@ -299,12 +309,15 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(len(offers), 1)
         offer = offers[0]
         self.assertIn("co2_emissions_kg", offer)
+        self.assertIn("co2_kg", offer)
         self.assertIsNotNone(offer["co2_emissions_kg"])
         self.assertIsInstance(offer["co2_emissions_kg"], float)
         # LAX→JFK is ~3975 km (long-haul): 3975 × 0.11 × 1.9
         gcd = offer["gcd_distance"]
         expected_co2 = round(estimate_carbon_footprint(gcd), 2)
         self.assertAlmostEqual(offer["co2_emissions_kg"], expected_co2, places=2)
+        # co2_kg is an alias for co2_emissions_kg
+        self.assertEqual(offer["co2_kg"], offer["co2_emissions_kg"])
 
     # ── UTC standardisation ───────────────────────────────────────────────────
 
