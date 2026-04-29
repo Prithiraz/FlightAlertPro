@@ -181,6 +181,30 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
         </div>
       )}
 
+      {/* Aerospace Phase 2: Thermodynamic Performance Risk */}
+      {offer.density_altitude_ft != null && (
+        <div className="flex flex-wrap gap-2 mt-0.5">
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{ background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe' }}
+          >
+            🌡️ Density Alt: {Math.round(offer.density_altitude_ft).toLocaleString()} ft
+          </span>
+          {offer.takeoff_risk_level && offer.takeoff_risk_level !== 'LOW' && (
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={
+                offer.takeoff_risk_level === 'HIGH'
+                  ? { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }
+                  : { background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }
+              }
+            >
+              {offer.takeoff_risk_level === 'HIGH' ? '🔴' : '🟡'} Takeoff Risk: {offer.takeoff_risk_level}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="text-2xl font-bold mt-1" style={{ color: isHackerFare ? '#86efac' : '#16a34a' }}>
         {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
         {isHackerFare && offer.savings > 0 && (
