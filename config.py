@@ -47,6 +47,7 @@ def validate_env_vars() -> list[str]:
 
 
 class Config:
+    CHECKWX_API_KEY = os.getenv('CHECKWX_API_KEY')
     RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY')
     RAPIDAPI_HOST = os.getenv('RAPIDAPI_HOST', 'sky-scrapper.p.rapidapi.com')
     FLIGHTAPI_KEY = os.getenv('FLIGHTAPI_KEY')
