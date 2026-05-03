@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 # CheckWX free-tier base URL
 _CHECKWX_BASE_URL = "https://api.checkwx.com"
 
+# Conversion factor: hectopascals → inches of mercury
+_HPA_TO_INHG = 33.8639
+
 # Lazy-loaded airport lookup imported from metadata to avoid circular imports
 _airports_by_iata: Optional[Dict] = None
 
@@ -86,7 +89,7 @@ def get_metar_data(icao: str) -> Optional[Dict]:
             altimeter_in_hg = altimeter_entry.get("value")
             if altimeter_entry.get("unit") == "hPa":
                 # Convert hPa to inHg
-                altimeter_in_hg = float(altimeter_in_hg) / 33.8639
+                altimeter_in_hg = float(altimeter_in_hg) / _HPA_TO_INHG
         if altimeter_in_hg is None:
             logger.warning("Altimeter not found in METAR for %s", icao)
             return None
@@ -117,6 +120,8 @@ def calculate_density_altitude(
     --------
     Pressure Altitude (PA)  = Elevation + (29.92 - Altimeter) × 1000
     ISA Temperature (°C)    = 15 − (2 × Elevation / 1000)
+      (standard ISA lapse rate ~2 °C per 1 000 ft, valid below the tropopause
+       at approximately 36 089 ft)
     Density Altitude (DA)   = PA + 120 × (ActualTemp − ISATemp)
 
     Performance risk thresholds
