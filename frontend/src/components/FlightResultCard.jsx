@@ -212,6 +212,52 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
         </div>
       )}
 
+      {/* Aerodynamic Wind Component & ETA — Phase 3 */}
+      {offer.wind_component_kt != null && (
+        <div className="flex flex-wrap gap-2 mt-0.5">
+          <span
+            className="text-xs font-semibold px-2 py-0.5 rounded-full"
+            style={
+              offer.wind_type === 'tailwind'
+                ? { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }
+                : { background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }
+            }
+            title={
+              offer.wind_type === 'tailwind'
+                ? 'Tailwind component boosts ground speed above True Airspeed.'
+                : 'Headwind component reduces ground speed below True Airspeed.'
+            }
+          >
+            {offer.wind_type === 'tailwind'
+              ? `💨 +${offer.wind_component_kt.toFixed(0)}kt Tailwind (Boost)`
+              : `🌬️ −${Math.abs(offer.wind_component_kt).toFixed(0)}kt Headwind (Penalty)`}
+          </span>
+          {offer.wind_time_delta_min != null && (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-full"
+              style={
+                offer.wind_time_delta_min >= 0
+                  ? { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }
+                  : { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5' }
+              }
+            >
+              {offer.wind_time_delta_min >= 0
+                ? `⏱️ ${Math.abs(offer.wind_time_delta_min).toFixed(0)} min saved`
+                : `⏱️ +${Math.abs(offer.wind_time_delta_min).toFixed(0)} min penalty`}
+            </span>
+          )}
+          {offer.aerodynamic_arrival_time && (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-full"
+              style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+              title="Arrival time adjusted for wind component (aerodynamic ETA)."
+            >
+              🛬 Aero ETA: {new Date(offer.aerodynamic_arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="text-2xl font-bold mt-1" style={{ color: isHackerFare ? '#86efac' : '#16a34a' }}>
         {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
         {isHackerFare && offer.savings > 0 && (

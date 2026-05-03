@@ -1,7 +1,9 @@
-"""Weather service: fetches real-time METAR data and computes density altitude."""
+"""Weather service: fetches real-time METAR data, computes density altitude,
+and calculates aerodynamic wind components for cruise flight."""
 import logging
+import math
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import requests
 
@@ -12,6 +14,12 @@ _CHECKWX_BASE_URL = "https://api.checkwx.com"
 
 # Conversion factor: hectopascals → inches of mercury
 _HPA_TO_INHG = 33.8639
+
+# Aerodynamic performance constants
+_TAS_KT: float = 450.0          # Standard True Airspeed for commercial jets (knots)
+_CRUISE_ALT_FT: int = 30000     # Default cruise altitude: FL300
+_KM_PER_NM: float = 1.852       # Kilometres per nautical mile
+_EARTH_RADIUS_KM: float = 6371.0
 
 # Lazy-loaded airport lookup imported from metadata to avoid circular imports
 _airports_by_iata: Optional[Dict] = None
@@ -196,3 +204,208 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
     result["temperature_c"] = metar["temperature_c"]
     result["altimeter_in_hg"] = metar["altimeter_in_hg"]
     return result
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Aerodynamic Performance & Dynamic ETA
+# ---------------------------------------------------------------------------
+
+def _calculate_true_course(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the initial true bearing (degrees, 0–360) from point 1 to point 2.
+
+    Uses the standard forward-azimuth formula on a spherical Earth.
+    """
+    lat1_r = math.radians(lat1)
+    lat2_r = math.radians(lat2)
+    delta_lon = math.radians(lon2 - lon1)
+
+    x = math.sin(delta_lon) * math.cos(lat2_r)
+    y = math.cos(lat1_r) * math.sin(lat2_r) - math.sin(lat1_r) * math.cos(lat2_r) * math.cos(delta_lon)
+    bearing = (math.degrees(math.atan2(x, y)) + 360) % 360
+    return bearing
+
+
+def get_winds_aloft(
+    from_icao: str,
+    altitude_ft: int = _CRUISE_ALT_FT,
+) -> Optional[Dict]:
+    """Fetch forecast wind data from the CheckWX TAF endpoint.
+
+    .. note::
+        TAF (Terminal Aerodrome Forecast) data describes wind conditions at
+        the terminal area (typically surface to a few thousand feet AGL) and
+        does not represent true winds-aloft at cruise altitude (FL300).  It is
+        used here as an accessible proxy via the existing CheckWX API key.  The
+        ``altitude_ft`` parameter is stored in the returned dict for reference
+        and to allow callers to log the intended cruise altitude, but the wind
+        direction and speed values themselves come from the TAF surface forecast.
+
+    Returns a dict with ``wind_direction_deg``, ``wind_speed_kt``, and
+    ``altitude_ft``, or *None* when the API is unavailable.
+    """
+    api_key = _get_api_key()
+    if not api_key:
+        logger.debug("CHECKWX_API_KEY not configured; skipping winds aloft for %s", from_icao)
+        return None
+
+    icao = from_icao.upper().strip()
+    url = f"{_CHECKWX_BASE_URL}/taf/{icao}/decoded"
+    try:
+        resp = requests.get(
+            url,
+            headers={"X-API-Key": api_key},
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            logger.warning(
+                "CheckWX TAF returned %s for ICAO %s: %s",
+                resp.status_code, icao, resp.text[:200],
+            )
+            return None
+
+        payload = resp.json()
+        results = payload.get("data", [])
+        if not results:
+            logger.warning("No TAF data returned for ICAO %s", icao)
+            return None
+
+        # Use the first available forecast period
+        forecasts = results[0].get("forecast", [])
+        if not forecasts:
+            return None
+
+        wind = forecasts[0].get("wind") or {}
+        if not isinstance(wind, dict):
+            return None
+
+        wind_dir = wind.get("direction")
+        wind_speed = wind.get("speed_kts") or wind.get("speed")
+
+        if wind_dir is None or wind_speed is None:
+            return None
+
+        return {
+            "wind_direction_deg": float(wind_dir),
+            "wind_speed_kt": float(wind_speed),
+            "altitude_ft": altitude_ft,
+            "source": "checkwx_taf",
+            "icao": icao,
+        }
+
+    except requests.exceptions.Timeout:
+        logger.warning("CheckWX TAF API timed out for ICAO %s", icao)
+        return None
+    except Exception as exc:
+        logger.error("Error fetching winds aloft for ICAO %s: %s", icao, exc)
+        return None
+
+
+def calculate_wind_component(
+    wind_dir_deg: float,
+    wind_speed_kt: float,
+    true_course_deg: float,
+) -> Dict:
+    """Solve the wind triangle and return the headwind / tailwind component.
+
+    Uses the Law of Cosines projection:
+
+        wind_component = -V_wind × cos(WindDir − Course)
+
+    A positive value indicates a **tailwind** (ground speed > TAS);
+    a negative value indicates a **headwind** (ground speed < TAS).
+
+    Parameters
+    ----------
+    wind_dir_deg : float
+        Meteorological wind direction – the direction the wind is blowing
+        *from*, in degrees true (0–360).
+    wind_speed_kt : float
+        Wind speed in knots.
+    true_course_deg : float
+        True course from origin to destination in degrees (0–360).
+
+    Returns
+    -------
+    dict
+        ``wind_component_kt``  – tailwind (+) or headwind (−) in knots.
+        ``ground_speed_kt``    – effective ground speed in knots.
+        ``wind_type``          – ``"tailwind"`` or ``"headwind"``.
+    """
+    # Wind direction is meteorological convention: the direction the wind blows FROM.
+    # The component along the course is: −V_wind × cos(WindDir − Course).
+    # A positive result means the wind is helping (tailwind); negative means opposing (headwind).
+    angle_diff = math.radians(wind_dir_deg - true_course_deg)
+    wind_component_kt = round(-wind_speed_kt * math.cos(angle_diff), 1)
+    ground_speed_kt = max(_TAS_KT + wind_component_kt, 1.0)  # guard against zero/negative GS
+
+    return {
+        "wind_component_kt": wind_component_kt,
+        "ground_speed_kt": round(ground_speed_kt, 1),
+        "wind_type": "tailwind" if wind_component_kt >= 0 else "headwind",
+    }
+
+
+def get_aerodynamic_performance(
+    from_iata: str,
+    to_iata: str,
+    altitude_ft: int = _CRUISE_ALT_FT,
+) -> Optional[Dict]:
+    """High-level function: compute the wind component and aerodynamic ETA adjustment.
+
+    1. Looks up lat/lon for both airports.
+    2. Calculates the true course bearing.
+    3. Fetches winds aloft from CheckWX TAF for the departure airport.
+    4. Solves the wind triangle to get head/tailwind component and ground speed.
+
+    Returns a dict with wind and ground-speed data, or *None* when any
+    required input is unavailable.
+    """
+    from_iata = from_iata.upper().strip()
+    to_iata = to_iata.upper().strip()
+    airports = _get_airports_by_iata()
+
+    origin = airports.get(from_iata)
+    destination = airports.get(to_iata)
+
+    if not origin or not destination:
+        logger.warning(
+            "aerodynamic_performance: airport(s) not found: %s / %s", from_iata, to_iata
+        )
+        return None
+
+    lat1 = origin.get("latitude")
+    lon1 = origin.get("longitude")
+    lat2 = destination.get("latitude")
+    lon2 = destination.get("longitude")
+
+    if None in (lat1, lon1, lat2, lon2):
+        logger.warning("aerodynamic_performance: missing coordinates for %s or %s", from_iata, to_iata)
+        return None
+
+    true_course = _calculate_true_course(float(lat1), float(lon1), float(lat2), float(lon2))
+
+    origin_icao: Optional[str] = origin.get("icao")
+    if not origin_icao:
+        logger.warning("aerodynamic_performance: no ICAO code for %s", from_iata)
+        return None
+
+    wind = get_winds_aloft(origin_icao, altitude_ft=altitude_ft)
+    if not wind:
+        return None
+
+    components = calculate_wind_component(
+        wind_dir_deg=wind["wind_direction_deg"],
+        wind_speed_kt=wind["wind_speed_kt"],
+        true_course_deg=true_course,
+    )
+
+    return {
+        "from_iata": from_iata,
+        "to_iata": to_iata,
+        "true_course_deg": round(true_course, 1),
+        "wind_direction_deg": wind["wind_direction_deg"],
+        "wind_speed_kt": wind["wind_speed_kt"],
+        "altitude_ft": altitude_ft,
+        "tas_kt": _TAS_KT,
+        **components,
+    }
