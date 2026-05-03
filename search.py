@@ -17,7 +17,7 @@ from amadeus_service import amadeus_service
 from skyscanner_service import skyscanner_provider
 from config import config
 from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
-from weather_service import get_departure_performance
+from weather_service import get_departure_performance, get_aerodynamic_performance, _TAS_KT, _KM_PER_NM
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +228,72 @@ def _enrich_offers_with_density_altitude(offers: list, from_iata: str) -> list:
     for offer in offers:
         offer["density_altitude_ft"] = da_ft
         offer["takeoff_risk_level"] = risk
+
+    return offers
+
+
+def _enrich_offers_with_wind_component(offers: list, from_iata: str, to_iata: str) -> list:
+    """Add wind component, ground speed, and aerodynamic ETA fields to each offer.
+
+    Fetches winds aloft via CheckWX TAF for the departure airport, solves the
+    wind triangle for the true course, and stamps every offer with:
+
+    - ``wind_component_kt``     – tailwind (+) or headwind (−) in knots
+    - ``ground_speed_kt``       – effective ground speed in knots
+    - ``wind_type``             – ``"tailwind"`` or ``"headwind"``
+    - ``wind_time_delta_min``   – minutes saved (positive) or lost (negative)
+    - ``aerodynamic_arrival_time`` – ISO-8601 adjusted arrival time (when calculable)
+
+    Gracefully no-ops when the weather service is unavailable.
+    """
+    try:
+        aero = get_aerodynamic_performance(from_iata, to_iata)
+    except Exception as exc:
+        logger.warning("Wind component calculation failed for %s→%s: %s", from_iata, to_iata, exc)
+        aero = None
+
+    if not aero:
+        return offers
+
+    wind_component_kt: float = aero["wind_component_kt"]
+    ground_speed_kt: float = aero["ground_speed_kt"]
+    wind_type: str = aero["wind_type"]
+
+    for offer in offers:
+        offer["wind_component_kt"] = wind_component_kt
+        offer["ground_speed_kt"] = ground_speed_kt
+        offer["wind_type"] = wind_type
+
+        # Calculate time delta using GCD distance when available
+        gcd_km = offer.get("gcd_distance")
+        if gcd_km and gcd_km > 0:
+            distance_nm = gcd_km / _KM_PER_NM
+            baseline_hrs = distance_nm / _TAS_KT
+            aero_hrs = distance_nm / ground_speed_kt
+            delta_min = round((baseline_hrs - aero_hrs) * 60, 1)  # positive = time saved
+            offer["wind_time_delta_min"] = delta_min
+
+            # Adjust arrival time when available
+            arrival_raw = offer.get("arrival_time") or offer.get("arrival")
+            if arrival_raw:
+                try:
+                    from datetime import datetime, timedelta, timezone
+                    # Parse ISO-8601 (with or without timezone)
+                    try:
+                        arr_dt = datetime.fromisoformat(arrival_raw.replace("Z", "+00:00"))
+                    except ValueError:
+                        if len(arrival_raw) >= 19:
+                            arr_dt = datetime.strptime(arrival_raw[:19], "%Y-%m-%dT%H:%M:%S").replace(
+                                tzinfo=timezone.utc
+                            )
+                        else:
+                            raise
+                    adjusted = arr_dt - timedelta(minutes=delta_min)
+                    offer["aerodynamic_arrival_time"] = adjusted.isoformat()
+                except Exception:
+                    pass
+        else:
+            offer["wind_time_delta_min"] = None
 
     return offers
 
@@ -633,6 +699,7 @@ async def search_flights(request: SearchRequest):
     filtered_offers.sort(key=lambda item: float(item.get("price", 0) or 0))
     enriched_offers = _inject_points_valuation(filtered_offers[:50])
     enriched_offers = _enrich_offers_with_density_altitude(enriched_offers, segment.from_iata)
+    enriched_offers = _enrich_offers_with_wind_component(enriched_offers, segment.from_iata, segment.to_iata)
 
     # Force currency conversion via Frankfurter API
     import requests
