@@ -17,6 +17,7 @@ from amadeus_service import amadeus_service
 from skyscanner_service import skyscanner_provider
 from config import config
 from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
+from weather_service import get_departure_performance
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,8 @@ class FlightOffer(BaseModel):
     is_error_fare: bool = False
     ai_advice: Optional[str] = None
     ai_action: Optional[str] = None  # 'BUY NOW' or 'WAIT'
+    density_altitude_ft: Optional[float] = None
+    takeoff_risk_level: Optional[str] = None  # 'LOW', 'MODERATE', or 'HIGH'
 
 def _get_route_14day_average(from_iata: str, to_iata: str):
     """Return (average_price, history_list) from price_history_logs over the last 14 days.
@@ -202,6 +205,29 @@ def _enrich_offers_with_market_insights(
             offer['ai_advice'] = advice['reason']
         else:
             offer['is_error_fare'] = False
+
+    return offers
+
+
+def _enrich_offers_with_density_altitude(offers: list, from_iata: str) -> list:
+    """Add ``density_altitude_ft`` and ``takeoff_risk_level`` to each offer dict.
+
+    Fetches real-time METAR for the departure airport once and stamps every
+    offer with the same computed values.  Gracefully no-ops when the
+    weather service is unavailable (CHECKWX_API_KEY not set or API error).
+    """
+    try:
+        perf = get_departure_performance(from_iata)
+    except Exception as exc:
+        logger.warning("Density altitude calculation failed for %s: %s", from_iata, exc)
+        perf = None
+
+    da_ft = perf["density_altitude_ft"] if perf else None
+    risk = perf["takeoff_risk_level"] if perf else None
+
+    for offer in offers:
+        offer["density_altitude_ft"] = da_ft
+        offer["takeoff_risk_level"] = risk
 
     return offers
 
@@ -606,8 +632,8 @@ async def search_flights(request: SearchRequest):
 
     filtered_offers.sort(key=lambda item: float(item.get("price", 0) or 0))
     enriched_offers = _inject_points_valuation(filtered_offers[:50])
+    enriched_offers = _enrich_offers_with_density_altitude(enriched_offers, segment.from_iata)
 
-    # Force currency conversion via Frankfurter API
     # Force currency conversion via Frankfurter API
     import requests
     target_currency = request.currency.upper()

@@ -423,6 +423,34 @@ export default function Search() {
                     )}
                   </div>
                 </div>
+                {/* Density Altitude / Takeoff Performance Risk */}
+                {offer.density_altitude_ft != null && offer.takeoff_risk_level && (
+                  <div style={styles.daRow}>
+                    <span style={styles.daLabel}>✈️ Departure Performance Risk</span>
+                    <span style={styles.daValue}>
+                      Density Altitude: <strong>{Math.round(offer.density_altitude_ft).toLocaleString()} ft</strong>
+                    </span>
+                    <span style={{
+                      ...styles.daBadge,
+                      backgroundColor:
+                        offer.takeoff_risk_level === 'HIGH' ? '#fef2f2' :
+                        offer.takeoff_risk_level === 'MODERATE' ? '#fffbeb' :
+                        '#f0fdf4',
+                      color:
+                        offer.takeoff_risk_level === 'HIGH' ? '#dc2626' :
+                        offer.takeoff_risk_level === 'MODERATE' ? '#d97706' :
+                        '#16a34a',
+                      borderColor:
+                        offer.takeoff_risk_level === 'HIGH' ? '#fca5a5' :
+                        offer.takeoff_risk_level === 'MODERATE' ? '#fcd34d' :
+                        '#86efac',
+                    }}>
+                      {offer.takeoff_risk_level === 'HIGH' ? '🔴' :
+                       offer.takeoff_risk_level === 'MODERATE' ? '🟡' : '🟢'}{' '}
+                      {offer.takeoff_risk_level}
+                    </span>
+                  </div>
+                )}
               </div>
             );
 
@@ -508,5 +536,29 @@ const styles = {
     fontWeight: '700',
     fontSize: '0.9rem',
     textDecoration: 'none',
+  },
+  daRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    flexWrap: 'wrap',
+    borderTop: '1px solid #f1f5f9',
+    paddingTop: '0.75rem',
+    fontSize: '0.82rem',
+    color: '#475569',
+  },
+  daLabel: { fontWeight: '600', color: '#334155' },
+  daValue: { color: '#475569' },
+  daBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    padding: '0.2rem 0.6rem',
+    borderRadius: '9999px',
+    border: '1px solid',
+    fontWeight: '700',
+    fontSize: '0.78rem',
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
   },
 };
