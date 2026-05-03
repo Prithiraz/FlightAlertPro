@@ -181,11 +181,16 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
     if not metar:
         return None
 
-    result = calculate_density_altitude(
-        elevation_ft=float(elevation_ft),
-        temp_c=metar["temperature_c"],
-        altimeter_in_hg=metar["altimeter_in_hg"],
-    )
+    try:
+        result = calculate_density_altitude(
+            elevation_ft=float(elevation_ft),
+            temp_c=metar["temperature_c"],
+            altimeter_in_hg=metar["altimeter_in_hg"],
+        )
+    except (TypeError, ValueError, ArithmeticError) as exc:
+        logger.error("Density altitude calculation failed for %s: %s", iata, exc)
+        return None
+
     result["iata"] = iata
     result["icao"] = icao
     result["temperature_c"] = metar["temperature_c"]

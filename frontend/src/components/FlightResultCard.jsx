@@ -181,6 +181,37 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
         </div>
       )}
 
+      {/* Thermodynamic Performance Risk — only shown when takeoff_risk_level is available */}
+      {offer.takeoff_risk_level !== null && offer.takeoff_risk_level !== undefined && (
+        <div className="flex flex-wrap gap-2 mt-0.5">
+          {offer.density_altitude_ft !== null && offer.density_altitude_ft !== undefined && (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-full cursor-help"
+              style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
+              title="Density Altitude is a measure of air density. High values mean thinner air, which significantly reduces engine thrust and wing lift, potentially leading to weight restrictions or takeoff delays."
+            >
+              ✈️ DA: {Math.round(offer.density_altitude_ft).toLocaleString()} ft
+            </span>
+          )}
+          {offer.takeoff_risk_level === 'MODERATE' && (
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d' }}
+            >
+              ⚠️ Moderate Takeoff Risk
+            </span>
+          )}
+          {offer.takeoff_risk_level === 'HIGH' && (
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
+            >
+              🔥 High Performance Risk
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="text-2xl font-bold mt-1" style={{ color: isHackerFare ? '#86efac' : '#16a34a' }}>
         {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
         {isHackerFare && offer.savings > 0 && (
