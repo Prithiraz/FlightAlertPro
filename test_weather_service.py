@@ -8,8 +8,67 @@ from weather_service import (
     calculate_wind_component,
     get_aerodynamic_performance,
     get_winds_aloft,
+    iata_to_icao,
+    iata_to_airport_info,
     _TAS_KT,
 )
+
+
+class TestIataToIcao(unittest.TestCase):
+    """Unit tests for iata_to_icao()."""
+
+    def test_known_airport_returns_icao(self):
+        # LHR → EGLL is a well-known mapping in airportsdata
+        icao = iata_to_icao("LHR")
+        self.assertEqual(icao, "EGLL")
+
+    def test_case_insensitive(self):
+        self.assertEqual(iata_to_icao("lhr"), iata_to_icao("LHR"))
+
+    def test_unknown_code_returns_iata_fallback(self):
+        # An unlikely made-up code should fall back to itself
+        result = iata_to_icao("ZZZ")
+        self.assertEqual(result, "ZZZ")
+
+    def test_returns_uppercase(self):
+        result = iata_to_icao("jfk")
+        self.assertTrue(result.isupper(), f"Expected uppercase, got {result}")
+
+    def test_airportsdata_failure_returns_iata(self):
+        with patch("weather_service._get_airportsdata", return_value={}):
+            result = iata_to_icao("LHR")
+        self.assertEqual(result, "LHR")
+
+
+class TestIataToAirportInfo(unittest.TestCase):
+    """Unit tests for iata_to_airport_info()."""
+
+    def test_known_airport_has_name_city_country(self):
+        info = iata_to_airport_info("LHR")
+        self.assertIn("name", info)
+        self.assertIn("city", info)
+        self.assertIn("country", info)
+        self.assertIn("Heathrow", info["name"])
+        self.assertEqual(info["city"], "London")
+        self.assertEqual(info["country"], "GB")
+
+    def test_unknown_code_returns_defaults(self):
+        info = iata_to_airport_info("ZZZ")
+        self.assertEqual(info["name"], "ZZZ")
+        self.assertEqual(info["city"], "Unknown City")
+        self.assertEqual(info["country"], "Unknown")
+
+    def test_airportsdata_failure_returns_defaults(self):
+        with patch("weather_service._get_airportsdata", return_value={}):
+            info = iata_to_airport_info("JFK")
+        self.assertEqual(info["name"], "JFK")
+        self.assertEqual(info["city"], "Unknown City")
+        self.assertEqual(info["country"], "Unknown")
+
+    def test_case_insensitive(self):
+        info_upper = iata_to_airport_info("JFK")
+        info_lower = iata_to_airport_info("jfk")
+        self.assertEqual(info_upper["name"], info_lower["name"])
 
 
 class TestCalculateTrueCourse(unittest.TestCase):

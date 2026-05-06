@@ -24,6 +24,81 @@ _EARTH_RADIUS_KM: float = 6371.0
 # Lazy-loaded airport lookup imported from metadata to avoid circular imports
 _airports_by_iata: Optional[Dict] = None
 
+# Lazy-loaded airportsdata IATA index (loaded once per process)
+_airportsdata_by_iata: Optional[Dict] = None
+
+
+def _get_airportsdata() -> Dict:
+    """Return the airportsdata IATA index, loading it lazily."""
+    global _airportsdata_by_iata
+    if _airportsdata_by_iata is None:
+        try:
+            import airportsdata
+            _airportsdata_by_iata = airportsdata.load("IATA")
+        except Exception as exc:
+            logger.warning("weather_service: could not load airportsdata: %s", exc)
+            _airportsdata_by_iata = {}
+    return _airportsdata_by_iata
+
+
+def iata_to_icao(iata: str) -> str:
+    """Convert an IATA airport code to its 4-letter ICAO code.
+
+    Falls back to the original IATA code when the library has no entry for it,
+    so callers always receive a non-empty string.
+
+    Parameters
+    ----------
+    iata : str
+        3-letter IATA airport code (case-insensitive).
+
+    Returns
+    -------
+    str
+        4-letter ICAO code, or *iata* when no mapping is found.
+    """
+    iata_upper = iata.upper().strip()
+    airports = _get_airportsdata()
+    airport = airports.get(iata_upper)
+    if airport:
+        icao = airport.get("icao")
+        if icao:
+            return str(icao).upper()
+    logger.debug("weather_service.iata_to_icao: no ICAO found for %s, using IATA as fallback", iata_upper)
+    return iata_upper
+
+
+def iata_to_airport_info(iata: str) -> Dict:
+    """Resolve an IATA code to a dict with Full Airport Name, City, and Country.
+
+    Always returns a dict with ``name``, ``city``, and ``country`` keys.
+    Falls back to the IATA code and 'Unknown City' / 'Unknown' when the
+    library cannot locate the airport, so callers never receive ``None``.
+
+    Parameters
+    ----------
+    iata : str
+        3-letter IATA airport code (case-insensitive).
+
+    Returns
+    -------
+    dict
+        ``name``    – Full airport name (e.g. "London Heathrow Airport").
+        ``city``    – City name (e.g. "London").
+        ``country`` – ISO 3166-1 alpha-2 country code (e.g. "GB").
+    """
+    iata_upper = iata.upper().strip()
+    airports = _get_airportsdata()
+    airport = airports.get(iata_upper)
+    if airport:
+        return {
+            "name": airport.get("name") or iata_upper,
+            "city": airport.get("city") or "Unknown City",
+            "country": airport.get("country") or "Unknown",
+        }
+    logger.debug("weather_service.iata_to_airport_info: no entry for %s, returning defaults", iata_upper)
+    return {"name": iata_upper, "city": "Unknown City", "country": "Unknown"}
+
 
 def _get_airports_by_iata() -> Dict:
     """Return the AIRPORTS_BY_IATA index, loading it lazily."""
@@ -163,24 +238,37 @@ def calculate_density_altitude(
 def get_departure_performance(iata: str) -> Optional[Dict]:
     """High-level function: look up airport, fetch METAR, compute density altitude.
 
+    Uses the airportsdata library as the primary source for the IATA→ICAO
+    translation.  Falls back to the internal OpenFlights metadata index when
+    airportsdata has no entry.
+
     Returns a dict containing ``density_altitude_ft`` and ``takeoff_risk_level``
     (and supporting data), or *None* when any required input is unavailable.
     """
     iata = iata.upper().strip()
+
+    # Primary ICAO lookup via airportsdata
+    icao: Optional[str] = None
+    ad_airports = _get_airportsdata()
+    ad_entry = ad_airports.get(iata)
+    if ad_entry:
+        icao = ad_entry.get("icao") or None
+
+    # Fall back to internal metadata for ICAO and elevation
     airports = _get_airports_by_iata()
     airport = airports.get(iata)
 
-    if not airport:
-        logger.warning("weather_service: airport %s not found in metadata", iata)
-        return None
-
-    icao: Optional[str] = airport.get("icao")
-    elevation_ft = airport.get("altitude")  # OpenFlights stores altitude in feet
+    if not icao:
+        if not airport:
+            logger.warning("weather_service: airport %s not found in metadata", iata)
+            return None
+        icao = airport.get("icao")
 
     if not icao:
         logger.warning("weather_service: no ICAO code for airport %s", iata)
         return None
 
+    elevation_ft = airport.get("altitude") if airport else None  # OpenFlights stores altitude in feet
     if elevation_ft is None:
         logger.warning("weather_service: no elevation for airport %s", iata)
         return None
@@ -352,10 +440,11 @@ def get_aerodynamic_performance(
 ) -> Optional[Dict]:
     """High-level function: compute the wind component and aerodynamic ETA adjustment.
 
-    1. Looks up lat/lon for both airports.
-    2. Calculates the true course bearing.
-    3. Fetches winds aloft from CheckWX TAF for the departure airport.
-    4. Solves the wind triangle to get head/tailwind component and ground speed.
+    1. Looks up lat/lon for both airports (internal metadata index).
+    2. Resolves the departure ICAO code via airportsdata (falls back to metadata).
+    3. Calculates the true course bearing.
+    4. Fetches winds aloft from CheckWX TAF for the departure airport.
+    5. Solves the wind triangle to get head/tailwind component and ground speed.
 
     Returns a dict with wind and ground-speed data, or *None* when any
     required input is unavailable.
@@ -384,7 +473,13 @@ def get_aerodynamic_performance(
 
     true_course = _calculate_true_course(float(lat1), float(lon1), float(lat2), float(lon2))
 
-    origin_icao: Optional[str] = origin.get("icao")
+    # Prefer airportsdata for ICAO, fall back to internal metadata
+    origin_icao: Optional[str] = iata_to_icao(from_iata)
+    # iata_to_icao returns the IATA code itself when not found in airportsdata,
+    # so additionally check the metadata index as a secondary source.
+    if origin_icao == from_iata:
+        origin_icao = origin.get("icao") or origin_icao
+
     if not origin_icao:
         logger.warning("aerodynamic_performance: no ICAO code for %s", from_iata)
         return None

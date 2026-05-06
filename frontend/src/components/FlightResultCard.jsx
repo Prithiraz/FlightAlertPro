@@ -1,5 +1,5 @@
 import { buildHotelUrl } from '../lib/hotelAffiliate';
-import { canUseWindVectors, canUseSustainabilityAudit, canUseThermodynamicRisk } from '../utils/tierLimits';
+import { canUseWindVectors, canUseSustainabilityAudit, canUseThermodynamicRisk, hasMinTier } from '../utils/tierLimits';
 
 export default function FlightResultCard({ offer, cabinClass, onCreateAlert, subscriptionTier }) {
   const destination = offer.to_iata || '';
@@ -10,13 +10,17 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
       : '';
   const hotelUrl = buildHotelUrl(destination, checkinDate);
 
+  // current_tier is mocked as 'free' when no subscriptionTier is provided
   const tier = subscriptionTier || 'free';
   const hasAiAccess = tier === 'elite' || tier === 'business';
   const hasEliteAccess = tier === 'elite' || tier === 'business';
   const hasPointsAccess = tier === 'elite' || tier === 'business';
-  const hasWindAccess = canUseWindVectors(tier);
-  const hasSustainabilityAccess = canUseSustainabilityAudit(tier);
-  const hasThermodynamicAccess = canUseThermodynamicRisk(tier);
+
+  // Use offer.tier_requirements when available, otherwise fall back to hard-coded limits
+  const tierReqs = offer.tier_requirements || {};
+  const hasWindAccess = hasMinTier(tier, tierReqs.wind_component || 'pro') && canUseWindVectors(tier);
+  const hasSustainabilityAccess = hasMinTier(tier, tierReqs.efficiency_score || 'elite') && canUseSustainabilityAudit(tier);
+  const hasThermodynamicAccess = hasMinTier(tier, tierReqs.density_altitude || 'business') && canUseThermodynamicRisk(tier);
   const isErrorFare = Boolean(offer.is_error_fare);
   const isHackerFare = Boolean(offer.is_hacker_fare);
 
@@ -75,6 +79,25 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
         <span style={{ color: '#9ca3af' }}>→</span>
         <span style={{ color: isHackerFare ? '#c084fc' : '#1d4ed8' }}>{offer.to_iata}</span>
       </div>
+      {(offer.from_airport_name || offer.to_airport_name) && (
+        <div className="text-xs text-gray-400 mt-0.5">
+          {offer.from_airport_name && (
+            <span title={`${offer.from_airport_city}, ${offer.from_airport_country}`}>
+              {offer.from_airport_name}
+              {offer.from_airport_city && ` · ${offer.from_airport_city}`}
+              {offer.from_airport_country && ` (${offer.from_airport_country})`}
+            </span>
+          )}
+          {offer.from_airport_name && offer.to_airport_name && <span className="mx-1">→</span>}
+          {offer.to_airport_name && (
+            <span title={`${offer.to_airport_city}, ${offer.to_airport_country}`}>
+              {offer.to_airport_name}
+              {offer.to_airport_city && ` · ${offer.to_airport_city}`}
+              {offer.to_airport_country && ` (${offer.to_airport_country})`}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Hacker Fare: two-ticket display */}
       {isHackerFare ? (

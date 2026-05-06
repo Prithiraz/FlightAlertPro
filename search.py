@@ -17,7 +17,7 @@ from amadeus_service import amadeus_service
 from skyscanner_service import skyscanner_provider
 from config import config
 from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
-from weather_service import get_departure_performance, get_aerodynamic_performance, _TAS_KT, _KM_PER_NM
+from weather_service import get_departure_performance, get_aerodynamic_performance, _TAS_KT, _KM_PER_NM, iata_to_airport_info
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +294,54 @@ def _enrich_offers_with_wind_component(offers: list, from_iata: str, to_iata: st
                     pass
         else:
             offer["wind_time_delta_min"] = None
+
+    return offers
+
+
+# Tier requirements for aerospace data points.
+# Maps offer field names to the minimum subscription tier required to see them.
+TIER_REQUIREMENTS: Dict[str, str] = {
+    "wind_component": "pro",
+    "aero_eta": "pro",
+    "efficiency_score": "elite",
+    "co2_kg": "elite",
+    "density_altitude": "business",
+    "takeoff_risk": "business",
+}
+
+
+def _stamp_tier_requirements(offers: list) -> list:
+    """Attach a ``tier_requirements`` dict to every offer.
+
+    The dict maps each gated data-point name to the minimum subscription tier
+    a user must hold to see it, enabling the frontend to gate display
+    dynamically without hard-coding tier names.
+    """
+    for offer in offers:
+        offer["tier_requirements"] = dict(TIER_REQUIREMENTS)
+    return offers
+
+
+def _enrich_offers_with_airport_info(offers: list, from_iata: str, to_iata: str) -> list:
+    """Resolve IATA codes to Full Airport Name, City, and Country via airportsdata.
+
+    Stamps each offer with:
+    - ``from_airport_name``, ``from_airport_city``, ``from_airport_country``
+    - ``to_airport_name``, ``to_airport_city``, ``to_airport_country``
+
+    Gracefully falls back to the IATA code / 'Unknown City' when the library
+    has no entry for either airport.
+    """
+    from_info = iata_to_airport_info(from_iata)
+    to_info = iata_to_airport_info(to_iata)
+
+    for offer in offers:
+        offer["from_airport_name"] = from_info["name"]
+        offer["from_airport_city"] = from_info["city"]
+        offer["from_airport_country"] = from_info["country"]
+        offer["to_airport_name"] = to_info["name"]
+        offer["to_airport_city"] = to_info["city"]
+        offer["to_airport_country"] = to_info["country"]
 
     return offers
 
@@ -700,6 +748,8 @@ async def search_flights(request: SearchRequest):
     enriched_offers = _inject_points_valuation(filtered_offers[:50])
     enriched_offers = _enrich_offers_with_density_altitude(enriched_offers, segment.from_iata)
     enriched_offers = _enrich_offers_with_wind_component(enriched_offers, segment.from_iata, segment.to_iata)
+    enriched_offers = _enrich_offers_with_airport_info(enriched_offers, segment.from_iata, segment.to_iata)
+    enriched_offers = _stamp_tier_requirements(enriched_offers)
 
     # Force currency conversion via Frankfurter API
     import requests
