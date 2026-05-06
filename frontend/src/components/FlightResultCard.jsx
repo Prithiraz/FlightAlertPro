@@ -1,4 +1,5 @@
 import { buildHotelUrl } from '../lib/hotelAffiliate';
+import { canUseWindVectors, canUseSustainabilityAudit, canUseThermodynamicRisk } from '../utils/tierLimits';
 
 export default function FlightResultCard({ offer, cabinClass, onCreateAlert, subscriptionTier }) {
   const destination = offer.to_iata || '';
@@ -13,6 +14,9 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
   const hasAiAccess = tier === 'elite' || tier === 'business';
   const hasEliteAccess = tier === 'elite' || tier === 'business';
   const hasPointsAccess = tier === 'elite' || tier === 'business';
+  const hasWindAccess = canUseWindVectors(tier);
+  const hasSustainabilityAccess = canUseSustainabilityAudit(tier);
+  const hasThermodynamicAccess = canUseThermodynamicRisk(tier);
   const isErrorFare = Boolean(offer.is_error_fare);
   const isHackerFare = Boolean(offer.is_hacker_fare);
 
@@ -151,7 +155,7 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
         </div>
       )}
 
-      {/* Aerospace metrics: distance, efficiency, carbon footprint */}
+      {/* Aerospace metrics: distance (free), efficiency + carbon footprint (Elite+) */}
       {(offer.gcd_distance != null || offer.efficiency_score != null || offer.co2_emissions_kg != null) && (
         <div className="flex flex-wrap gap-2 mt-0.5">
           {offer.gcd_distance != null && (
@@ -162,27 +166,48 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
               📍 {Math.round(offer.gcd_distance).toLocaleString()} km GCD
             </span>
           )}
-          {offer.efficiency_score != null && (
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
-            >
-              ⚡ {(Number(offer.efficiency_score) * 100).toFixed(1)}% Route Efficiency
-            </span>
-          )}
-          {offer.co2_emissions_kg != null && (
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ background: '#fefce8', color: '#854d0e', border: '1px solid #fde68a' }}
-            >
-              🌿 {Math.round(offer.co2_emissions_kg).toLocaleString()} kg CO₂
+          {hasSustainabilityAccess ? (
+            <>
+              {offer.efficiency_score != null && (
+                <span
+                  className="text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+                >
+                  ⚡ {(Number(offer.efficiency_score) * 100).toFixed(1)}% Route Efficiency
+                </span>
+              )}
+              {offer.co2_emissions_kg != null && (
+                <span
+                  className="text-xs font-medium px-2 py-0.5 rounded-full"
+                  style={{ background: '#fefce8', color: '#854d0e', border: '1px solid #fde68a' }}
+                >
+                  🌿 {Math.round(offer.co2_emissions_kg).toLocaleString()} kg CO₂
+                </span>
+              )}
+            </>
+          ) : (offer.efficiency_score != null || offer.co2_emissions_kg != null) && (
+            <span className="relative inline-flex items-center">
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+              >
+                ⚡ 94.5% Route Efficiency · 🌿 1,240 kg CO₂
+              </span>
+              <a
+                href="/pricing"
+                className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-md"
+                style={{ background: '#1d4ed8', color: '#fff', textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                🔒 Elite
+              </a>
             </span>
           )}
         </div>
       )}
 
-      {/* Thermodynamic Performance Risk — only shown when takeoff_risk_level is available */}
+      {/* Thermodynamic Performance Risk — Business (£39.99) only */}
       {offer.takeoff_risk_level !== null && offer.takeoff_risk_level !== undefined && (
+        hasThermodynamicAccess ? (
         <div className="flex flex-wrap gap-2 mt-0.5">
           {offer.density_altitude_ft !== null && offer.density_altitude_ft !== undefined && (
             <span
@@ -210,10 +235,41 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
             </span>
           )}
         </div>
+        ) : (
+          <div className="relative mt-0.5">
+            <div
+              className="flex flex-wrap gap-2"
+              style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}
+            >
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
+              >
+                ✈️ DA: 3,200 ft
+              </span>
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
+              >
+                🔥 High Performance Risk
+              </span>
+            </div>
+            <div className="mt-1">
+              <a
+                href="/pricing"
+                className="text-xs font-semibold px-3 py-1 rounded-md"
+                style={{ background: '#0f172a', color: '#fff', textDecoration: 'none' }}
+              >
+                🔒 Upgrade to Business to unlock Thermodynamic Risk
+              </a>
+            </div>
+          </div>
+        )
       )}
 
-      {/* Aerodynamic Wind Component & ETA — Phase 3 */}
+      {/* Aerodynamic Wind Component & ETA — Pro (£9.99) and above */}
       {offer.wind_component_kt != null && (
+        hasWindAccess ? (
         <div className="flex flex-wrap gap-2 mt-0.5">
           <span
             className="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -256,6 +312,42 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
             </span>
           )}
         </div>
+        ) : (
+          <div className="relative mt-0.5">
+            <div
+              className="flex flex-wrap gap-2"
+              style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}
+            >
+              <span
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+              >
+                💨 +42kt Tailwind (Boost)
+              </span>
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+              >
+                ⏱️ 18 min saved
+              </span>
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+              >
+                🛬 Aero ETA: 14:22
+              </span>
+            </div>
+            <div className="mt-1">
+              <a
+                href="/pricing"
+                className="text-xs font-semibold px-3 py-1 rounded-md"
+                style={{ background: '#1d4ed8', color: '#fff', textDecoration: 'none' }}
+              >
+                🔒 Upgrade to Pro to unlock Wind Vectors & Aerodynamic ETA
+              </a>
+            </div>
+          </div>
+        )
       )}
 
       <div className="text-2xl font-bold mt-1" style={{ color: isHackerFare ? '#86efac' : '#16a34a' }}>

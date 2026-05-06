@@ -179,7 +179,66 @@ carriers and routes for compliance-grade sustainability reporting.
 
 ---
 
-## Technical Stack
+## Subscription Tiers
+
+FlightAlertPro operates on a freemium model. Aerospace intelligence features are
+progressively unlocked as you move up tiers.
+
+| Feature | Free | Pro (£9.99/mo) | Elite (£19.99/mo) | Business (£39.99/mo) |
+|---|:---:|:---:|:---:|:---:|
+| Active Alerts | 1 | 5 | 20 | Unlimited |
+| Email Notifications | ✓ | ✓ | ✓ | ✓ |
+| Telegram Notifications | ✗ | ✓ | ✓ | ✓ |
+| Instant Background Checking | ✗ | ✓ | ✓ | ✓ |
+| AI Flight Insights | ✗ | ✗ | ✓ | ✓ |
+| Flexible Date Alerts | ✗ | ✗ | ✓ | ✓ |
+| EU261 Auto-Claim | ✗ | ✗ | ✓ | ✓ |
+| **💨 Wind Vectors & Aerodynamic ETA** | ✗ | **✓** | ✓ | ✓ |
+| **🌿 Phase 1 Sustainability Auditing & Trajectory Efficiency** | ✗ | ✗ | **✓** | ✓ |
+| **🔥 Phase 2 Thermodynamic Risk (Density Altitude)** | ✗ | ✗ | ✗ | **✓** |
+| **📊 CSV Export** | ✗ | ✗ | ✗ | **✓** |
+| Agent Dashboard | ✗ | ✗ | ✗ | ✓ |
+| Team Access | ✗ | ✗ | ✗ | ✓ |
+
+### Aerospace Feature Details by Tier
+
+#### Pro (£9.99/month) — Wind Vectors & Aerodynamic ETA
+
+Unlocks the **Wind Triangle** analysis for every flight result:
+
+- **Wind component** — headwind or tailwind component (knots) along the true
+  course bearing derived from live CheckWX TAF data.
+- **Time delta** — minutes saved or lost versus the scheduled block time due to
+  the prevailing wind.
+- **Aerodynamic ETA** — physics-corrected arrival time accounting for actual
+  ground speed (TAS ± wind component).
+
+#### Elite (£19.99/month) — Phase 1 Sustainability Auditing & Trajectory Efficiency
+
+Adds **route sustainability** metrics on top of all Pro features:
+
+- **Trajectory Efficiency Score** — ratio of the great-circle distance (GCD) to
+  the GCD plus an ATC vectoring overhead term; 1.0 = perfect great-circle path.
+- **CO₂ Equivalent Emissions** — calculated using ICAO/DEFRA emission factors
+  with a peer-reviewed 1.9× Radiative Forcing multiplier, suitable for
+  compliance-grade sustainability reporting.
+
+#### Business (£39.99/month) — Phase 2 Thermodynamic Risk (Density Altitude) & CSV Export
+
+Adds **departure performance risk** on top of all Elite features:
+
+- **Density Altitude (DA)** — derived from live METAR data using the FAA/ICAO
+  formulas; quantifies how thin air at the departure airport will degrade
+  engine thrust and wing lift.
+- **Takeoff Risk Classification** — LOW / MODERATE (≥ 2,000 ft DA above field)
+  / HIGH (≥ 3,500 ft DA above field), flagging probable weight restrictions or
+  schedule delays before the passenger arrives at the gate.
+- **CSV Export** — download full itinerary and analytics data for offline
+  analysis or integration with corporate travel management systems.
+
+---
+
+
 
 | Layer | Technology | Role |
 |---|---|---|
