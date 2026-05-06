@@ -1,5 +1,5 @@
 import { buildHotelUrl } from '../lib/hotelAffiliate';
-import { canUseWindVectors, canUseSustainabilityAudit, canUseThermodynamicRisk, hasMinTier } from '../utils/tierLimits';
+import { hasMinTier } from '../utils/tierLimits';
 
 export default function FlightResultCard({ offer, cabinClass, onCreateAlert, subscriptionTier }) {
   const destination = offer.to_iata || '';
@@ -16,11 +16,12 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
   const hasEliteAccess = tier === 'elite' || tier === 'business';
   const hasPointsAccess = tier === 'elite' || tier === 'business';
 
-  // Use offer.tier_requirements when available, otherwise fall back to hard-coded limits
+  // Use offer.tier_requirements when available, otherwise fall back to hard-coded defaults.
+  // hasMinTier handles the tier comparison, so no additional canUse* wrapper is needed.
   const tierReqs = offer.tier_requirements || {};
-  const hasWindAccess = hasMinTier(tier, tierReqs.wind_component || 'pro') && canUseWindVectors(tier);
-  const hasSustainabilityAccess = hasMinTier(tier, tierReqs.efficiency_score || 'elite') && canUseSustainabilityAudit(tier);
-  const hasThermodynamicAccess = hasMinTier(tier, tierReqs.density_altitude || 'business') && canUseThermodynamicRisk(tier);
+  const hasWindAccess = hasMinTier(tier, tierReqs.wind_component || 'pro');
+  const hasSustainabilityAccess = hasMinTier(tier, tierReqs.efficiency_score || 'elite');
+  const hasThermodynamicAccess = hasMinTier(tier, tierReqs.density_altitude || 'business');
   const isErrorFare = Boolean(offer.is_error_fare);
   const isHackerFare = Boolean(offer.is_hacker_fare);
 
@@ -82,7 +83,7 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
       {(offer.from_airport_name || offer.to_airport_name) && (
         <div className="text-xs text-gray-400 mt-0.5">
           {offer.from_airport_name && (
-            <span title={`${offer.from_airport_city}, ${offer.from_airport_country}`}>
+            <span title={[offer.from_airport_city, offer.from_airport_country].filter(Boolean).join(', ')}>
               {offer.from_airport_name}
               {offer.from_airport_city && ` · ${offer.from_airport_city}`}
               {offer.from_airport_country && ` (${offer.from_airport_country})`}
@@ -90,7 +91,7 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
           )}
           {offer.from_airport_name && offer.to_airport_name && <span className="mx-1">→</span>}
           {offer.to_airport_name && (
-            <span title={`${offer.to_airport_city}, ${offer.to_airport_country}`}>
+            <span title={[offer.to_airport_city, offer.to_airport_country].filter(Boolean).join(', ')}>
               {offer.to_airport_name}
               {offer.to_airport_city && ` · ${offer.to_airport_city}`}
               {offer.to_airport_country && ` (${offer.to_airport_country})`}

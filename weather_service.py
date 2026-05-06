@@ -488,16 +488,23 @@ def get_aerodynamic_performance(
 
     true_course = _calculate_true_course(float(lat1), float(lon1), float(lat2), float(lon2))
 
-    # Prefer airportsdata for ICAO, fall back to internal metadata
-    origin_icao: Optional[str] = iata_to_icao(from_iata)
-    # iata_to_icao returns the IATA code itself when not found in airportsdata,
-    # so additionally check the metadata index as a secondary source.
-    if origin_icao == from_iata:
-        origin_icao = origin.get("icao") or origin_icao
+    # Prefer airportsdata for ICAO, fall back to internal metadata.
+    # iata_to_icao returns the 3-letter IATA code itself when no ICAO is found
+    # in airportsdata, so we also check the metadata index for a 4-letter code.
+    candidate_icao: str = iata_to_icao(from_iata)
+    if candidate_icao == from_iata:
+        # airportsdata had no mapping; try internal metadata
+        candidate_icao = origin.get("icao") or ""
 
-    if not origin_icao:
-        logger.warning("aerodynamic_performance: no ICAO code for %s", from_iata)
+    # Validate that we have a proper 4-letter ICAO code before making API calls
+    if len(candidate_icao) != 4:
+        logger.warning(
+            "aerodynamic_performance: could not resolve a valid ICAO code for %s (got %r)",
+            from_iata, candidate_icao,
+        )
         return None
+
+    origin_icao: str = candidate_icao
 
     wind = get_winds_aloft(origin_icao, altitude_ft=altitude_ft)
     if not wind:
