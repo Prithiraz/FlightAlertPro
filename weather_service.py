@@ -239,22 +239,29 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
     """High-level function: look up airport, fetch METAR, compute density altitude.
 
     Uses the airportsdata library as the primary source for the IATA→ICAO
-    translation.  Falls back to the internal OpenFlights metadata index when
-    airportsdata has no entry.
+    translation and elevation.  Falls back to the internal OpenFlights metadata
+    index for any fields not found in airportsdata.
 
     Returns a dict containing ``density_altitude_ft`` and ``takeoff_risk_level``
     (and supporting data), or *None* when any required input is unavailable.
     """
     iata = iata.upper().strip()
 
-    # Primary ICAO lookup via airportsdata
+    # Primary lookup via airportsdata (ICAO + elevation in feet)
     icao: Optional[str] = None
+    elevation_ft: Optional[float] = None
     ad_airports = _get_airportsdata()
     ad_entry = ad_airports.get(iata)
     if ad_entry:
         icao = ad_entry.get("icao") or None
+        raw_elev = ad_entry.get("elevation")
+        if raw_elev is not None:
+            try:
+                elevation_ft = float(raw_elev)
+            except (TypeError, ValueError):
+                pass
 
-    # Fall back to internal metadata for ICAO and elevation
+    # Secondary lookup via internal OpenFlights metadata
     airports = _get_airports_by_iata()
     airport = airports.get(iata)
 
@@ -268,7 +275,15 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
         logger.warning("weather_service: no ICAO code for airport %s", iata)
         return None
 
-    elevation_ft = airport.get("altitude") if airport else None  # OpenFlights stores altitude in feet
+    # Use internal metadata elevation as fallback when airportsdata had none
+    if elevation_ft is None and airport:
+        raw_elev = airport.get("altitude")  # OpenFlights stores altitude in feet
+        if raw_elev is not None:
+            try:
+                elevation_ft = float(raw_elev)
+            except (TypeError, ValueError):
+                pass
+
     if elevation_ft is None:
         logger.warning("weather_service: no elevation for airport %s", iata)
         return None
@@ -279,7 +294,7 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
 
     try:
         result = calculate_density_altitude(
-            elevation_ft=float(elevation_ft),
+            elevation_ft=elevation_ft,
             temp_c=metar["temperature_c"],
             altimeter_in_hg=metar["altimeter_in_hg"],
         )

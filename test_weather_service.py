@@ -70,6 +70,30 @@ class TestIataToAirportInfo(unittest.TestCase):
         info_lower = iata_to_airport_info("jfk")
         self.assertEqual(info_upper["name"], info_lower["name"])
 
+    def test_airportsdata_only_entry_uses_airportsdata_elevation(self):
+        """When airportsdata has an entry but internal metadata does not,
+        elevation should come from airportsdata so the function succeeds."""
+        from weather_service import get_departure_performance
+        fake_ad = {
+            "LHR": {"icao": "EGLL", "elevation": 83.0, "name": "London Heathrow Airport",
+                    "city": "London", "country": "GB"}
+        }
+        fake_metar = {
+            "temperature_c": 15.0,
+            "altimeter_in_hg": 29.92,
+            "icao": "EGLL",
+            "raw_text": "",
+        }
+        # Internal metadata returns nothing for LHR
+        with patch("weather_service._get_airportsdata", return_value=fake_ad), \
+             patch("weather_service._get_airports_by_iata", return_value={}), \
+             patch("weather_service.get_metar_data", return_value=fake_metar):
+            result = get_departure_performance("LHR")
+
+        self.assertIsNotNone(result, "Should succeed when elevation comes from airportsdata")
+        self.assertEqual(result["icao"], "EGLL")
+        self.assertIn("density_altitude_ft", result)
+
 
 class TestCalculateTrueCourse(unittest.TestCase):
     """Unit tests for _calculate_true_course()."""
