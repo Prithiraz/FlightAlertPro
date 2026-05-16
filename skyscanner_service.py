@@ -183,25 +183,12 @@ class SkyscannerProvider:
             params={"query": iata},
         )
         response.raise_for_status()
-        payload = response.json()
-        items = payload.get("data", []) if isinstance(payload, dict) else []
-        first_item: Dict[str, Any] = {}
-        if isinstance(items, list) and items:
-            first_candidate = items[0]
-            if isinstance(first_candidate, dict):
-                first_item = first_candidate
-
-        sky_id = first_item.get("skyId")
-        navigation = first_item.get("navigation", {}) if isinstance(first_item.get("navigation"), dict) else {}
-        id_obj = first_item.get("id", {}) if isinstance(first_item.get("id"), dict) else {}
-        id_navigation = id_obj.get("navigation", {}) if isinstance(id_obj.get("navigation"), dict) else {}
-        entity_id = (
-            first_item.get("entityId")
-            or navigation.get("entityId")
-            or id_obj.get("entityId")
-            or id_navigation.get("entityId")
-            or (first_item.get("id") if isinstance(first_item.get("id"), (str, int)) else None)
-        )
+        raw_payload = response.json()
+        payload = raw_payload if isinstance(raw_payload, dict) else {}
+        places = payload.get("places", [])
+        first_place = places[0] if isinstance(places, list) and places and isinstance(places[0], dict) else {}
+        sky_id = first_place.get("skyId")
+        entity_id = first_place.get("entityId")
         if sky_id and entity_id:
             return str(sky_id), str(entity_id)
 
@@ -451,10 +438,13 @@ class SkyscannerProvider:
                     },
                 )
                 response.raise_for_status()
-                payload = response.json()
-                raw_data = payload.get("data") if isinstance(payload, dict) else {}
-                data = raw_data if isinstance(raw_data, dict) else {}
+                raw_payload = response.json()
+                payload = raw_payload if isinstance(raw_payload, dict) else {}
+                raw_data = payload.get("data")
+                data = raw_data if isinstance(raw_data, dict) else payload
                 raw_itineraries = data.get("itineraries")
+                if not isinstance(raw_itineraries, list):
+                    raw_itineraries = payload.get("itineraries")
                 itineraries = raw_itineraries if isinstance(raw_itineraries, list) else []
                 normalized_data = dict(data)
                 normalized_data["itineraries"] = itineraries
