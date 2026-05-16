@@ -21,6 +21,26 @@ _CRUISE_ALT_FT: int = 30000     # Default cruise altitude: FL300
 _KM_PER_NM: float = 1.852       # Kilometres per nautical mile
 _EARTH_RADIUS_KM: float = 6371.0
 
+# 16-point compass rose mapping to degrees true
+CARDINAL_TO_DEGREES = {
+    "N": 0.0,
+    "NNE": 22.5,
+    "NE": 45.0,
+    "ENE": 67.5,
+    "E": 90.0,
+    "ESE": 112.5,
+    "SE": 135.0,
+    "SSE": 157.5,
+    "S": 180.0,
+    "SSW": 202.5,
+    "SW": 225.0,
+    "WSW": 247.5,
+    "W": 270.0,
+    "WNW": 292.5,
+    "NW": 315.0,
+    "NNW": 337.5,
+}
+
 # Lazy-loaded airport lookup imported from metadata to avoid circular imports
 _airports_by_iata: Optional[Dict] = None
 
@@ -386,6 +406,12 @@ def get_winds_aloft(
 
         if wind_dir is None or wind_speed is None:
             return None
+
+        if isinstance(wind_dir, str):
+            wind_dir = CARDINAL_TO_DEGREES.get(wind_dir.strip().upper())
+            if wind_dir is None:
+                logger.warning("Unsupported cardinal wind direction for ICAO %s: %r", icao, wind.get("direction"))
+                return None
 
         return {
             "wind_direction_deg": float(wind_dir),

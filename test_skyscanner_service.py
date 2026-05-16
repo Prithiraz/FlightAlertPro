@@ -124,6 +124,8 @@ class TestSkyscannerProvider(unittest.TestCase):
         provider = SkyscannerProvider(api_key="test", api_host="skyscanner-flights-travel-api.p.rapidapi.com")
         self.assertEqual(provider.base_url, "https://skyscanner-flights-travel-api.p.rapidapi.com")
         self.assertEqual(provider._headers()["X-RapidAPI-Host"], "skyscanner-flights-travel-api.p.rapidapi.com")
+        self.assertEqual(provider.AIRPORT_SEARCH_ENDPOINT, "/flights/searchAirport")
+        self.assertEqual(provider.FLIGHT_SEARCH_ENDPOINT, "/flights/searchFlights")
 
     @patch("skyscanner_service.httpx.Client")
     def test_search_uses_configured_host_for_request_routing(self, client_cls):
@@ -143,7 +145,7 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(offers, [{"id": "offer-1"}])
         request_url = mock_client.get.call_args.args[0]
         self.assertTrue(request_url.startswith("https://skyscanner-flights-travel-api.p.rapidapi.com/"))
-        self.assertIn("searchFlightsComplete", request_url)
+        self.assertIn("/flights/searchFlights", request_url)
 
     # ── Phase 1: Haversine distance ──────────────────────────────────────────
 
