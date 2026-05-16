@@ -234,6 +234,28 @@ class TestSkyscannerProvider(unittest.TestCase):
             trip_type="one_way",
         )
 
+    @patch("skyscanner_service.httpx.Client")
+    def test_search_logs_raw_response_when_itineraries_empty(self, client_cls):
+        provider = SkyscannerProvider(api_key="test", api_host="sky-scrapper.p.rapidapi.com")
+
+        mock_client = MagicMock()
+        client_cls.return_value.__enter__.return_value = mock_client
+        provider._airport_identifiers = MagicMock(side_effect=[("LAXA", "27536211"), ("JFKA", "95565058")])
+        provider._normalize_response = MagicMock(return_value=[])
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"data": {"itineraries": [], "context": {"currency": "USD"}}}
+        mock_response.text = '{"data":{"itineraries":[],"context":{"currency":"USD"}}}'
+        mock_client.get.return_value = mock_response
+
+        with patch("skyscanner_service.logger.debug") as mock_debug, patch("skyscanner_service.logger.error") as mock_error:
+            provider.search_flights("LAX", "JFK", "2026-08-01")
+
+        mock_debug.assert_called_once()
+        mock_error.assert_called_once_with(
+            'Flight search raw response: {"data":{"itineraries":[],"context":{"currency":"USD"}}}'
+        )
+
     # ── Phase 1: Haversine distance ──────────────────────────────────────────
 
     def test_haversine_distance_lhr_jfk(self):

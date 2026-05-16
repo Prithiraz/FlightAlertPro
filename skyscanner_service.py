@@ -442,10 +442,20 @@ class SkyscannerProvider:
                 payload = raw_payload if isinstance(raw_payload, dict) else {}
                 raw_data = payload.get("data")
                 data = raw_data if isinstance(raw_data, dict) else payload
+                logger.debug(
+                    "Skyscanner flight search response shape: payload_keys=%s data_keys=%s data_itineraries_type=%s top_level_itineraries_type=%s",
+                    list(payload.keys()),
+                    list(data.keys()) if isinstance(data, dict) else [],
+                    type(data.get("itineraries")).__name__ if isinstance(data, dict) else "missing",
+                    type(payload.get("itineraries")).__name__,
+                )
                 raw_itineraries = data.get("itineraries")
                 if not isinstance(raw_itineraries, list):
                     raw_itineraries = payload.get("itineraries")
                 itineraries = raw_itineraries if isinstance(raw_itineraries, list) else []
+                if not itineraries:
+                    response_text = response.text if isinstance(getattr(response, "text", None), str) else ""
+                    logger.error(f"Flight search raw response: {response_text[:2000]}")
                 normalized_data = dict(data)
                 normalized_data["itineraries"] = itineraries
                 normalized_payload = {"data": normalized_data}
