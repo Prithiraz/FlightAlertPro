@@ -127,6 +127,50 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(provider.AIRPORT_SEARCH_ENDPOINT, "/flights/searchAirport")
         self.assertEqual(provider.FLIGHT_SEARCH_ENDPOINT, "/flights/searchFlights")
 
+    def test_airport_identifiers_reads_first_data_item(self):
+        client = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {
+            "data": [{"skyId": "LAX-sky", "navigation": {"entityId": "95565050"}}]
+        }
+        client.get.return_value = response
+
+        sky_id, entity_id = self.provider._airport_identifiers(client, "LAX")
+
+        self.assertEqual(sky_id, "LAX-sky")
+        self.assertEqual(entity_id, "95565050")
+
+    def test_airport_identifiers_supports_nested_id_navigation_entity_id(self):
+        client = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {
+            "data": [{"skyId": "JFK-sky", "id": {"navigation": {"entityId": "95565058"}}}]
+        }
+        client.get.return_value = response
+
+        sky_id, entity_id = self.provider._airport_identifiers(client, "JFK")
+
+        self.assertEqual(sky_id, "JFK-sky")
+        self.assertEqual(entity_id, "95565058")
+
+    @patch("skyscanner_service.logger.error")
+    def test_airport_identifiers_logs_raw_response_text_on_lookup_failure(self, mock_error):
+        client = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"data": []}
+        response.text = '{"data":[]}'
+        client.get.return_value = response
+
+        sky_id, entity_id = self.provider._airport_identifiers(client, "ABC")
+
+        self.assertIsNone(sky_id)
+        self.assertIsNone(entity_id)
+        mock_error.assert_called_once_with(
+            "Skyscanner airport lookup failed for %s. Raw response: %s",
+            "ABC",
+            '{"data":[]}',
+        )
+
     @patch("skyscanner_service.httpx.Client")
     def test_search_uses_configured_host_for_request_routing(self, client_cls):
         provider = SkyscannerProvider(api_key="test", api_host="https://skyscanner-flights-travel-api.p.rapidapi.com/")
@@ -146,6 +190,10 @@ class TestSkyscannerProvider(unittest.TestCase):
         request_url = mock_client.get.call_args.args[0]
         self.assertTrue(request_url.startswith("https://skyscanner-flights-travel-api.p.rapidapi.com/"))
         self.assertIn("/flights/searchFlights", request_url)
+        provider._normalize_response.assert_called_once_with(
+            {"data": {"itineraries": []}},
+            trip_type="one_way",
+        )
 
     # ── Phase 1: Haversine distance ──────────────────────────────────────────
 
