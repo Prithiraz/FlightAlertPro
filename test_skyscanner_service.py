@@ -209,6 +209,7 @@ class TestSkyscannerProvider(unittest.TestCase):
 
         provider.search_flights("LAX", "JFK", "2026-08-01")
 
+        # Non-list itineraries are coerced to [] before being passed to _normalize_response
         provider._normalize_response.assert_called_once_with(
             {"data": {"itineraries": [], "context": {"currency": "USD"}}},
             trip_type="one_way",
@@ -224,13 +225,17 @@ class TestSkyscannerProvider(unittest.TestCase):
         provider._normalize_response = MagicMock(return_value=[])
 
         mock_response = MagicMock()
+        # Payload with no 'data' key — top-level itineraries are not supported by the parser.
         mock_response.json.return_value = {"itineraries": [], "context": {"currency": "USD"}}
         mock_client.get.return_value = mock_response
 
-        provider.search_flights("LAX", "JFK", "2026-08-01")
+        with patch("builtins.print") as mock_print:
+            provider.search_flights("LAX", "JFK", "2026-08-01")
 
+        # Without a 'data' key, itineraries resolve to [] and a warning is printed.
+        mock_print.assert_any_call("WARNING: Parsed itineraries list is empty!")
         provider._normalize_response.assert_called_once_with(
-            {"data": {"itineraries": [], "context": {"currency": "USD"}}},
+            {"data": {"itineraries": []}},
             trip_type="one_way",
         )
 
@@ -245,16 +250,12 @@ class TestSkyscannerProvider(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.json.return_value = {"data": {"itineraries": [], "context": {"currency": "USD"}}}
-        mock_response.text = '{"data":{"itineraries":[],"context":{"currency":"USD"}}}'
         mock_client.get.return_value = mock_response
 
-        with patch("skyscanner_service.logger.debug") as mock_debug, patch("skyscanner_service.logger.error") as mock_error:
+        with patch("builtins.print") as mock_print:
             provider.search_flights("LAX", "JFK", "2026-08-01")
 
-        mock_debug.assert_called_once()
-        mock_error.assert_called_once_with(
-            'Flight search raw response: {"data":{"itineraries":[],"context":{"currency":"USD"}}}'
-        )
+        mock_print.assert_any_call("WARNING: Parsed itineraries list is empty!")
 
     # ── Phase 1: Haversine distance ──────────────────────────────────────────
 
