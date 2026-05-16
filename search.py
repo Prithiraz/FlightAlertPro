@@ -707,18 +707,35 @@ async def search_flights(request: SearchRequest):
     is_round_trip = len(request.segments) == 2
     return_date = request.segments[1].departure_date if is_round_trip else None
 
-    offers = await asyncio.to_thread(
-        skyscanner_provider.search_flights,
-        segment.from_iata,
-        segment.to_iata,
-        segment.departure_date,
-        return_date,
-        request.passengers.adults,
-        request.passengers.adults,
-        request.passengers.children,
-        request.currency,
-        request.cabin_class,
-    )
+    sources_queried: List[str] = ["skyscanner"]
+    offers: List[Dict[str, Any]] = []
+
+    try:
+        offers = await asyncio.to_thread(
+            skyscanner_provider.search_flights,
+            segment.from_iata,
+            segment.to_iata,
+            segment.departure_date,
+            return_date,
+            request.passengers.adults,
+            request.passengers.adults,
+            request.passengers.children,
+            request.currency,
+            request.cabin_class,
+        ) or []
+    except Exception as exc:
+        logger.warning("Skyscanner search failed; falling back to Duffel: %s", exc)
+        offers = []
+
+    if not offers:
+        duffel_raw_offers = await search_duffel(segment, request)
+        sources_queried.append("duffel")
+        normalized_duffel_offers: List[Dict[str, Any]] = []
+        for raw_offer in duffel_raw_offers:
+            normalized = normalize_offer(raw_offer, "duffel")
+            if normalized:
+                normalized_duffel_offers.append(normalized.model_dump())
+        offers = normalized_duffel_offers
 
     filtered_offers: List[Dict[str, Any]] = []
     for offer in offers:
@@ -775,7 +792,7 @@ async def search_flights(request: SearchRequest):
         },
         "total_offers": len(filtered_offers),
         "offers": enriched_offers,
-        "sources_queried": ['skyscanner'],
+        "sources_queried": sources_queried,
         "search_time_ms": int((time.time() - start_time) * 1000),
         "ai_insight": None,
     }
