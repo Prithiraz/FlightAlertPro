@@ -79,6 +79,7 @@ class SkyscannerProvider:
     DEFAULT_HOST = "sky-scrapper.p.rapidapi.com"
     AIRPORT_SEARCH_ENDPOINT = "/flights/searchAirport"
     FLIGHT_SEARCH_ENDPOINT = "/flights/searchFlights"
+    MAX_RESPONSE_LOG_LENGTH = 2000
 
     def __init__(self, api_key: Optional[str] = None, api_host: Optional[str] = None):
         self.api_key = api_key or config.RAPIDAPI_KEY
@@ -455,7 +456,7 @@ class SkyscannerProvider:
                 itineraries = raw_itineraries if isinstance(raw_itineraries, list) else []
                 if not itineraries:
                     response_text = response.text if isinstance(getattr(response, "text", None), str) else ""
-                    logger.error(f"Flight search raw response: {response_text[:2000]}")
+                    logger.error(f"Flight search raw response: {response_text[:self.MAX_RESPONSE_LOG_LENGTH]}")
                 normalized_data = dict(data)
                 normalized_data["itineraries"] = itineraries
                 normalized_payload = {"data": normalized_data}
