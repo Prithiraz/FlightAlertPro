@@ -185,7 +185,11 @@ class SkyscannerProvider:
         response.raise_for_status()
         payload = response.json()
         items = payload.get("data", []) if isinstance(payload, dict) else []
-        first_item = items[0] if isinstance(items, list) and items and isinstance(items[0], dict) else {}
+        first_item: Dict[str, Any] = {}
+        if isinstance(items, list) and items:
+            first_candidate = items[0]
+            if isinstance(first_candidate, dict):
+                first_item = first_candidate
 
         sky_id = first_item.get("skyId")
         navigation = first_item.get("navigation", {}) if isinstance(first_item.get("navigation"), dict) else {}
@@ -448,12 +452,10 @@ class SkyscannerProvider:
                 )
                 response.raise_for_status()
                 payload = response.json()
-                data = payload.get("data", {}) if isinstance(payload, dict) else {}
-                if not isinstance(data, dict):
-                    data = {}
-                itineraries = data.get("itineraries", [])
-                if not isinstance(itineraries, list):
-                    itineraries = []
+                raw_data = payload.get("data") if isinstance(payload, dict) else {}
+                data = raw_data if isinstance(raw_data, dict) else {}
+                raw_itineraries = data.get("itineraries")
+                itineraries = raw_itineraries if isinstance(raw_itineraries, list) else []
                 normalized_payload = {"data": {**data, "itineraries": itineraries}}
                 return self._normalize_response(normalized_payload, trip_type=trip_type)
         except Exception as exc:
