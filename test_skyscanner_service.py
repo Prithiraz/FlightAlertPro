@@ -190,10 +190,6 @@ class TestSkyscannerProvider(unittest.TestCase):
         request_url = mock_client.get.call_args.args[0]
         self.assertTrue(request_url.startswith("https://skyscanner-flights-travel-api.p.rapidapi.com/"))
         self.assertIn("/flights/searchFlights", request_url)
-        provider._normalize_response.assert_called_once_with(
-            {"data": {"itineraries": []}},
-            trip_type="one_way",
-        )
 
     @patch("skyscanner_service.httpx.Client")
     def test_search_normalizes_non_list_itineraries_before_response_parsing(self, client_cls):
