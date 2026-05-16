@@ -127,38 +127,41 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(provider.AIRPORT_SEARCH_ENDPOINT, "/flights/searchAirport")
         self.assertEqual(provider.FLIGHT_SEARCH_ENDPOINT, "/flights/searchFlights")
 
-    def test_airport_identifiers_reads_first_data_item(self):
+    def test_airport_identifiers_reads_first_place_item(self):
         client = MagicMock()
         response = MagicMock()
         response.json.return_value = {
-            "data": [{"skyId": "LAX-sky", "navigation": {"entityId": "95565050"}}]
+            "places": [{"skyId": "LAXA", "entityId": "27536211"}]
         }
         client.get.return_value = response
 
         sky_id, entity_id = self.provider._airport_identifiers(client, "LAX")
 
-        self.assertEqual(sky_id, "LAX-sky")
-        self.assertEqual(entity_id, "95565050")
+        self.assertEqual(sky_id, "LAXA")
+        self.assertEqual(entity_id, "27536211")
 
-    def test_airport_identifiers_supports_nested_id_navigation_entity_id(self):
+    def test_airport_identifiers_uses_first_place_item(self):
         client = MagicMock()
         response = MagicMock()
         response.json.return_value = {
-            "data": [{"skyId": "JFK-sky", "id": {"navigation": {"entityId": "95565058"}}}]
+            "places": [
+                {"skyId": "JFKA", "entityId": "95565058"},
+                {"skyId": "JFKB", "entityId": "95565059"},
+            ]
         }
         client.get.return_value = response
 
         sky_id, entity_id = self.provider._airport_identifiers(client, "JFK")
 
-        self.assertEqual(sky_id, "JFK-sky")
+        self.assertEqual(sky_id, "JFKA")
         self.assertEqual(entity_id, "95565058")
 
     @patch("skyscanner_service.logger.error")
     def test_airport_identifiers_logs_raw_response_text_on_lookup_failure(self, mock_error):
         client = MagicMock()
         response = MagicMock()
-        response.json.return_value = {"data": []}
-        response.text = '{"data":[]}'
+        response.json.return_value = {"places": []}
+        response.text = '{"places":[]}'
         client.get.return_value = response
 
         sky_id, entity_id = self.provider._airport_identifiers(client, "ABC")
@@ -168,7 +171,7 @@ class TestSkyscannerProvider(unittest.TestCase):
         mock_error.assert_called_once_with(
             "Skyscanner airport lookup failed for %s. Raw response: %s",
             "ABC",
-            '{"data":[]}',
+            '{"places":[]}',
         )
 
     @patch("skyscanner_service.httpx.Client")
@@ -202,6 +205,26 @@ class TestSkyscannerProvider(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.json.return_value = {"data": {"itineraries": "unexpected-shape", "context": {"currency": "USD"}}}
+        mock_client.get.return_value = mock_response
+
+        provider.search_flights("LAX", "JFK", "2026-08-01")
+
+        provider._normalize_response.assert_called_once_with(
+            {"data": {"itineraries": [], "context": {"currency": "USD"}}},
+            trip_type="one_way",
+        )
+
+    @patch("skyscanner_service.httpx.Client")
+    def test_search_supports_top_level_itineraries_payload(self, client_cls):
+        provider = SkyscannerProvider(api_key="test", api_host="sky-scrapper.p.rapidapi.com")
+
+        mock_client = MagicMock()
+        client_cls.return_value.__enter__.return_value = mock_client
+        provider._airport_identifiers = MagicMock(side_effect=[("LAXA", "27536211"), ("JFKA", "95565058")])
+        provider._normalize_response = MagicMock(return_value=[])
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"itineraries": [], "context": {"currency": "USD"}}
         mock_client.get.return_value = mock_response
 
         provider.search_flights("LAX", "JFK", "2026-08-01")
