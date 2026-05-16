@@ -440,25 +440,14 @@ class SkyscannerProvider:
                 )
                 response.raise_for_status()
                 raw_payload = response.json()
+                print("SKYSCANNER RAW FLIGHTS:", str(raw_payload)[:1000])
                 payload = raw_payload if isinstance(raw_payload, dict) else {}
-                raw_data = payload.get("data")
-                data = raw_data if isinstance(raw_data, dict) else payload
-                logger.debug(
-                    "Skyscanner flight search response shape: payload_keys=%s data_keys=%s data_itineraries_type=%s top_level_itineraries_type=%s",
-                    list(payload.keys()),
-                    list(data.keys()) if isinstance(data, dict) else [],
-                    type(data.get("itineraries")).__name__ if isinstance(data, dict) else "missing",
-                    type(payload.get("itineraries")).__name__,
-                )
-                raw_itineraries = data.get("itineraries")
-                if not isinstance(raw_itineraries, list):
-                    raw_itineraries = payload.get("itineraries")
-                itineraries = raw_itineraries if isinstance(raw_itineraries, list) else []
+                data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+                itineraries = raw_payload.get('data', {}).get('itineraries', [])
                 if not itineraries:
-                    response_text = response.text if isinstance(getattr(response, "text", None), str) else ""
-                    logger.error(f"Flight search raw response: {response_text[:self.MAX_RESPONSE_LOG_LENGTH]}")
+                    print("WARNING: Parsed itineraries list is empty!")
                 normalized_data = dict(data)
-                normalized_data["itineraries"] = itineraries
+                normalized_data["itineraries"] = itineraries if isinstance(itineraries, list) else []
                 normalized_payload = {"data": normalized_data}
                 return self._normalize_response(normalized_payload, trip_type=trip_type)
         except Exception as exc:
