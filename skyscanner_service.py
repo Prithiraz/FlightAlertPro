@@ -456,7 +456,9 @@ class SkyscannerProvider:
                 data = raw_data if isinstance(raw_data, dict) else {}
                 raw_itineraries = data.get("itineraries")
                 itineraries = raw_itineraries if isinstance(raw_itineraries, list) else []
-                normalized_payload = {"data": {**data, "itineraries": itineraries}}
+                normalized_data = dict(data)
+                normalized_data["itineraries"] = itineraries
+                normalized_payload = {"data": normalized_data}
                 return self._normalize_response(normalized_payload, trip_type=trip_type)
         except Exception as exc:
             logger.error("Skyscanner flight search failed for %s -> %s: %s", from_iata, to_iata, exc)
