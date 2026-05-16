@@ -22,7 +22,7 @@ _KM_PER_NM: float = 1.852       # Kilometres per nautical mile
 _EARTH_RADIUS_KM: float = 6371.0
 
 # 16-point compass rose mapping to degrees true
-cardinal_to_degrees = {
+CARDINAL_TO_DEGREES = {
     "N": 0.0,
     "NNE": 22.5,
     "NE": 45.0,
@@ -408,7 +408,7 @@ def get_winds_aloft(
             return None
 
         if isinstance(wind_dir, str):
-            wind_dir = cardinal_to_degrees.get(wind_dir.strip().upper())
+            wind_dir = CARDINAL_TO_DEGREES.get(wind_dir.strip().upper())
             if wind_dir is None:
                 logger.warning("Unsupported cardinal wind direction for ICAO %s: %r", icao, wind.get("direction"))
                 return None
