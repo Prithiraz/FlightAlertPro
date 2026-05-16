@@ -225,6 +225,26 @@ class TestGetWindsAloft(unittest.TestCase):
         self.assertEqual(result["altitude_ft"], 30000)
         self.assertEqual(result["icao"], "KJFK")
 
+    def test_converts_cardinal_direction_to_degrees(self):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "data": [{
+                "forecast": [{
+                    "wind": {
+                        "direction": "WSW",
+                        "speed_kts": 35,
+                    }
+                }]
+            }]
+        }
+        with patch("weather_service._get_api_key", return_value="fake-key"), \
+             patch("requests.get", return_value=mock_resp):
+            result = get_winds_aloft("KJFK")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["wind_direction_deg"], 247.5)
+
     def test_returns_none_when_no_forecast(self):
         mock_resp = MagicMock()
         mock_resp.status_code = 200

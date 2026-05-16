@@ -77,8 +77,8 @@ def estimate_carbon_footprint(distance_km: float) -> float:
 
 class SkyscannerProvider:
     DEFAULT_HOST = "sky-scrapper.p.rapidapi.com"
-    AIRPORT_SEARCH_ENDPOINT = "/api/v1/flights/searchAirport"
-    FLIGHT_SEARCH_ENDPOINT = "/api/v2/flights/searchFlightsComplete"
+    AIRPORT_SEARCH_ENDPOINT = "/flights/searchAirport"
+    FLIGHT_SEARCH_ENDPOINT = "/flights/searchFlights"
 
     def __init__(self, api_key: Optional[str] = None, api_host: Optional[str] = None):
         self.api_key = api_key or config.RAPIDAPI_KEY
