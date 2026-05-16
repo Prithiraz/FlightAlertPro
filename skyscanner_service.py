@@ -184,14 +184,28 @@ class SkyscannerProvider:
         )
         response.raise_for_status()
         payload = response.json()
-        for item in payload.get("data", []) if isinstance(payload, dict) else []:
-            if not isinstance(item, dict):
-                continue
-            sky_id = item.get("skyId")
-            navigation = item.get("navigation", {}) if isinstance(item.get("navigation"), dict) else {}
-            entity_id = navigation.get("entityId")
-            if sky_id and entity_id:
-                return sky_id, entity_id
+        items = payload.get("data", []) if isinstance(payload, dict) else []
+        first_item: Dict[str, Any] = {}
+        if isinstance(items, list) and items:
+            first_candidate = items[0]
+            if isinstance(first_candidate, dict):
+                first_item = first_candidate
+
+        sky_id = first_item.get("skyId")
+        navigation = first_item.get("navigation", {}) if isinstance(first_item.get("navigation"), dict) else {}
+        id_obj = first_item.get("id", {}) if isinstance(first_item.get("id"), dict) else {}
+        id_navigation = id_obj.get("navigation", {}) if isinstance(id_obj.get("navigation"), dict) else {}
+        entity_id = (
+            first_item.get("entityId")
+            or navigation.get("entityId")
+            or id_obj.get("entityId")
+            or id_navigation.get("entityId")
+            or (first_item.get("id") if isinstance(first_item.get("id"), (str, int)) else None)
+        )
+        if sky_id and entity_id:
+            return str(sky_id), str(entity_id)
+
+        logger.error("Skyscanner airport lookup failed for %s. Raw response: %s", iata, response.text)
         return None, None
 
     @staticmethod
@@ -438,7 +452,14 @@ class SkyscannerProvider:
                 )
                 response.raise_for_status()
                 payload = response.json()
-                return self._normalize_response(payload, trip_type=trip_type)
+                raw_data = payload.get("data") if isinstance(payload, dict) else {}
+                data = raw_data if isinstance(raw_data, dict) else {}
+                raw_itineraries = data.get("itineraries")
+                itineraries = raw_itineraries if isinstance(raw_itineraries, list) else []
+                normalized_data = dict(data)
+                normalized_data["itineraries"] = itineraries
+                normalized_payload = {"data": normalized_data}
+                return self._normalize_response(normalized_payload, trip_type=trip_type)
         except Exception as exc:
             logger.error("Skyscanner flight search failed for %s -> %s: %s", from_iata, to_iata, exc)
             return []
