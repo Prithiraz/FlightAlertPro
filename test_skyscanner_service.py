@@ -201,7 +201,7 @@ class TestSkyscannerProvider(unittest.TestCase):
         provider._normalize_response = MagicMock(return_value=[])
 
         mock_response = MagicMock()
-        mock_response.json.return_value = {"data": {"itineraries": {"unexpected": "shape"}, "context": {"currency": "USD"}}}
+        mock_response.json.return_value = {"data": {"itineraries": "unexpected-shape", "context": {"currency": "USD"}}}
         mock_client.get.return_value = mock_response
 
         provider.search_flights("LAX", "JFK", "2026-08-01")
