@@ -257,6 +257,29 @@ class TestSkyscannerProvider(unittest.TestCase):
 
         mock_print.assert_any_call("WARNING: Parsed itineraries list is empty!")
 
+    @patch("skyscanner_service.httpx.Client")
+    def test_search_preserves_data_context_in_normalized_payload(self, client_cls):
+        """When data.itineraries is a valid list, all other data fields (e.g. context) are preserved."""
+        provider = SkyscannerProvider(api_key="test", api_host="sky-scrapper.p.rapidapi.com")
+
+        mock_client = MagicMock()
+        client_cls.return_value.__enter__.return_value = mock_client
+        provider._airport_identifiers = MagicMock(side_effect=[("LAXA", "27536211"), ("JFKA", "95565058")])
+        provider._normalize_response = MagicMock(return_value=[])
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "data": {"itineraries": [{"id": "i1"}], "context": {"currency": "EUR"}}
+        }
+        mock_client.get.return_value = mock_response
+
+        provider.search_flights("LAX", "JFK", "2026-08-01")
+
+        provider._normalize_response.assert_called_once_with(
+            {"data": {"itineraries": [{"id": "i1"}], "context": {"currency": "EUR"}}},
+            trip_type="one_way",
+        )
+
     # ── Phase 1: Haversine distance ──────────────────────────────────────────
 
     def test_haversine_distance_lhr_jfk(self):
