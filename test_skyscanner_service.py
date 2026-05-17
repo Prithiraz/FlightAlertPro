@@ -225,17 +225,13 @@ class TestSkyscannerProvider(unittest.TestCase):
         provider._normalize_response = MagicMock(return_value=[])
 
         mock_response = MagicMock()
-        # Payload with no 'data' key — top-level itineraries are not supported by the parser.
-        mock_response.json.return_value = {"itineraries": [], "context": {"currency": "USD"}}
+        mock_response.json.return_value = {"itineraries": [{"id": "itin-top"}], "context": {"currency": "USD"}}
         mock_client.get.return_value = mock_response
 
-        with patch("builtins.print") as mock_print:
-            provider.search_flights("LAX", "JFK", "2026-08-01")
+        provider.search_flights("LAX", "JFK", "2026-08-01")
 
-        # Without a 'data' key, itineraries resolve to [] and a warning is printed.
-        mock_print.assert_any_call("WARNING: Parsed itineraries list is empty!")
         provider._normalize_response.assert_called_once_with(
-            {"data": {"itineraries": []}},
+            {"data": {"itineraries": [{"id": "itin-top"}]}},
             trip_type="one_way",
         )
 
@@ -259,7 +255,7 @@ class TestSkyscannerProvider(unittest.TestCase):
 
     @patch("skyscanner_service.httpx.Client")
     def test_search_preserves_data_context_in_normalized_payload(self, client_cls):
-        """When data.itineraries is a valid list, all other data fields (e.g. context) are preserved."""
+        """Top-level itineraries should still preserve existing data context fields."""
         provider = SkyscannerProvider(api_key="test", api_host="sky-scrapper.p.rapidapi.com")
 
         mock_client = MagicMock()
@@ -269,7 +265,8 @@ class TestSkyscannerProvider(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "data": {"itineraries": [{"id": "i1"}], "context": {"currency": "EUR"}}
+            "itineraries": [{"id": "i1"}],
+            "data": {"context": {"currency": "EUR"}},
         }
         mock_client.get.return_value = mock_response
 
