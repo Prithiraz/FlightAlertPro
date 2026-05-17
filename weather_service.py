@@ -14,6 +14,9 @@ _CHECKWX_BASE_URL = "https://api.checkwx.com"
 
 # Conversion factor: hectopascals → inches of mercury
 _HPA_TO_INHG = 33.8639
+_ISA_TEMP_C = 15.0
+_ISA_ALTIMETER_INHG = 29.92
+_ISA_PRESSURE_HPA = 1013.25
 
 # Aerodynamic performance constants
 _TAS_KT: float = 450.0          # Standard True Airspeed for commercial jets (knots)
@@ -308,15 +311,41 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
         logger.warning("weather_service: no elevation for airport %s", iata)
         return None
 
-    metar = get_metar_data(icao)
-    if not metar:
-        return None
+    metar = get_metar_data(icao) or {}
+    raw_temp_c = metar.get("temperature_c")
+    raw_altimeter_in_hg = metar.get("altimeter_in_hg")
+
+    try:
+        temp_c = float(raw_temp_c) if raw_temp_c is not None else _ISA_TEMP_C
+    except (TypeError, ValueError):
+        temp_c = _ISA_TEMP_C
+
+    try:
+        altimeter_in_hg = (
+            float(raw_altimeter_in_hg) if raw_altimeter_in_hg is not None else _ISA_ALTIMETER_INHG
+        )
+    except (TypeError, ValueError):
+        altimeter_in_hg = _ISA_ALTIMETER_INHG
+
+    if raw_temp_c is None:
+        logger.warning(
+            "METAR temperature missing for %s; falling back to ISA %.1f°C",
+            icao,
+            _ISA_TEMP_C,
+        )
+    if raw_altimeter_in_hg is None:
+        logger.warning(
+            "METAR pressure missing for %s; falling back to ISA %.2f inHg (%.2f hPa)",
+            icao,
+            _ISA_ALTIMETER_INHG,
+            _ISA_PRESSURE_HPA,
+        )
 
     try:
         result = calculate_density_altitude(
             elevation_ft=elevation_ft,
-            temp_c=metar["temperature_c"],
-            altimeter_in_hg=metar["altimeter_in_hg"],
+            temp_c=temp_c,
+            altimeter_in_hg=altimeter_in_hg,
         )
     except (TypeError, ValueError, ArithmeticError) as exc:
         logger.error("Density altitude calculation failed for %s: %s", iata, exc)
@@ -324,8 +353,8 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
 
     result["iata"] = iata
     result["icao"] = icao
-    result["temperature_c"] = metar["temperature_c"]
-    result["altimeter_in_hg"] = metar["altimeter_in_hg"]
+    result["temperature_c"] = temp_c
+    result["altimeter_in_hg"] = altimeter_in_hg
     return result
 
 

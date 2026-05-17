@@ -443,7 +443,7 @@ class SkyscannerProvider:
                 print("SKYSCANNER RAW FLIGHTS:", str(raw_payload)[:1000])
                 payload = raw_payload if isinstance(raw_payload, dict) else {}
                 data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
-                itineraries = raw_payload.get('data', {}).get('itineraries', [])
+                itineraries = raw_payload.get("itineraries", [])
                 if not itineraries:
                     print("WARNING: Parsed itineraries list is empty!")
                 normalized_data = dict(data)
