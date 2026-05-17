@@ -346,9 +346,14 @@ export default function Search() {
           <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
           {results.map((offer, idx) => {
             const checkedBags = offer?.slices?.[0]?.segments?.[0]?.checked_bags || 0;
-            const bookingLink = offer.booking_link || offer.booking_url;
+            const bookingLink = offer.booking_link || offer.booking_url || offer.bookingUrl;
+            const isDuffelOffer = (offer.source || offer.provider || '').toLowerCase() === 'duffel';
             const hasSlices = Array.isArray(offer.slices) && offer.slices.length > 0;
             const priceText = offer.price !== undefined && offer.price !== null ? offer.price : '--';
+            const densityAltitude = offer.density_altitude_ft ?? offer.density_altitude;
+            const takeoffRiskLevel = offer.takeoff_risk_level ?? offer.takeoff_risk;
+            const windComponent = offer.wind_component_kt ?? offer.wind_vector;
+            const co2Emissions = offer.co2_emissions_kg ?? offer.co2_kg ?? offer.co2;
 
             const greenCard = (
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', marginBottom: '1rem', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -409,12 +414,17 @@ export default function Search() {
                       </div>
                     </div>
                     {bookingLink ? (
-                      <button
-                        type="button"
-                        onClick={() => window.open(bookingLink, '_blank', 'noopener,noreferrer')}
-                        style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', border: 'none', width: '100%' }}
+                      <a
+                        href={bookingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', border: 'none', width: '100%', textAlign: 'center', textDecoration: 'none' }}
                       >
                         Select
+                      </a>
+                    ) : isDuffelOffer ? (
+                      <button disabled style={{ backgroundColor: '#e2e8f0', color: '#94a3b8', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'not-allowed', border: 'none', width: '100%' }}>
+                        Book via API
                       </button>
                     ) : (
                       <button disabled style={{ backgroundColor: '#e2e8f0', color: '#94a3b8', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'not-allowed', border: 'none', width: '100%' }}>
@@ -424,33 +434,21 @@ export default function Search() {
                   </div>
                 </div>
                 {/* Density Altitude / Takeoff Performance Risk */}
-                {offer.density_altitude_ft != null && offer.takeoff_risk_level && (
-                  <div style={styles.daRow}>
-                    <span style={styles.daLabel}>✈️ Departure Performance Risk</span>
-                    <span style={styles.daValue}>
-                      Density Altitude: <strong>{Math.round(offer.density_altitude_ft).toLocaleString()} ft</strong>
-                    </span>
-                    <span style={{
-                      ...styles.daBadge,
-                      backgroundColor:
-                        offer.takeoff_risk_level === 'HIGH' ? '#fef2f2' :
-                        offer.takeoff_risk_level === 'MODERATE' ? '#fffbeb' :
-                        '#f0fdf4',
-                      color:
-                        offer.takeoff_risk_level === 'HIGH' ? '#dc2626' :
-                        offer.takeoff_risk_level === 'MODERATE' ? '#d97706' :
-                        '#16a34a',
-                      borderColor:
-                        offer.takeoff_risk_level === 'HIGH' ? '#fca5a5' :
-                        offer.takeoff_risk_level === 'MODERATE' ? '#fcd34d' :
-                        '#86efac',
-                    }}>
-                      {offer.takeoff_risk_level === 'HIGH' ? '🔴' :
-                       offer.takeoff_risk_level === 'MODERATE' ? '🟡' : '🟢'}{' '}
-                      {offer.takeoff_risk_level}
-                    </span>
-                  </div>
-                )}
+                <div style={styles.daRow}>
+                  <span style={styles.daLabel}>✈️ Aerospace Metrics</span>
+                  <span style={styles.metricBadge}>
+                    DA: {densityAltitude != null ? `${Math.round(densityAltitude).toLocaleString()} ft` : 'N/A'}
+                  </span>
+                  <span style={styles.metricBadge}>
+                    Risk: {takeoffRiskLevel || 'N/A'}
+                  </span>
+                  <span style={styles.metricBadge}>
+                    Wind: {windComponent != null ? `${Number(windComponent).toFixed(0)} kt` : 'N/A'}
+                  </span>
+                  <span style={styles.metricBadge}>
+                    CO₂: {co2Emissions != null ? `${Math.round(Number(co2Emissions)).toLocaleString()} kg` : 'N/A'}
+                  </span>
+                </div>
               </div>
             );
 
@@ -560,5 +558,16 @@ const styles = {
     fontSize: '0.78rem',
     letterSpacing: '0.04em',
     textTransform: 'uppercase',
+  },
+  metricBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '0.2rem 0.6rem',
+    borderRadius: '9999px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#f8fafc',
+    color: '#334155',
+    fontWeight: '600',
+    fontSize: '0.78rem',
   },
 };

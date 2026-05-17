@@ -120,6 +120,44 @@ class TestSkyscannerProvider(unittest.TestCase):
         self.assertEqual(offer["slices"][0]["duration_minutes"], 90)
         self.assertEqual(offer["slices"][0]["segments"][0]["checked_bags"], 0)
 
+    def test_normalize_response_reads_booking_url_from_booking_url_key(self):
+        payload = {
+            "data": {
+                "itineraries": [
+                    {
+                        "id": "itin-booking-url",
+                        "legIds": ["leg-out"],
+                        "pricingOptions": [
+                            {
+                                "price": {"amount": "120", "unit": "USD"},
+                                "bookingUrl": "https://book.example.com/from-booking-url",
+                            }
+                        ],
+                    }
+                ],
+                "legs": [
+                    {
+                        "id": "leg-out",
+                        "originPlaceId": "p1",
+                        "destinationPlaceId": "p2",
+                        "departure": "2026-07-01T08:00:00Z",
+                        "arrival": "2026-07-01T09:30:00Z",
+                        "carrierIds": ["c1"],
+                        "segments": [{"originPlaceId": "p1", "destinationPlaceId": "p2", "carrierIds": ["c1"]}],
+                    }
+                ],
+                "carriers": [{"id": "c1", "name": "Airline A", "iataCode": "AA"}],
+                "places": [
+                    {"id": "p1", "displayCode": "YYZ"},
+                    {"id": "p2", "displayCode": "YVR"},
+                ],
+            }
+        }
+
+        offers = self.provider._normalize_response(payload, trip_type="one_way")
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0]["booking_link"], "https://book.example.com/from-booking-url")
+
     def test_builds_base_url_from_configured_host(self):
         provider = SkyscannerProvider(api_key="test", api_host="skyscanner-flights-travel-api.p.rapidapi.com")
         self.assertEqual(provider.base_url, "https://skyscanner-flights-travel-api.p.rapidapi.com")
