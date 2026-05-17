@@ -321,9 +321,11 @@ class SkyscannerProvider:
             price_obj = first_pricing.get("price", {}) if isinstance(first_pricing.get("price"), dict) else {}
             price_amount = self._safe_float(price_obj.get("amount"), 0.0)
             booking_url = (
-                first_pricing.get("deeplinkUrl")
+                first_pricing.get("bookingUrl")
+                or first_pricing.get("deeplinkUrl")
                 or first_pricing.get("deepLink")
                 or first_pricing.get("url")
+                or itinerary.get("bookingUrl")
                 or itinerary.get("deeplinkUrl")
                 or itinerary.get("deepLink")
                 or "https://www.skyscanner.com"
