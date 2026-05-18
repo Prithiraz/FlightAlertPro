@@ -581,7 +581,7 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
                 currency=raw_offer.get('currency', 'USD'),
                 cabin_class=raw_offer.get('cabin_class', 'economy'),
                 baggage_kg=None,
-                booking_url=raw_offer.get('booking_link'),
+                booking_url=raw_offer.get('booking_link') or raw_offer.get('booking_url'),
             )
         elif source == 'amadeus':
             slices = raw_offer.get('slices', [])
