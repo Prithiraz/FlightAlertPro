@@ -1,5 +1,6 @@
 import os
 import logging
+import threading
 from collections import OrderedDict
 from typing import Optional, List, Dict, Any
 import requests
@@ -16,6 +17,7 @@ class SerpApiService:
         self.api_key = api_key or os.getenv("SERPAPI_KEY")
         self.enabled = self.api_key is not None
         self._cache: OrderedDict[tuple[str, str, str, str], List[Dict[str, Any]]] = OrderedDict()
+        self._cache_lock = threading.Lock()
 
     def _search_flights_cached(
         self,
@@ -25,9 +27,10 @@ class SerpApiService:
         currency: str,
     ) -> List[Dict[str, Any]]:
         cache_key = (from_iata, to_iata, departure_date, currency)
-        if cache_key in self._cache:
-            self._cache.move_to_end(cache_key)
-            return list(self._cache[cache_key])
+        with self._cache_lock:
+            if cache_key in self._cache:
+                self._cache.move_to_end(cache_key)
+                return list(self._cache[cache_key])
 
         if not self.enabled:
             logger.warning("SerpApi key not configured, skipping request")
@@ -65,9 +68,10 @@ class SerpApiService:
             return []
 
         normalized = self._normalize_results(result, from_iata, to_iata, currency)
-        if len(self._cache) >= 100:
-            self._cache.popitem(last=False)
-        self._cache[cache_key] = normalized
+        with self._cache_lock:
+            if len(self._cache) >= 100:
+                self._cache.popitem(last=False)
+            self._cache[cache_key] = normalized
         return list(normalized)
 
     def search_flights(
