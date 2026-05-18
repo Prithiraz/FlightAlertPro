@@ -1,11 +1,218 @@
 import os
 import logging
-import threading
-from collections import OrderedDict
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 import requests
 
+try:
+    from serpapi import GoogleSearch
+except ImportError:  # pragma: no cover - optional dependency fallback
+    GoogleSearch = None
+
 logger = logging.getLogger(__name__)
+
+_CACHE_MAX_AGE = timedelta(hours=24)
+
+
+def _cache_file_path(
+    from_iata: str,
+    to_iata: str,
+    departure_date: str,
+    currency: str,
+    cache_dir: Path,
+) -> Path:
+    safe_from = (from_iata or "").upper()
+    safe_to = (to_iata or "").upper()
+    safe_date = (departure_date or "").strip()
+    safe_currency = (currency or "USD").upper()
+    filename = f"cache_flights_{safe_from}_{safe_to}_{safe_date}_{safe_currency}.json"
+    return cache_dir / filename
+
+
+def _load_cached_response(cache_path: Path) -> Optional[Dict[str, Any]]:
+    if not cache_path.exists():
+        return None
+
+    try:
+        modified_at = datetime.fromtimestamp(cache_path.stat().st_mtime, tz=timezone.utc)
+        if datetime.now(timezone.utc) - modified_at > _CACHE_MAX_AGE:
+            return None
+        with cache_path.open("r", encoding="utf-8") as cache_file:
+            cached_payload = json.load(cache_file)
+            if isinstance(cached_payload, dict):
+                return cached_payload
+    except Exception as exc:
+        logger.warning("Failed reading SerpApi cache file %s: %s", cache_path, exc)
+    return None
+
+
+def _save_cached_response(cache_path: Path, payload: Dict[str, Any]) -> None:
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with cache_path.open("w", encoding="utf-8") as cache_file:
+            json.dump(payload, cache_file)
+    except Exception as exc:
+        logger.warning("Failed writing SerpApi cache file %s: %s", cache_path, exc)
+
+
+def _normalize_results(
+    result: Dict,
+    from_iata: str,
+    to_iata: str,
+    departure_date: str,
+    currency: str,
+) -> List[Dict[str, Any]]:
+    normalized: List[Dict[str, Any]] = []
+    best_flights = result.get("best_flights", [])
+    all_flights = best_flights if isinstance(best_flights, list) else []
+    if not all_flights:
+        other_flights = result.get("other_flights", [])
+        all_flights = other_flights if isinstance(other_flights, list) else []
+
+    default_booking_link = (
+        result.get("search_metadata", {}).get("google_flights_url")
+        or result.get("search_parameters", {}).get("google_flights_url")
+    )
+
+    if not all_flights:
+        logger.info("No flights in SerpApi response for %s->%s", from_iata, to_iata)
+        return []
+
+    for flight_group in all_flights:
+        try:
+            flights = flight_group.get("flights", [])
+            if not flights:
+                continue
+
+            price = float(flight_group.get("price", 0))
+            if price <= 0:
+                continue
+
+            first_flight = flights[0]
+            last_flight = flights[-1]
+            flight_number = str(first_flight.get("flight_number", "")).strip()
+            airline_name = first_flight.get("airline", "Unknown")
+
+            parts = flight_number.split(" ", 1)
+            airline_iata = parts[0] if parts and parts[0] else "XX"
+
+            departure_time = first_flight.get("departure_airport", {}).get("time", "")
+            arrival_time = last_flight.get("arrival_airport", {}).get("time", "")
+            total_duration = int(float(flight_group.get("total_duration", 0) or 0))
+
+            stops = len(flights) - 1
+            booking_token = (
+                flight_group.get("booking_token")
+                or flight_group.get("flight_token")
+                or first_flight.get("booking_token")
+                or first_flight.get("token")
+            )
+            booking_link = default_booking_link
+            if not booking_link and booking_token:
+                if str(booking_token).startswith("http"):
+                    booking_link = booking_token
+                else:
+                    booking_link = (
+                        "https://www.google.com/travel/flights"
+                        f"?hl=en#flt={from_iata}.{to_iata}.{departure_date};tt:o;t:{booking_token}"
+                    )
+
+            offer_id = f"serpapi-{from_iata}-{to_iata}-{departure_time}-{price}"
+            normalized.append(
+                {
+                    "id": offer_id,
+                    "provider": "serpapi",
+                    "price": price,
+                    "currency": currency,
+                    "airline": airline_iata,
+                    "airline_name": airline_name,
+                    "flight_number": flight_number,
+                    "from_iata": from_iata,
+                    "to_iata": to_iata,
+                    "departure": departure_time,
+                    "arrival": arrival_time,
+                    "stops": stops,
+                    "duration_minutes": total_duration,
+                    "cabin_class": "economy",
+                    "booking_link": booking_link,
+                    "booking_url": booking_link,
+                }
+            )
+        except Exception as exc:
+            logger.error("Error normalizing SerpApi flight offer: %s", exc)
+            continue
+
+    normalized.sort(key=lambda x: x["price"])
+    logger.info("Normalized %s SerpApi flights for %s->%s", len(normalized), from_iata, to_iata)
+    return normalized
+
+
+def search_google_flights(
+    from_iata: str,
+    to_iata: str,
+    departure_date: str,
+    currency: str = "USD",
+    *,
+    api_key: Optional[str] = None,
+    cache_dir: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    resolved_api_key = api_key or os.getenv("SERPAPI_KEY")
+    if not resolved_api_key:
+        logger.warning("SerpApi key not configured, skipping request")
+        return []
+
+    route_from = (from_iata or "").upper()
+    route_to = (to_iata or "").upper()
+    route_date = (departure_date or "").strip()
+    route_currency = (currency or "USD").upper()
+    resolved_cache_dir = Path(cache_dir or os.getenv("SERPAPI_CACHE_DIR") or ".serpapi_cache")
+    cache_path = _cache_file_path(route_from, route_to, route_date, route_currency, resolved_cache_dir)
+
+    cached_payload = _load_cached_response(cache_path)
+    if cached_payload is not None:
+        return _normalize_results(cached_payload, route_from, route_to, route_date, route_currency)
+
+    params: Dict[str, Any] = {
+        "engine": "google_flights",
+        "departure_id": route_from,
+        "arrival_id": route_to,
+        "outbound_date": route_date,
+        "currency": route_currency,
+        "hl": "en",
+        "type": "2",
+        "api_key": resolved_api_key,
+    }
+
+    try:
+        logger.info("SerpApi request: %s -> %s", route_from, route_to)
+        if GoogleSearch is not None:
+            result = GoogleSearch(params).get_dict()
+        else:
+            response = requests.get(SerpApiService.BASE_URL, params=params, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else "unknown"
+        logger.error("SerpApi HTTP error (%s) for %s->%s: %s", status, route_from, route_to, exc)
+        return []
+    except requests.RequestException as exc:
+        logger.error("SerpApi request failed for %s->%s: %s", route_from, route_to, exc)
+        return []
+    except Exception as exc:
+        logger.error("SerpApi unexpected error for %s->%s: %s", route_from, route_to, exc)
+        return []
+
+    if not isinstance(result, dict):
+        logger.error("SerpApi response was not a JSON object for %s->%s", route_from, route_to)
+        return []
+    if "error" in result:
+        logger.error("SerpApi returned error for %s->%s: %s", route_from, route_to, result.get("error"))
+        return []
+
+    _save_cached_response(cache_path, result)
+    return _normalize_results(result, route_from, route_to, route_date, route_currency)
 
 
 class SerpApiService:
@@ -13,11 +220,10 @@ class SerpApiService:
 
     BASE_URL = "https://serpapi.com/search"
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, cache_dir: Optional[str] = None):
         self.api_key = api_key or os.getenv("SERPAPI_KEY")
         self.enabled = self.api_key is not None
-        self._cache: OrderedDict[tuple[str, str, str, str], List[Dict[str, Any]]] = OrderedDict()
-        self._cache_lock = threading.Lock()
+        self.cache_dir = cache_dir or os.getenv("SERPAPI_CACHE_DIR") or ".serpapi_cache"
 
     def _search_flights_cached(
         self,
@@ -26,53 +232,14 @@ class SerpApiService:
         departure_date: str,
         currency: str,
     ) -> List[Dict[str, Any]]:
-        cache_key = (from_iata, to_iata, departure_date, currency)
-        with self._cache_lock:
-            if cache_key in self._cache:
-                self._cache.move_to_end(cache_key)
-                return list(self._cache[cache_key])
-
-        if not self.enabled:
-            logger.warning("SerpApi key not configured, skipping request")
-            return []
-
-        params: Dict[str, Any] = {
-            "engine": "google_flights",
-            "departure_id": from_iata,
-            "arrival_id": to_iata,
-            "outbound_date": departure_date,
-            "currency": currency,
-            "hl": "en",
-            "type": "2",
-            "api_key": self.api_key,
-        }
-
-        try:
-            logger.info("SerpApi request: %s -> %s", from_iata, to_iata)
-            response = requests.get(self.BASE_URL, params=params, timeout=30)
-            response.raise_for_status()
-            result = response.json()
-        except requests.HTTPError as exc:
-            status = exc.response.status_code if exc.response is not None else "unknown"
-            logger.error("SerpApi HTTP error (%s) for %s->%s: %s", status, from_iata, to_iata, exc)
-            return []
-        except requests.RequestException as exc:
-            logger.error("SerpApi request failed for %s->%s: %s", from_iata, to_iata, exc)
-            return []
-        except Exception as exc:
-            logger.error("SerpApi unexpected error for %s->%s: %s", from_iata, to_iata, exc)
-            return []
-
-        if "error" in result:
-            logger.error("SerpApi returned error for %s->%s: %s", from_iata, to_iata, result.get("error"))
-            return []
-
-        normalized = self._normalize_results(result, from_iata, to_iata, currency)
-        with self._cache_lock:
-            if len(self._cache) >= 100:
-                self._cache.popitem(last=False)
-            self._cache[cache_key] = normalized
-        return list(normalized)
+        return search_google_flights(
+            from_iata=from_iata,
+            to_iata=to_iata,
+            departure_date=departure_date,
+            currency=currency,
+            api_key=self.api_key,
+            cache_dir=self.cache_dir,
+        )
 
     def search_flights(
         self,
@@ -106,87 +273,6 @@ class SerpApiService:
                 f"SerpApi search raised unexpected exception for {from_iata}->{to_iata}: {str(e)}"
             )
             return []
-
-    def _normalize_results(
-        self, result: Dict, from_iata: str, to_iata: str, currency: str
-    ) -> List[Dict[str, Any]]:
-        """Parse SerpApi response and convert to the standard internal offer format."""
-        normalized: List[Dict[str, Any]] = []
-
-        best_flights = result.get("best_flights", [])
-        other_flights = result.get("other_flights", [])
-        all_flights = (best_flights if isinstance(best_flights, list) else []) + (
-            other_flights if isinstance(other_flights, list) else []
-        )
-        google_flights_url = (
-            result.get("search_metadata", {}).get("google_flights_url")
-            or result.get("search_parameters", {}).get("google_flights_url")
-        )
-
-        if not all_flights:
-            logger.info(f"No flights in SerpApi response for {from_iata}->{to_iata}")
-            return []
-
-        for flight_group in all_flights:
-            try:
-                flights = flight_group.get("flights", [])
-                if not flights:
-                    continue
-
-                price = float(flight_group.get("price", 0))
-                if price <= 0:
-                    continue
-
-                first_flight = flights[0]
-                last_flight = flights[-1]
-
-                airline_name = first_flight.get("airline", "Unknown")
-
-                # Extract carrier IATA code from flight_number (e.g. "UA 1234" → "UA")
-                flight_number = first_flight.get("flight_number", "")
-                parts = flight_number.split(" ", 1)
-                airline_iata = parts[0] if parts and parts[0] else "XX"
-
-                departure_time = first_flight.get("departure_airport", {}).get("time", "")
-                arrival_time = last_flight.get("arrival_airport", {}).get("time", "")
-                total_duration = flight_group.get("total_duration", 0)
-
-                # Number of stops = segments minus 1
-                stops = len(flights) - 1
-
-                offer_id = f"serpapi-{from_iata}-{to_iata}-{departure_time}-{price}"
-
-                normalized.append(
-                    {
-                        "id": offer_id,
-                        "provider": "serpapi",
-                        "price": price,
-                        "currency": currency,
-                        "airline": airline_iata,
-                        "airline_name": airline_name,
-                        "from_iata": from_iata,
-                        "to_iata": to_iata,
-                        "departure": departure_time,
-                        "arrival": arrival_time,
-                        "stops": stops,
-                        "duration_minutes": total_duration,
-                        "cabin_class": "economy",
-                        "booking_link": google_flights_url,
-                        "booking_url": google_flights_url,
-                    }
-                )
-
-            except Exception as e:
-                logger.error(f"Error normalizing SerpApi flight offer: {str(e)}")
-                continue
-
-        # Sort by price so callers always receive cheapest offers first
-        normalized.sort(key=lambda x: x["price"])
-
-        logger.info(
-            f"Normalized {len(normalized)} SerpApi flights for {from_iata}->{to_iata}"
-        )
-        return normalized
 
 
 serpapi_service = SerpApiService()
