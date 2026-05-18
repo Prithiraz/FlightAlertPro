@@ -113,11 +113,13 @@ def _normalize_results(
 
             first_flight = flights[0]
             last_flight = flights[-1]
-            flight_number = str(first_flight.get("flight_number", "")).strip()
+            flight_number_raw = str(first_flight.get("flight_number", "")).strip()
+            flight_number = flight_number_raw or "UNKNOWN"
             airline_name = first_flight.get("airline", "Unknown")
 
-            parts = flight_number.split(" ", 1)
-            airline_iata = parts[0] if parts and parts[0] else "XX"
+            parts = flight_number_raw.split(" ", 1) if flight_number_raw else []
+            airline_candidate = parts[0].upper() if parts else ""
+            airline_iata = airline_candidate if re.match(r"^[A-Z0-9]{2,3}$", airline_candidate) else "XX"
 
             departure_time = first_flight.get("departure_airport", {}).get("time", "")
             arrival_time = last_flight.get("arrival_airport", {}).get("time", "")

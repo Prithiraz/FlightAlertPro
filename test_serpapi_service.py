@@ -54,6 +54,7 @@ def test_serpapi_search_uses_file_cache(monkeypatch, tmp_path):
     assert request_mock.call_count == 1
     assert cache_file.exists()
     assert first[0]["flight_number"] == "UA 100"
+    assert first[0]["airline"] == "UA"
 
 
 def test_serpapi_refreshes_when_file_cache_is_stale(monkeypatch, tmp_path):
