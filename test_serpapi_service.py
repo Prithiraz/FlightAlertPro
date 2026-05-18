@@ -53,6 +53,7 @@ def test_serpapi_search_uses_file_cache(monkeypatch, tmp_path):
     assert second == first
     assert request_mock.call_count == 1
     assert cache_file.exists()
+    assert first[0]["flight_number"] == "UA 100"
 
 
 def test_serpapi_refreshes_when_file_cache_is_stale(monkeypatch, tmp_path):
@@ -80,7 +81,6 @@ def test_serpapi_refreshes_when_file_cache_is_stale(monkeypatch, tmp_path):
     }
     cache_path.write_text(json.dumps(stale_payload), encoding="utf-8")
     stale_time = datetime.now(timezone.utc) - timedelta(hours=25)
-    cache_path.touch()
     os.utime(cache_path, (stale_time.timestamp(), stale_time.timestamp()))
 
     fresh_url = "https://www.google.com/travel/flights/fresh"
