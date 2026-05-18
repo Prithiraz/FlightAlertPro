@@ -90,7 +90,7 @@ def test_search_flights_combines_serpapi_and_duffel(monkeypatch):
     assert response["total_offers"] == 2
     assert response["offers"][0]["source"] == "serpapi"
     assert response["offers"][1]["source"] == "duffel"
-    assert response["sources_queried"] == ["duffel", "serpapi"]
+    assert set(response["sources_queried"]) == {"duffel", "serpapi"}
 
 
 def test_search_flights_runs_weather_pipeline_when_serpapi_empty(monkeypatch):

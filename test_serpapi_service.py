@@ -13,9 +13,9 @@ def _mock_response(payload: dict, status_code: int = 200) -> MagicMock:
     return response
 
 
-def test_serpapi_search_uses_lru_cache(monkeypatch):
+def test_serpapi_search_uses_local_cache(monkeypatch):
     service = SerpApiService(api_key="test-key")
-    service._search_flights_cached.cache_clear()
+    service._cache.clear()
 
     payload = {
         "search_metadata": {"google_flights_url": "https://www.google.com/travel/flights"},
@@ -48,7 +48,7 @@ def test_serpapi_search_uses_lru_cache(monkeypatch):
 
 def test_serpapi_maps_google_flights_url_to_booking_link(monkeypatch):
     service = SerpApiService(api_key="test-key")
-    service._search_flights_cached.cache_clear()
+    service._cache.clear()
     google_url = "https://www.google.com/travel/flights/search"
     payload = {
         "search_metadata": {"google_flights_url": google_url},
@@ -77,7 +77,7 @@ def test_serpapi_maps_google_flights_url_to_booking_link(monkeypatch):
 
 def test_serpapi_returns_empty_list_on_http_error(monkeypatch):
     service = SerpApiService(api_key="test-key")
-    service._search_flights_cached.cache_clear()
+    service._cache.clear()
     response = _mock_response({}, status_code=500)
     response.raise_for_status.side_effect = requests.HTTPError("server error", response=response)
     monkeypatch.setattr(requests, "get", MagicMock(return_value=response))

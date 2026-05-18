@@ -1,6 +1,5 @@
 import os
 import logging
-from functools import lru_cache
 from typing import Optional, List, Dict, Any
 import requests
 
@@ -15,8 +14,8 @@ class SerpApiService:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("SERPAPI_KEY")
         self.enabled = self.api_key is not None
+        self._cache: Dict[tuple[str, str, str, str], List[Dict[str, Any]]] = {}
 
-    @lru_cache(maxsize=100)
     def _search_flights_cached(
         self,
         from_iata: str,
@@ -24,6 +23,10 @@ class SerpApiService:
         departure_date: str,
         currency: str,
     ) -> List[Dict[str, Any]]:
+        cache_key = (from_iata, to_iata, departure_date, currency)
+        if cache_key in self._cache:
+            return list(self._cache[cache_key])
+
         if not self.enabled:
             logger.warning("SerpApi key not configured, skipping request")
             return []
@@ -59,7 +62,12 @@ class SerpApiService:
             logger.error("SerpApi returned error for %s->%s: %s", from_iata, to_iata, result.get("error"))
             return []
 
-        return self._normalize_results(result, from_iata, to_iata, currency)
+        normalized = self._normalize_results(result, from_iata, to_iata, currency)
+        if len(self._cache) >= 100:
+            oldest_key = next(iter(self._cache))
+            self._cache.pop(oldest_key, None)
+        self._cache[cache_key] = normalized
+        return list(normalized)
 
     def search_flights(
         self,
