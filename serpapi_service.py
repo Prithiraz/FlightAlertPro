@@ -1,5 +1,6 @@
 import os
 import logging
+from collections import OrderedDict
 from typing import Optional, List, Dict, Any
 import requests
 
@@ -14,7 +15,7 @@ class SerpApiService:
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("SERPAPI_KEY")
         self.enabled = self.api_key is not None
-        self._cache: Dict[tuple[str, str, str, str], List[Dict[str, Any]]] = {}
+        self._cache: OrderedDict[tuple[str, str, str, str], List[Dict[str, Any]]] = OrderedDict()
 
     def _search_flights_cached(
         self,
@@ -25,6 +26,7 @@ class SerpApiService:
     ) -> List[Dict[str, Any]]:
         cache_key = (from_iata, to_iata, departure_date, currency)
         if cache_key in self._cache:
+            self._cache.move_to_end(cache_key)
             return list(self._cache[cache_key])
 
         if not self.enabled:
@@ -64,8 +66,7 @@ class SerpApiService:
 
         normalized = self._normalize_results(result, from_iata, to_iata, currency)
         if len(self._cache) >= 100:
-            oldest_key = next(iter(self._cache))
-            self._cache.pop(oldest_key, None)
+            self._cache.popitem(last=False)
         self._cache[cache_key] = normalized
         return list(normalized)
 
