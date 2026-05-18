@@ -14,7 +14,6 @@ from rapidapi_adapters import aerodatabox_adapter
 from duffel_service import duffel_service
 from serpapi_service import serpapi_service
 from amadeus_service import amadeus_service
-from skyscanner_service import skyscanner_provider
 from config import config
 from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
 from weather_service import get_departure_performance, get_aerodynamic_performance, _TAS_KT, _KM_PER_NM, iata_to_airport_info
@@ -465,15 +464,11 @@ async def search_serpapi(segment: FlightSegment, request: SearchRequest) -> List
         return []
 
     try:
-        return_date = None
-        if len(request.segments) > 1:
-            return_date = request.segments[1].departure_date
-
         results = serpapi_service.search_flights(
             segment.from_iata,
             segment.to_iata,
             segment.departure_date,
-            return_date=return_date,
+            currency=request.currency,
         )
         record_success('serpapi')
         return results or []
@@ -704,38 +699,34 @@ async def search_flights(request: SearchRequest):
 
     start_time = time.time()
     segment = request.segments[0]
-    is_round_trip = len(request.segments) == 2
-    return_date = request.segments[1].departure_date if is_round_trip else None
-
-    sources_queried: List[str] = ["skyscanner"]
+    sources_queried: List[str] = ["duffel", "serpapi"]
     offers: List[Dict[str, Any]] = []
 
-    try:
-        offers = await asyncio.to_thread(
-            skyscanner_provider.search_flights,
-            segment.from_iata,
-            segment.to_iata,
-            segment.departure_date,
-            return_date,
-            request.passengers.adults,
-            request.passengers.adults,
-            request.passengers.children,
-            request.currency,
-            request.cabin_class,
-        ) or []
-    except Exception as exc:
-        logger.warning("Skyscanner search failed; falling back to Duffel: %s", exc)
-        offers = []
+    duffel_raw_offers, serpapi_raw_offers = await asyncio.gather(
+        search_duffel(segment, request),
+        search_serpapi(segment, request),
+        return_exceptions=True,
+    )
 
-    if not offers:
-        duffel_raw_offers = await search_duffel(segment, request)
-        sources_queried.append("duffel")
-        normalized_duffel_offers: List[Dict[str, Any]] = []
-        for raw_offer in duffel_raw_offers:
-            normalized = normalize_offer(raw_offer, "duffel")
-            if normalized:
-                normalized_duffel_offers.append(normalized.model_dump())
-        offers = normalized_duffel_offers
+    if isinstance(duffel_raw_offers, Exception):
+        logger.warning("Duffel search task failed: %s", duffel_raw_offers)
+        duffel_raw_offers = []
+    if isinstance(serpapi_raw_offers, Exception):
+        logger.warning("SerpApi search task failed: %s", serpapi_raw_offers)
+        serpapi_raw_offers = []
+
+    normalized_offers: List[Dict[str, Any]] = []
+    for raw_offer in duffel_raw_offers:
+        normalized = normalize_offer(raw_offer, "duffel")
+        if normalized:
+            normalized_offers.append(normalized.model_dump())
+
+    for raw_offer in serpapi_raw_offers:
+        normalized = normalize_offer(raw_offer, "serpapi")
+        if normalized:
+            normalized_offers.append(normalized.model_dump())
+
+    offers = normalized_offers
 
     filtered_offers: List[Dict[str, Any]] = []
     for offer in offers:

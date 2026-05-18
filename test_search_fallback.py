@@ -34,6 +34,24 @@ def _duffel_raw_offer() -> dict:
     }
 
 
+def _serpapi_offer() -> dict:
+    return {
+        "id": "serp_123",
+        "price": 149.99,
+        "currency": "USD",
+        "airline": "AA",
+        "airline_name": "American Airlines",
+        "from_iata": "JFK",
+        "to_iata": "LAX",
+        "departure": "2026-06-01T09:00:00Z",
+        "arrival": "2026-06-01T12:30:00Z",
+        "stops": 0,
+        "duration_minutes": 210,
+        "cabin_class": "economy",
+        "booking_link": "https://www.google.com/travel/flights",
+    }
+
+
 def _stub_enrichment_pipeline(monkeypatch):
     monkeypatch.setattr(search, "_inject_points_valuation", lambda offers: offers)
 
@@ -53,28 +71,29 @@ def _stub_enrichment_pipeline(monkeypatch):
     monkeypatch.setattr(search, "_stamp_tier_requirements", lambda offers: offers)
 
 
-def test_search_flights_falls_back_to_duffel_when_skyscanner_throws(monkeypatch):
+def test_search_flights_combines_serpapi_and_duffel(monkeypatch):
     search.SEARCH_CACHE.clear()
     request = _request()
     _stub_enrichment_pipeline(monkeypatch)
 
-    def raise_skyscanner(*args, **kwargs):
-        raise RuntimeError("IP blocked")
-
     async def fake_search_duffel(segment, req):
         return [_duffel_raw_offer()]
 
-    monkeypatch.setattr(search.skyscanner_provider, "search_flights", raise_skyscanner)
+    async def fake_search_serpapi(segment, req):
+        return [_serpapi_offer()]
+
     monkeypatch.setattr(search, "search_duffel", fake_search_duffel)
+    monkeypatch.setattr(search, "search_serpapi", fake_search_serpapi)
 
     response = asyncio.run(search.search_flights(request))
 
-    assert response["total_offers"] == 1
-    assert response["offers"][0]["source"] == "duffel"
-    assert response["sources_queried"] == ["skyscanner", "duffel"]
+    assert response["total_offers"] == 2
+    assert response["offers"][0]["source"] == "serpapi"
+    assert response["offers"][1]["source"] == "duffel"
+    assert response["sources_queried"] == ["duffel", "serpapi"]
 
 
-def test_search_flights_runs_weather_pipeline_for_duffel_when_skyscanner_empty(monkeypatch):
+def test_search_flights_runs_weather_pipeline_when_serpapi_empty(monkeypatch):
     search.SEARCH_CACHE.clear()
     request = _request()
     _stub_enrichment_pipeline(monkeypatch)
@@ -82,8 +101,11 @@ def test_search_flights_runs_weather_pipeline_for_duffel_when_skyscanner_empty(m
     async def fake_search_duffel(segment, req):
         return [_duffel_raw_offer()]
 
-    monkeypatch.setattr(search.skyscanner_provider, "search_flights", lambda *args, **kwargs: [])
+    async def fake_search_serpapi(segment, req):
+        return []
+
     monkeypatch.setattr(search, "search_duffel", fake_search_duffel)
+    monkeypatch.setattr(search, "search_serpapi", fake_search_serpapi)
 
     response = asyncio.run(search.search_flights(request))
 
