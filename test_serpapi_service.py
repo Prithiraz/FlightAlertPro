@@ -21,7 +21,7 @@ def test_serpapi_search_uses_file_cache(monkeypatch, tmp_path):
     service = SerpApiService(api_key="test-key", cache_dir=str(tmp_path))
     monkeypatch.setattr(serpapi_service, "GoogleSearch", None)
     resolved_cache_dir = serpapi_service._resolve_cache_dir(str(tmp_path))
-    cache_file = resolved_cache_dir / "cache_flights_JFK_LAX_2026-07-01_USD.json"
+    cache_file = serpapi_service._cache_file_path("JFK", "LAX", "2026-07-01", "USD", resolved_cache_dir)
     if cache_file.exists():
         cache_file.unlink()
 
@@ -60,7 +60,7 @@ def test_serpapi_refreshes_when_file_cache_is_stale(monkeypatch, tmp_path):
     monkeypatch.setattr(serpapi_service, "GoogleSearch", None)
     resolved_cache_dir = serpapi_service._resolve_cache_dir(str(tmp_path))
     resolved_cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = resolved_cache_dir / "cache_flights_JFK_BOS_2026-07-02_USD.json"
+    cache_path = serpapi_service._cache_file_path("JFK", "BOS", "2026-07-02", "USD", resolved_cache_dir)
     stale_payload = {
         "search_metadata": {"google_flights_url": "https://www.google.com/travel/flights/old"},
         "best_flights": [

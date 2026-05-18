@@ -2,6 +2,7 @@ import os
 import logging
 import json
 import re
+import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -45,7 +46,9 @@ def _cache_file_path(
     safe_to = _safe_filename_part(to_iata, default="TO")
     safe_date = _safe_filename_part(departure_date, default="DATE", allow_hyphen=True)
     safe_currency = _safe_filename_part(currency, default="USD")
-    filename = f"cache_flights_{safe_from}_{safe_to}_{safe_date}_{safe_currency}.json"
+    digest_input = f"{safe_from}_{safe_to}_{safe_date}_{safe_currency}".encode("utf-8")
+    route_digest = hashlib.sha256(digest_input).hexdigest()[:24]
+    filename = f"cache_flights_{route_digest}.json"
     return cache_dir / filename
 
 
