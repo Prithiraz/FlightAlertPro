@@ -39,6 +39,7 @@ ENV/
 # Logs
 logs/
 *.log
+.serpapi_cache/
 
 # Symlinks created for module structure
 backend

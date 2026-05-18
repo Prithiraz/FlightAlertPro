@@ -20,6 +20,10 @@ def _mock_response(payload: dict, status_code: int = 200) -> MagicMock:
 def test_serpapi_search_uses_file_cache(monkeypatch, tmp_path):
     service = SerpApiService(api_key="test-key", cache_dir=str(tmp_path))
     monkeypatch.setattr(serpapi_service, "GoogleSearch", None)
+    resolved_cache_dir = serpapi_service._resolve_cache_dir(str(tmp_path))
+    cache_file = resolved_cache_dir / "cache_flights_JFK_LAX_2026-07-01_USD.json"
+    if cache_file.exists():
+        cache_file.unlink()
 
     payload = {
         "search_metadata": {"google_flights_url": "https://www.google.com/travel/flights"},
@@ -48,13 +52,15 @@ def test_serpapi_search_uses_file_cache(monkeypatch, tmp_path):
     assert len(first) == 1
     assert second == first
     assert request_mock.call_count == 1
-    assert (tmp_path / "cache_flights_JFK_LAX_2026-07-01_USD.json").exists()
+    assert cache_file.exists()
 
 
 def test_serpapi_refreshes_when_file_cache_is_stale(monkeypatch, tmp_path):
     service = SerpApiService(api_key="test-key", cache_dir=str(tmp_path))
     monkeypatch.setattr(serpapi_service, "GoogleSearch", None)
-    cache_path = tmp_path / "cache_flights_JFK_BOS_2026-07-02_USD.json"
+    resolved_cache_dir = serpapi_service._resolve_cache_dir(str(tmp_path))
+    resolved_cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = resolved_cache_dir / "cache_flights_JFK_BOS_2026-07-02_USD.json"
     stale_payload = {
         "search_metadata": {"google_flights_url": "https://www.google.com/travel/flights/old"},
         "best_flights": [

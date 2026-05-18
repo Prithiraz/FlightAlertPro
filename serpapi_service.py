@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -14,6 +15,23 @@ except ImportError:  # pragma: no cover - optional dependency fallback
 logger = logging.getLogger(__name__)
 
 _CACHE_MAX_AGE = timedelta(hours=24)
+_DEFAULT_CACHE_DIR = Path(__file__).resolve().parent / ".serpapi_cache"
+
+
+def _safe_filename_part(value: str, *, default: str = "UNK", allow_hyphen: bool = False) -> str:
+    pattern = r"[^A-Z0-9-]" if allow_hyphen else r"[^A-Z0-9]"
+    cleaned = re.sub(pattern, "", (value or "").upper())
+    return cleaned or default
+
+
+def _resolve_cache_dir(cache_dir: Optional[str]) -> Path:
+    if not cache_dir:
+        return _DEFAULT_CACHE_DIR
+
+    safe_dir_name = re.sub(r"[^a-zA-Z0-9_.-]", "", Path(cache_dir).name)
+    if not safe_dir_name:
+        return _DEFAULT_CACHE_DIR
+    return _DEFAULT_CACHE_DIR / safe_dir_name
 
 
 def _cache_file_path(
@@ -23,10 +41,10 @@ def _cache_file_path(
     currency: str,
     cache_dir: Path,
 ) -> Path:
-    safe_from = (from_iata or "").upper()
-    safe_to = (to_iata or "").upper()
-    safe_date = (departure_date or "").strip()
-    safe_currency = (currency or "USD").upper()
+    safe_from = _safe_filename_part(from_iata, default="FROM")
+    safe_to = _safe_filename_part(to_iata, default="TO")
+    safe_date = _safe_filename_part(departure_date, default="DATE", allow_hyphen=True)
+    safe_currency = _safe_filename_part(currency, default="USD")
     filename = f"cache_flights_{safe_from}_{safe_to}_{safe_date}_{safe_currency}.json"
     return cache_dir / filename
 
@@ -167,7 +185,7 @@ def search_google_flights(
     route_to = (to_iata or "").upper()
     route_date = (departure_date or "").strip()
     route_currency = (currency or "USD").upper()
-    resolved_cache_dir = Path(cache_dir or os.getenv("SERPAPI_CACHE_DIR") or ".serpapi_cache")
+    resolved_cache_dir = _resolve_cache_dir(cache_dir or os.getenv("SERPAPI_CACHE_DIR"))
     cache_path = _cache_file_path(route_from, route_to, route_date, route_currency, resolved_cache_dir)
 
     cached_payload = _load_cached_response(cache_path)
