@@ -41,6 +41,7 @@ def test_search_cached_flights_normalizes_booking_link(monkeypatch):
     results = aviasales_service.search_cached_flights("JFK", "LAX", currency="USD")
 
     assert len(results) == 1
-    assert results[0]["booking_link"] == "https://aviasales.com/search/JFK0106LAX1"
-    assert results[0]["booking_url"] == "https://aviasales.com/search/JFK0106LAX1"
+    expected_booking = "https://aviasales.com/search/JFK0106LAX1"
+    assert results[0]["booking_link"] == expected_booking
+    assert results[0]["booking_url"] == expected_booking
     assert results[0]["flight_number"] == "100"

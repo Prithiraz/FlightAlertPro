@@ -18,7 +18,8 @@ def _build_booking_link(link: Optional[str]) -> Optional[str]:
         return None
     if link.startswith("http://") or link.startswith("https://"):
         return link
-    return f"{_AVIASALES_BOOKING_BASE_URL}{link if link.startswith('/') else f'/{link}'}"
+    separator = "" if link.startswith("/") else "/"
+    return f"{_AVIASALES_BOOKING_BASE_URL}{separator}{link}"
 
 
 def _normalize_v1_entry(origin: str, destination: str, currency: str, offer: Dict[str, Any]) -> Dict[str, Any]:
@@ -29,8 +30,9 @@ def _normalize_v1_entry(origin: str, destination: str, currency: str, offer: Dic
     arrival = offer.get("return_at") or offer.get("arrival_at") or departure
     price = float(offer.get("price") or 0)
 
+    price_id = int(round(price * 100))
     return {
-        "id": f"aviasales-{origin}-{destination}-{departure or 'unknown'}-{price}",
+        "id": f"aviasales-{origin}-{destination}-{departure or 'unknown'}-{price_id}",
         "provider": "aviasales",
         "price": price,
         "currency": (currency or "USD").upper(),
