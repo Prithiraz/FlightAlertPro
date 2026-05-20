@@ -468,6 +468,7 @@ async def search_aviasales(segment: FlightSegment, request: SearchRequest) -> Li
             aviasales_service.search_flights,
             segment.from_iata,
             segment.to_iata,
+            segment.departure_date,
             currency=request.currency,
         )
         record_success('aviasales')

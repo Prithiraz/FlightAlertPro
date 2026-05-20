@@ -9,7 +9,7 @@ def test_search_cached_flights_returns_empty_list_on_request_failure(monkeypatch
 
     monkeypatch.setattr(aviasales_service.requests, "get", _raise)
 
-    results = aviasales_service.search_cached_flights("JFK", "LAX", "USD")
+    results = aviasales_service.search_cached_flights("JFK", "LAX", currency="USD")
 
     assert results == []
 
@@ -38,7 +38,7 @@ def test_search_cached_flights_normalizes_booking_link(monkeypatch):
 
     monkeypatch.setattr(aviasales_service.requests, "get", lambda *args, **kwargs: _Response())
 
-    results = aviasales_service.search_cached_flights("JFK", "LAX", "USD")
+    results = aviasales_service.search_cached_flights("JFK", "LAX", currency="USD")
 
     assert len(results) == 1
     assert results[0]["booking_link"] == "https://aviasales.com/search/JFK0106LAX1"

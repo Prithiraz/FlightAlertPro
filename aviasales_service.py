@@ -49,7 +49,12 @@ def _normalize_v1_entry(origin: str, destination: str, currency: str, offer: Dic
     }
 
 
-def search_cached_flights(origin: str, destination: str, currency: str = "USD") -> List[Dict[str, Any]]:
+def search_cached_flights(
+    origin: str,
+    destination: str,
+    departure_date: Optional[str] = None,
+    currency: str = "USD",
+) -> List[Dict[str, Any]]:
     token = os.getenv("TRAVELPAYOUTS_TOKEN")
     if not token:
         logger.warning("TRAVELPAYOUTS_TOKEN not configured, skipping Aviasales request")
@@ -61,6 +66,7 @@ def search_cached_flights(origin: str, destination: str, currency: str = "USD") 
             params={
                 "origin": (origin or "").upper(),
                 "destination": (destination or "").upper(),
+                "depart_date": departure_date,
                 "currency": (currency or "USD").upper(),
                 "token": token,
             },
@@ -103,8 +109,19 @@ class AviasalesService:
     def __init__(self):
         self.enabled = bool(os.getenv("TRAVELPAYOUTS_TOKEN"))
 
-    def search_flights(self, origin: str, destination: str, currency: str = "USD") -> List[Dict[str, Any]]:
-        return search_cached_flights(origin=origin, destination=destination, currency=currency)
+    def search_flights(
+        self,
+        origin: str,
+        destination: str,
+        departure_date: Optional[str] = None,
+        currency: str = "USD",
+    ) -> List[Dict[str, Any]]:
+        return search_cached_flights(
+            origin=origin,
+            destination=destination,
+            departure_date=departure_date,
+            currency=currency,
+        )
 
 
 aviasales_service = AviasalesService()
