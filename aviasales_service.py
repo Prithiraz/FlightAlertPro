@@ -1,5 +1,7 @@
 import logging
 import os
+import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -32,8 +34,18 @@ def _normalize_v1_entry(origin: str, destination: str, currency: str, offer: Dic
     price = float(offer.get("price") or 0)
 
     price_id = int(round(price * 100))
+    departure_token = re.sub(r"[^0-9A-Za-z]", "", str(departure or "unknown")) or "unknown"
+    duration_minutes = None
+    if departure and arrival:
+        try:
+            dep_dt = datetime.fromisoformat(str(departure).replace("Z", "+00:00"))
+            arr_dt = datetime.fromisoformat(str(arrival).replace("Z", "+00:00"))
+            delta_minutes = int((arr_dt - dep_dt).total_seconds() // 60)
+            duration_minutes = delta_minutes if delta_minutes >= 0 else None
+        except Exception:
+            duration_minutes = None
     return {
-        "id": f"aviasales-{origin}-{destination}-{departure or 'unknown'}-{price_id}-{flight_number or 'NA'}",
+        "id": f"aviasales-{origin}-{destination}-{departure_token}-{price_id}-{flight_number or 'NA'}",
         "provider": "aviasales",
         "price": price,
         "currency": (currency or "USD").upper(),
@@ -45,7 +57,7 @@ def _normalize_v1_entry(origin: str, destination: str, currency: str, offer: Dic
         "departure": departure or "",
         "arrival": arrival or "",
         "stops": int(offer.get("number_of_changes") or 0),
-        "duration_minutes": None,
+        "duration_minutes": duration_minutes,
         "cabin_class": "economy",
         "booking_link": booking_link,
         "booking_url": booking_link,
