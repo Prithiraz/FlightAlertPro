@@ -25,14 +25,15 @@ def _build_booking_link(link: Optional[str]) -> Optional[str]:
 def _normalize_v1_entry(origin: str, destination: str, currency: str, offer: Dict[str, Any]) -> Dict[str, Any]:
     booking_link = _build_booking_link(offer.get("link"))
     airline = str(offer.get("airline") or "XX").upper()
-    flight_number = str(offer.get("flight_number") or "")
+    flight_number_value = offer.get("flight_number")
+    flight_number = str(flight_number_value) if flight_number_value is not None else ""
     departure = offer.get("departure_at")
     arrival = offer.get("return_at") or offer.get("arrival_at") or departure
     price = float(offer.get("price") or 0)
 
     price_id = int(round(price * 100))
     return {
-        "id": f"aviasales-{origin}-{destination}-{departure or 'unknown'}-{price_id}",
+        "id": f"aviasales-{origin}-{destination}-{departure or 'unknown'}-{price_id}-{flight_number or 'NA'}",
         "provider": "aviasales",
         "price": price,
         "currency": (currency or "USD").upper(),
