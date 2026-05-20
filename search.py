@@ -12,7 +12,7 @@ import re
 import openai
 from rapidapi_adapters import aerodatabox_adapter
 from duffel_service import duffel_service
-from serpapi_service import serpapi_service
+from aviasales_service import aviasales_service
 from amadeus_service import amadeus_service
 from config import config
 from math_utils import calculate_points_cost, calculate_cpp, BASELINE_CPP
@@ -32,7 +32,7 @@ CIRCUIT_BREAKER = {
     'aerodatabox': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
     'amadeus': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
     'duffel': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
-    'serpapi': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
+    'aviasales': {'failures': 0, 'last_failure': 0, 'state': 'closed'},
 }
 
 CIRCUIT_THRESHOLD = 5
@@ -455,26 +455,26 @@ async def search_duffel(segment: FlightSegment, request: SearchRequest) -> List[
         record_failure('duffel')
         return []
 
-async def search_serpapi(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
-    """Search via SerpApi Google Flights engine"""
-    if not check_circuit_breaker('serpapi'):
+async def search_aviasales(segment: FlightSegment, request: SearchRequest) -> List[Dict]:
+    """Search via Travelpayouts/Aviasales cached prices API"""
+    if not check_circuit_breaker('aviasales'):
         return []
 
-    if not serpapi_service or not serpapi_service.enabled:
+    if not aviasales_service or not aviasales_service.enabled:
         return []
 
     try:
-        results = serpapi_service.search_flights(
+        results = await asyncio.to_thread(
+            aviasales_service.search_flights,
             segment.from_iata,
             segment.to_iata,
-            segment.departure_date,
             currency=request.currency,
         )
-        record_success('serpapi')
+        record_success('aviasales')
         return results or []
     except Exception as e:
-        logger.error(f"SerpApi search failed: {e}")
-        record_failure('serpapi')
+        logger.error(f"Aviasales search failed: {e}")
+        record_failure('aviasales')
         return []
 
 def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
@@ -565,10 +565,10 @@ def normalize_offer(raw_offer: Dict, source: str) -> Optional[FlightOffer]:
                 booking_url=None
             )
 
-        elif source == 'serpapi':
+        elif source == 'aviasales':
             return FlightOffer(
-                id=f"serpapi-{raw_offer.get('id', 'unknown')}",
-                source='serpapi',
+                id=f"aviasales-{raw_offer.get('id', 'unknown')}",
+                source='aviasales',
                 airline_iata=raw_offer.get('airline', 'XX'),
                 airline_name=raw_offer.get('airline_name', 'Unknown'),
                 from_iata=raw_offer.get('from_iata', ''),
@@ -678,7 +678,7 @@ async def generate_flight_insight(top_flights: List[FlightOffer]) -> Optional[st
 _HACKER_FARE_THRESHOLD = 0.10  # 10% cheaper required
 
 # Sources list used when gathering multi-supplier results
-_SOURCES = ['aerodatabox', 'amadeus', 'duffel', 'serpapi']
+_SOURCES = ['aerodatabox', 'amadeus', 'duffel', 'aviasales']
 
 
 @router.post("/search")
@@ -699,21 +699,21 @@ async def search_flights(request: SearchRequest):
 
     start_time = time.time()
     segment = request.segments[0]
-    sources_queried: List[str] = ["duffel", "serpapi"]
+    sources_queried: List[str] = ["duffel", "aviasales"]
     offers: List[Dict[str, Any]] = []
 
-    duffel_raw_offers, serpapi_raw_offers = await asyncio.gather(
+    duffel_raw_offers, aviasales_raw_offers = await asyncio.gather(
         search_duffel(segment, request),
-        search_serpapi(segment, request),
+        search_aviasales(segment, request),
         return_exceptions=True,
     )
 
     if isinstance(duffel_raw_offers, Exception):
         logger.warning("Duffel search task failed: %s", duffel_raw_offers)
         duffel_raw_offers = []
-    if isinstance(serpapi_raw_offers, Exception):
-        logger.warning("SerpApi search task failed: %s", serpapi_raw_offers)
-        serpapi_raw_offers = []
+    if isinstance(aviasales_raw_offers, Exception):
+        logger.warning("Aviasales search task failed: %s", aviasales_raw_offers)
+        aviasales_raw_offers = []
 
     normalized_offers: List[Dict[str, Any]] = []
     for raw_offer in duffel_raw_offers:
@@ -721,8 +721,8 @@ async def search_flights(request: SearchRequest):
         if normalized:
             normalized_offers.append(normalized.model_dump())
 
-    for raw_offer in serpapi_raw_offers:
-        normalized = normalize_offer(raw_offer, "serpapi")
+    for raw_offer in aviasales_raw_offers:
+        normalized = normalize_offer(raw_offer, "aviasales")
         if normalized:
             normalized_offers.append(normalized.model_dump())
 
@@ -911,7 +911,7 @@ async def _search_cheapest_for_destination(
     )
 
     tasks = [
-        search_serpapi(segment, stub_request),
+        search_aviasales(segment, stub_request),
         search_amadeus(segment, stub_request),
         search_duffel(segment, stub_request),
     ]
@@ -921,7 +921,7 @@ async def _search_cheapest_for_destination(
     for idx, result in enumerate(results):
         if isinstance(result, Exception):
             continue
-        source = ["serpapi", "amadeus", "duffel"][idx]
+        source = ["aviasales", "amadeus", "duffel"][idx]
         for raw in result:
             normalized = normalize_offer(raw, source)
             if normalized:
