@@ -136,6 +136,49 @@ def _get_airports_by_iata() -> Dict:
     return _airports_by_iata
 
 
+def _find_nearest_airport(lat: float, lon: float) -> Optional[Dict]:
+    """Return nearest airport from internal metadata for the given coordinates."""
+    airports = _get_airports_by_iata()
+    if not airports:
+        return None
+
+    nearest_airport: Optional[Dict] = None
+    nearest_distance_km = float("inf")
+
+    lat_r = math.radians(lat)
+    lon_r = math.radians(lon)
+
+    for airport in airports.values():
+        raw_airport_lat = airport.get("latitude")
+        raw_airport_lon = airport.get("longitude")
+        if raw_airport_lat is None or raw_airport_lon is None:
+            continue
+
+        try:
+            airport_lat = float(raw_airport_lat)
+            airport_lon = float(raw_airport_lon)
+        except (TypeError, ValueError):
+            continue
+
+        airport_lat_r = math.radians(airport_lat)
+        airport_lon_r = math.radians(airport_lon)
+        delta_lat = airport_lat_r - lat_r
+        delta_lon = airport_lon_r - lon_r
+
+        a = (
+            math.sin(delta_lat / 2) ** 2
+            + math.cos(lat_r) * math.cos(airport_lat_r) * math.sin(delta_lon / 2) ** 2
+        )
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        distance_km = _EARTH_RADIUS_KM * c
+
+        if distance_km < nearest_distance_km:
+            nearest_distance_km = distance_km
+            nearest_airport = airport
+
+    return nearest_airport
+
+
 def _get_api_key() -> Optional[str]:
     """Return CheckWX API key from environment (avoids importing config at module level)."""
     try:
@@ -252,10 +295,66 @@ def calculate_density_altitude(
         "elevation_ft": round(elevation_ft, 1),
         "pressure_altitude_ft": round(pressure_altitude, 1),
         "isa_temp_c": round(isa_temp_c, 1),
+        "isa_deviation_c": round(temp_c - isa_temp_c, 1),
         "density_altitude_ft": round(density_altitude, 1),
         "da_above_elevation_ft": round(da_above_elevation, 1),
         "takeoff_risk_level": risk_level,
     }
+
+
+def get_live_aircraft_performance(altitude_ft: float, lat: float, lon: float) -> Optional[Dict]:
+    """Compute density altitude and ISA deviation for a live aircraft position."""
+    try:
+        altitude_ft = float(altitude_ft)
+        lat = float(lat)
+        lon = float(lon)
+    except (TypeError, ValueError):
+        return None
+
+    nearest_airport = _find_nearest_airport(lat, lon)
+    if not nearest_airport:
+        logger.warning("live_aircraft_performance: no nearby airport for lat/lon %.4f/%.4f", lat, lon)
+        return None
+
+    icao = nearest_airport.get("icao")
+    if not icao:
+        logger.warning("live_aircraft_performance: nearest airport missing ICAO for lat/lon %.4f/%.4f", lat, lon)
+        return None
+
+    metar = get_metar_data(icao) or {}
+    raw_temp_c = metar.get("temperature_c")
+    raw_altimeter_in_hg = metar.get("altimeter_in_hg")
+
+    try:
+        temp_c = float(raw_temp_c) if raw_temp_c is not None else _ISA_TEMP_C
+    except (TypeError, ValueError):
+        temp_c = _ISA_TEMP_C
+
+    try:
+        altimeter_in_hg = (
+            float(raw_altimeter_in_hg) if raw_altimeter_in_hg is not None else _ISA_ALTIMETER_INHG
+        )
+    except (TypeError, ValueError):
+        altimeter_in_hg = _ISA_ALTIMETER_INHG
+
+    try:
+        result = calculate_density_altitude(
+            elevation_ft=altitude_ft,
+            temp_c=temp_c,
+            altimeter_in_hg=altimeter_in_hg,
+        )
+    except (TypeError, ValueError, ArithmeticError) as exc:
+        logger.error("live_aircraft_performance: failed at lat/lon %.4f/%.4f: %s", lat, lon, exc)
+        return None
+
+    result["lat"] = lat
+    result["lon"] = lon
+    result["icao"] = str(icao).upper()
+    result["iata"] = nearest_airport.get("iata")
+    result["nearest_airport_name"] = nearest_airport.get("name")
+    result["temperature_c"] = temp_c
+    result["altimeter_in_hg"] = altimeter_in_hg
+    return result
 
 
 def get_departure_performance(iata: str) -> Optional[Dict]:

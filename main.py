@@ -18,6 +18,7 @@ from prediction_service import prediction_service
 from notifications import notification_service
 from payments import payments_service
 from worker import AlertWorker
+from weather_service import get_live_aircraft_performance
 
 # Import new routes
 from metadata import router as metadata_router, airports_router, airlines_router, history_router
@@ -65,6 +66,12 @@ app.include_router(user_router)
 app.include_router(trip_router)
 app.include_router(delay_router)
 
+LIVE_FLIGHT_TELEMETRY = {
+    "updated_at": None,
+    "count": 0,
+    "aircraft": [],
+}
+
 class SimpleSearchRequest(BaseModel):
     from_iata: str
     to_iata: str
@@ -82,6 +89,19 @@ class AlertRequest(BaseModel):
     departure_date: Optional[str] = None
     channels: List[str] = ["email"]
     phone: Optional[str] = None
+
+
+class AircraftTelemetry(BaseModel):
+    hex_id: str
+    flight_number: str
+    altitude: float
+    speed: float
+    lat: float
+    lon: float
+
+
+class TelemetryIngestRequest(BaseModel):
+    aircraft: List[AircraftTelemetry]
 
 @app.on_event("startup")
 async def startup_event():
@@ -233,6 +253,38 @@ async def send_notification(user_email: str, message: str, channels: List[str],
     )
 
     return result
+
+
+@app.post("/api/ingest_flight_data")
+async def ingest_flight_data(payload: TelemetryIngestRequest):
+    enriched_aircraft = []
+    for aircraft in payload.aircraft:
+        item = aircraft.model_dump()
+        performance = get_live_aircraft_performance(
+            altitude_ft=aircraft.altitude,
+            lat=aircraft.lat,
+            lon=aircraft.lon,
+        )
+
+        item["density_altitude_ft"] = performance.get("density_altitude_ft") if performance else None
+        item["isa_deviation_c"] = performance.get("isa_deviation_c") if performance else None
+        item["takeoff_risk_level"] = performance.get("takeoff_risk_level") if performance else None
+        item["metar_airport_icao"] = performance.get("icao") if performance else None
+        item["received_at"] = datetime.utcnow().isoformat()
+        enriched_aircraft.append(item)
+
+    global LIVE_FLIGHT_TELEMETRY
+    LIVE_FLIGHT_TELEMETRY = {
+        "updated_at": datetime.utcnow().isoformat(),
+        "count": len(enriched_aircraft),
+        "aircraft": enriched_aircraft,
+    }
+    return {"status": "ok", "ingested_count": len(enriched_aircraft)}
+
+
+@app.get("/api/flight_data")
+async def get_ingested_flight_data():
+    return LIVE_FLIGHT_TELEMETRY
 
 from pydantic import BaseModel
 from stripe_service import stripe_service # Import the correct service
