@@ -35,10 +35,11 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
       : {};
 
   const durationValue = offer.duration_minutes ?? offer.duration;
-  const efficiencyScore = offer.efficiency_score != null ? Number(offer.efficiency_score) : null;
+  const efficiencyRaw = offer.efficiency_score != null ? Number(offer.efficiency_score) : NaN;
+  const efficiencyScore = Number.isFinite(efficiencyRaw) ? efficiencyRaw : null;
   const hasFastRouteBadge = offer.wind_type === 'tailwind' || (offer.wind_component_kt != null && Number(offer.wind_component_kt) > 0);
   const hasHighTempBadge = offer.density_altitude_ft != null && Number(offer.density_altitude_ft) > 3000;
-  const hasEcoChoiceBadge = efficiencyScore != null && !Number.isNaN(efficiencyScore) && efficiencyScore >= 0.85;
+  const hasEcoChoiceBadge = efficiencyScore != null && efficiencyScore >= 0.85;
   const showConsumerBadges = hasFastRouteBadge || hasHighTempBadge || hasEcoChoiceBadge;
 
   const formatDateTime = (value) => {
