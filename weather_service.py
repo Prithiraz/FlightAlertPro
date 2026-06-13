@@ -536,10 +536,13 @@ def calculate_adsb_aerodynamics(
     wind_type = "tailwind" if wind_component_kt >= 0 else "headwind"
 
     # Dynamic emissions model driven by TAS and density altitude.
+    # 38.0 kg/min represents a nominal narrow-body jet cruise burn baseline near FL300.
+    # 70,000 ft acts as a smooth density-altitude scaling denominator for relative burn changes.
     co2_burn_rate_kg_min = 38.0 * (tas_kt / _TAS_KT) ** 2 * (
         1.0 + max(0.0, density_altitude_ft) / 70000.0
     )
 
+    # ETA uses a 250 NM rolling logistics leg as the command-center planning horizon.
     logistics_eta_min = max(1, int(round((250.0 / ground_speed_kt) * 60.0)))
 
     return {

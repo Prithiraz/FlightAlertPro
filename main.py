@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 import logging
 from datetime import datetime
 from typing import Optional, List
+from threading import Lock
 from pydantic import BaseModel
 
 from config import config, validate_env_vars
@@ -68,6 +69,7 @@ app.include_router(delay_router)
 
 LIVE_TELEMETRY_CACHE: list[dict] = []
 LIVE_TELEMETRY_UPDATED_AT: Optional[str] = None
+LIVE_TELEMETRY_LOCK = Lock()
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str
@@ -279,8 +281,9 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
             **aero,
         })
 
-    LIVE_TELEMETRY_CACHE = processed
-    LIVE_TELEMETRY_UPDATED_AT = datetime.utcnow().isoformat()
+    with LIVE_TELEMETRY_LOCK:
+        LIVE_TELEMETRY_CACHE = processed
+        LIVE_TELEMETRY_UPDATED_AT = datetime.utcnow().isoformat()
     return {
         "status": "ok",
         "processed": len(processed),
@@ -290,10 +293,13 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
 
 @app.get("/api/telemetry/live")
 async def get_live_telemetry():
+    with LIVE_TELEMETRY_LOCK:
+        aircraft = list(LIVE_TELEMETRY_CACHE)
+        updated_at = LIVE_TELEMETRY_UPDATED_AT
     return {
-        "aircraft": LIVE_TELEMETRY_CACHE,
-        "updated_at": LIVE_TELEMETRY_UPDATED_AT,
-        "count": len(LIVE_TELEMETRY_CACHE),
+        "aircraft": aircraft,
+        "updated_at": updated_at,
+        "count": len(aircraft),
     }
 
 from pydantic import BaseModel
