@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from weather_service import (
     _calculate_true_course,
+    calculate_adsb_aerodynamics,
     calculate_wind_component,
     get_aerodynamic_performance,
     get_winds_aloft,
@@ -369,6 +370,34 @@ class TestGetAerodynamicPerformance(unittest.TestCase):
              patch("weather_service.get_winds_aloft", return_value=wind_data):
             result = get_aerodynamic_performance("JFK", "LHR")
         self.assertIn(result["wind_type"], ("tailwind", "headwind"))
+
+
+class TestCalculateAdsbAerodynamics(unittest.TestCase):
+    """Unit tests for calculate_adsb_aerodynamics()."""
+
+    def test_returns_required_fields(self):
+        result = calculate_adsb_aerodynamics(altitude_ft=32000, ground_speed_kt=430, heading_deg=87)
+        required_keys = {
+            "heading_deg",
+            "ground_speed_kt",
+            "tas_kt",
+            "wind_component_kt",
+            "wind_type",
+            "density_altitude_ft",
+            "co2_burn_rate_kg_min",
+            "logistics_eta_min",
+        }
+        for key in required_keys:
+            self.assertIn(key, result)
+
+    def test_rejects_non_numeric_inputs(self):
+        with self.assertRaises(ValueError):
+            calculate_adsb_aerodynamics(altitude_ft="high", ground_speed_kt=420, heading_deg=90)
+
+    def test_heading_normalized_to_0_360(self):
+        result = calculate_adsb_aerodynamics(altitude_ft=5000, ground_speed_kt=220, heading_deg=725)
+        self.assertGreaterEqual(result["heading_deg"], 0.0)
+        self.assertLess(result["heading_deg"], 360.0)
 
 
 if __name__ == "__main__":
