@@ -1,5 +1,4 @@
 import { buildHotelUrl } from '../lib/hotelAffiliate';
-import { hasMinTier } from '../utils/tierLimits';
 
 export default function FlightResultCard({ offer, cabinClass, onCreateAlert, subscriptionTier }) {
   const destination = offer.to_iata || '';
@@ -16,14 +15,9 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
   const hasEliteAccess = tier === 'elite' || tier === 'business';
   const hasPointsAccess = tier === 'elite' || tier === 'business';
 
-  // Use offer.tier_requirements when available, otherwise fall back to hard-coded defaults.
-  // hasMinTier handles the tier comparison, so no additional canUse* wrapper is needed.
-  const tierReqs = offer.tier_requirements || {};
-  const hasWindAccess = hasMinTier(tier, tierReqs.wind_component || 'pro');
-  const hasSustainabilityAccess = hasMinTier(tier, tierReqs.efficiency_score || 'elite');
-  const hasThermodynamicAccess = hasMinTier(tier, tierReqs.density_altitude || 'business');
   const isErrorFare = Boolean(offer.is_error_fare);
   const isHackerFare = Boolean(offer.is_hacker_fare);
+  const bookingLink = offer.booking_link || offer.booking_url;
 
   // Card border/style
   const cardBorderStyle = isHackerFare
@@ -40,7 +34,40 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
         }
       : {};
 
-  const unavailableBadgeStyle = { background: '#f8fafc', color: '#94a3b8', border: '1px solid #e2e8f0' };
+  const durationValue = offer.duration_minutes ?? offer.duration;
+  const efficiencyRaw = offer.efficiency_score != null ? Number(offer.efficiency_score) : NaN;
+  const efficiencyScore = Number.isFinite(efficiencyRaw) ? efficiencyRaw : null;
+  const hasFastRouteBadge = offer.wind_type === 'tailwind' || (offer.wind_component_kt != null && Number(offer.wind_component_kt) > 0);
+  const hasHighTempBadge = offer.density_altitude_ft != null && Number(offer.density_altitude_ft) > 3000;
+  const hasEcoChoiceBadge = efficiencyScore != null && efficiencyScore >= 0.85;
+  const showConsumerBadges = hasFastRouteBadge || hasHighTempBadge || hasEcoChoiceBadge;
+
+  const formatDateTime = (value) => {
+    if (!value) return '—';
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return '—';
+    return dt.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDuration = (value) => {
+    if (value == null || value === '') return '—';
+    const minutes = Number(value);
+    if (!Number.isNaN(minutes) && Number.isFinite(minutes)) {
+      const h = Math.floor(minutes / 60);
+      const m = Math.round(minutes % 60);
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+    if (typeof value === 'string' && value.startsWith('PT')) {
+      const hMatch = value.match(/(\d+)H/);
+      const mMatch = value.match(/(\d+)M/);
+      const h = hMatch ? Number(hMatch[1]) : 0;
+      const m = mMatch ? Number(mMatch[1]) : 0;
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+    return String(value);
+  };
+
+  const formattedDuration = formatDuration(durationValue);
 
   return (
     <div
@@ -99,6 +126,20 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
           )}
         </div>
       )}
+
+      <div className="mt-1">
+        <div className="text-xs uppercase tracking-wide" style={{ color: isHackerFare ? '#c4b5fd' : '#64748b' }}>
+          Starting at
+        </div>
+        <div className="text-4xl font-extrabold leading-tight mt-0.5" style={{ color: isHackerFare ? '#86efac' : '#16a34a' }}>
+          {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
+        </div>
+        {isHackerFare && offer.savings > 0 && (
+          <span className="text-sm font-semibold" style={{ color: '#a3e635' }}>
+            Save ${Number(offer.savings).toFixed(2)}
+          </span>
+        )}
+      </div>
 
       {/* Hacker Fare: two-ticket display */}
       {isHackerFare ? (
@@ -165,225 +206,49 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
           </div>
         )
       ) : (
-        <div className="text-sm text-gray-500">
-          {offer.airline_name || offer.airline || '—'}&nbsp;|&nbsp;
-          {offer.stops ?? 0} stop(s)&nbsp;|&nbsp;
-          {offer.cabin_class || cabinClass}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm mt-0.5">
+          <span className="font-semibold text-gray-800">{offer.airline_name || offer.airline || '—'}</span>
+          <span className="text-gray-500">{offer.stops ?? 0} stop(s)</span>
+          <span className="text-gray-500">{offer.cabin_class || cabinClass}</span>
+          <span className="text-gray-500">Duration: {formattedDuration}</span>
         </div>
       )}
 
-      {!isHackerFare && offer.departure && (
-        <div className="text-sm text-gray-500">
-          Dep: {new Date(offer.departure).toLocaleString()}
-          {offer.arrival && ` · Arr: ${new Date(offer.arrival).toLocaleString()}`}
+      {!isHackerFare && (
+        <div className="text-sm text-gray-600 flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+          <span>Dep: {formatDateTime(offer.departure)}</span>
+          <span>Arr: {formatDateTime(offer.arrival)}</span>
         </div>
       )}
 
-      {/* Aerospace metrics: distance (free), efficiency + carbon footprint (Elite+) */}
-      <div className="flex flex-wrap gap-2 mt-0.5">
-        <span
-          className="text-xs font-medium px-2 py-0.5 rounded-full"
-          style={offer.gcd_distance != null ? { background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' } : unavailableBadgeStyle}
-        >
-          📍 {offer.gcd_distance != null ? `${Math.round(offer.gcd_distance).toLocaleString()} km GCD` : 'N/A'}
-        </span>
-        {hasSustainabilityAccess ? (
-          <>
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={offer.efficiency_score != null ? { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' } : unavailableBadgeStyle}
-            >
-              ⚡ {offer.efficiency_score != null ? `${(Number(offer.efficiency_score) * 100).toFixed(1)}% Route Efficiency` : 'N/A'}
-            </span>
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={offer.co2_emissions_kg != null ? { background: '#fefce8', color: '#854d0e', border: '1px solid #fde68a' } : unavailableBadgeStyle}
-            >
-              🌿 {offer.co2_emissions_kg != null ? `${Math.round(offer.co2_emissions_kg).toLocaleString()} kg CO₂` : 'N/A'}
-            </span>
-          </>
-        ) : (
-          <span className="relative inline-flex items-center">
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none', background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
-            >
-              ⚡ 94.5% Route Efficiency · 🌿 1,240 kg CO₂
-            </span>
-            <a
-              href="/pricing"
-              className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-md"
-              style={{ background: '#1d4ed8', color: '#fff', textDecoration: 'none', whiteSpace: 'nowrap' }}
-            >
-              🔒 Elite
-            </a>
-          </span>
-        )}
-      </div>
-
-      {/* Thermodynamic Performance Risk — Business (£39.99) only */}
-      {hasThermodynamicAccess ? (
-        <div className="flex flex-wrap gap-2 mt-0.5">
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full cursor-help"
-            style={offer.density_altitude_ft !== null && offer.density_altitude_ft !== undefined ? { background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' } : unavailableBadgeStyle}
-            title="Density Altitude is a measure of air density. High values mean thinner air, which significantly reduces engine thrust and wing lift, potentially leading to weight restrictions or takeoff delays."
-          >
-            ✈️ DA: {offer.density_altitude_ft !== null && offer.density_altitude_ft !== undefined ? `${Math.round(offer.density_altitude_ft).toLocaleString()} ft` : 'N/A'}
-          </span>
-          {offer.takeoff_risk_level === 'MODERATE' && (
+      {showConsumerBadges && (
+        <div className="flex flex-wrap gap-2 mt-1">
+          {hasFastRouteBadge && (
             <span
               className="text-xs font-semibold px-2 py-0.5 rounded-full"
-              style={{ background: '#fffbeb', color: '#d97706', border: '1px solid #fcd34d' }}
-            >
-              ⚠️ Moderate Takeoff Risk
-            </span>
-          )}
-          {offer.takeoff_risk_level === 'HIGH' && (
-            <span
-              className="text-xs font-bold px-2 py-0.5 rounded-full"
-              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
-            >
-              🔥 High Performance Risk
-            </span>
-          )}
-          {(offer.takeoff_risk_level === null || offer.takeoff_risk_level === undefined) && (
-            <span
-              className="text-xs font-semibold px-2 py-0.5 rounded-full"
-              style={unavailableBadgeStyle}
-            >
-              ⚠️ Calculating...
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className="relative mt-0.5">
-          <div
-            className="flex flex-wrap gap-2"
-            style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}
-          >
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd' }}
-            >
-              ✈️ DA: 3,200 ft
-            </span>
-            <span
-              className="text-xs font-bold px-2 py-0.5 rounded-full"
-              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }}
-            >
-              🔥 High Performance Risk
-            </span>
-          </div>
-          <div className="mt-1">
-            <a
-              href="/pricing"
-              className="text-xs font-semibold px-3 py-1 rounded-md"
-              style={{ background: '#0f172a', color: '#fff', textDecoration: 'none' }}
-            >
-              🔒 Upgrade to Business to unlock Thermodynamic Risk
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Aerodynamic Wind Component & ETA — Pro (£9.99) and above */}
-      {hasWindAccess ? (
-        <div className="flex flex-wrap gap-2 mt-0.5">
-          <span
-            className="text-xs font-semibold px-2 py-0.5 rounded-full"
-            style={
-              offer.wind_component_kt == null
-                ? unavailableBadgeStyle
-                : offer.wind_type === 'tailwind'
-                ? { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }
-                : { background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5' }
-            }
-            title={
-              offer.wind_component_kt == null
-                ? 'Wind vector is still calculating.'
-                : offer.wind_type === 'tailwind'
-                ? 'Tailwind component boosts ground speed above True Airspeed.'
-                : 'Headwind component reduces ground speed below True Airspeed.'
-            }
-          >
-            {offer.wind_component_kt == null
-              ? '💨 Calculating...'
-              : offer.wind_type === 'tailwind'
-              ? `💨 +${offer.wind_component_kt.toFixed(0)}kt Tailwind (Boost)`
-              : `🌬️ −${Math.abs(offer.wind_component_kt).toFixed(0)}kt Headwind (Penalty)`}
-          </span>
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full"
-            style={
-              offer.wind_time_delta_min == null
-                ? unavailableBadgeStyle
-                : offer.wind_time_delta_min >= 0
-                  ? { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }
-                  : { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5' }
-            }
-          >
-            {offer.wind_time_delta_min == null
-              ? '⏱️ N/A'
-              : offer.wind_time_delta_min >= 0
-                ? `⏱️ ${Math.abs(offer.wind_time_delta_min).toFixed(0)} min saved`
-                : `⏱️ +${Math.abs(offer.wind_time_delta_min).toFixed(0)} min penalty`}
-          </span>
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full"
-            style={offer.aerodynamic_arrival_time ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' } : unavailableBadgeStyle}
-            title="Arrival time adjusted for wind component (aerodynamic ETA)."
-          >
-            🛬 Aero ETA: {offer.aerodynamic_arrival_time
-              ? new Date(offer.aerodynamic_arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              : 'Calculating...'}
-          </span>
-        </div>
-      ) : (
-        <div className="relative mt-0.5">
-          <div
-            className="flex flex-wrap gap-2"
-            style={{ filter: 'blur(4px)', userSelect: 'none', pointerEvents: 'none' }}
-          >
-            <span
-              className="text-xs font-semibold px-2 py-0.5 rounded-full"
-              style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
-            >
-              💨 +42kt Tailwind (Boost)
-            </span>
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
-            >
-              ⏱️ 18 min saved
-            </span>
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
               style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
             >
-              🛬 Aero ETA: 14:22
+              ⚡ Fast Route (Jetstream Assisted)
             </span>
-          </div>
-          <div className="mt-1">
-            <a
-              href="/pricing"
-              className="text-xs font-semibold px-3 py-1 rounded-md"
-              style={{ background: '#1d4ed8', color: '#fff', textDecoration: 'none' }}
+          )}
+          {hasHighTempBadge && (
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #fdba74' }}
             >
-              🔒 Upgrade to Pro to unlock Wind Vectors & Aerodynamic ETA
-            </a>
-          </div>
+              ⚠️ High Temp (Delay Risk)
+            </span>
+          )}
+          {hasEcoChoiceBadge && (
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}
+            >
+              🍃 Eco-Choice
+            </span>
+          )}
         </div>
       )}
-
-      <div className="text-2xl font-bold mt-1" style={{ color: isHackerFare ? '#86efac' : '#16a34a' }}>
-        {offer.currency || 'USD'} {Number(offer.price).toFixed(2)}
-        {isHackerFare && offer.savings > 0 && (
-          <span className="text-base font-semibold ml-2" style={{ color: '#a3e635' }}>
-            (saves ${Number(offer.savings).toFixed(2)})
-          </span>
-        )}
-      </div>
 
       {/* Points & Miles Valuation */}
       {offer.estimated_points_cost > 0 && (
@@ -524,12 +389,12 @@ export default function FlightResultCard({ offer, cabinClass, onCreateAlert, sub
             </>
           ) : null
         ) : (
-          offer.booking_link || offer.booking_url ? (
+          bookingLink ? (
             <a
-              href={offer.booking_link || offer.booking_url}
+              href={bookingLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 bg-blue-700 text-white rounded-md text-sm font-semibold hover:bg-blue-800 transition"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg text-base font-bold hover:bg-blue-700 transition shadow-sm w-full sm:w-auto text-center"
             >
               Book Now
             </a>
