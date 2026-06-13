@@ -117,6 +117,10 @@ export function getLiveFlightPrice(from_iata, to_iata, departure_date) {
   return request('GET', `/api/flights/live-price?${params.toString()}`);
 }
 
+export function getLiveTelemetry() {
+  return request('GET', '/api/telemetry/live');
+}
+
 export function registerUser(email, referredBy) {
   const body = { email };
   if (referredBy) body.referred_by = referredBy;

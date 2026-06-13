@@ -28,6 +28,7 @@ from systemcheck import router as systemcheck_router
 from user_service import router as user_router
 from trip_service import router as trip_router
 from delay_service import router as delay_router
+from weather_service import calculate_adsb_aerodynamics
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -65,6 +66,9 @@ app.include_router(user_router)
 app.include_router(trip_router)
 app.include_router(delay_router)
 
+LIVE_TELEMETRY_CACHE: list[dict] = []
+LIVE_TELEMETRY_UPDATED_AT: Optional[str] = None
+
 class SimpleSearchRequest(BaseModel):
     from_iata: str
     to_iata: str
@@ -82,6 +86,21 @@ class AlertRequest(BaseModel):
     departure_date: Optional[str] = None
     channels: List[str] = ["email"]
     phone: Optional[str] = None
+
+
+class TelemetryAircraft(BaseModel):
+    hex_id: str
+    flight_number: Optional[str] = ""
+    lon: float
+    lat: float
+    altitude: float
+    ground_speed: Optional[float] = None
+    speed: Optional[float] = None
+    heading: Optional[float] = None
+
+
+class TelemetryIngestRequest(BaseModel):
+    aircraft: List[TelemetryAircraft]
 
 @app.on_event("startup")
 async def startup_event():
@@ -233,6 +252,49 @@ async def send_notification(user_email: str, message: str, channels: List[str],
     )
 
     return result
+
+
+@app.post("/api/ingest_flight_data")
+async def ingest_flight_data(request: TelemetryIngestRequest):
+    global LIVE_TELEMETRY_CACHE, LIVE_TELEMETRY_UPDATED_AT
+    processed: list[dict] = []
+
+    for aircraft in request.aircraft:
+        ground_speed = aircraft.ground_speed if aircraft.ground_speed is not None else aircraft.speed
+        if ground_speed is None:
+            continue
+
+        heading = aircraft.heading if aircraft.heading is not None else 0.0
+        aero = calculate_adsb_aerodynamics(
+            altitude_ft=aircraft.altitude,
+            ground_speed_kt=ground_speed,
+            heading_deg=heading,
+        )
+        processed.append({
+            "hex_id": aircraft.hex_id,
+            "flight_number": aircraft.flight_number,
+            "lon": aircraft.lon,
+            "lat": aircraft.lat,
+            "altitude_ft": aircraft.altitude,
+            **aero,
+        })
+
+    LIVE_TELEMETRY_CACHE = processed
+    LIVE_TELEMETRY_UPDATED_AT = datetime.utcnow().isoformat()
+    return {
+        "status": "ok",
+        "processed": len(processed),
+        "updated_at": LIVE_TELEMETRY_UPDATED_AT,
+    }
+
+
+@app.get("/api/telemetry/live")
+async def get_live_telemetry():
+    return {
+        "aircraft": LIVE_TELEMETRY_CACHE,
+        "updated_at": LIVE_TELEMETRY_UPDATED_AT,
+        "count": len(LIVE_TELEMETRY_CACHE),
+    }
 
 from pydantic import BaseModel
 from stripe_service import stripe_service # Import the correct service

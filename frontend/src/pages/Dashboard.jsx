@@ -1,858 +1,128 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../App';
-import { searchFlights, listAlerts, createAlert, getLiveFlightPrice } from '../lib/api';
-import AirportAutocomplete from '../components/AirportAutocomplete';
-import AirlineAutocomplete from '../components/AirlineAutocomplete';
+import { getLiveTelemetry } from '../lib/api';
+import TelemetryPanel from '../components/TelemetryPanel';
 
-const CABIN_CLASSES = ['economy', 'premium_economy', 'business', 'first'];
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR'];
+const POLL_INTERVAL_MS = 8000;
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user: u } }) => {
-      if (!u) navigate('/auth');
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.user) navigate('/auth');
-    });
-
-    return () => {
-      authListener?.subscription?.unsubscribe();
-    };
-  }, [navigate]);
-
-  const [form, setForm] = useState({
-    from_iata: '',
-    to_iata: '',
-    trip_type: 'one_way',
-    departure_date: '',
-    return_date: '',
-    passengers: 1,
-    cabin_class: 'economy',
-    currency: 'USD',
-    airline: '',
-  });
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [telemetry, setTelemetry] = useState([]);
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searched, setSearched] = useState(false);
-
-  const [myAlerts, setMyAlerts] = useState([]);
-  const [alertsLoading, setAlertsLoading] = useState(false);
-  const [alertsError, setAlertsError] = useState('');
-  const [activeAlerts, setActiveAlerts] = useState([]);
-  const [activeAlertsLoading, setActiveAlertsLoading] = useState(false);
-  const [activeAlertsError, setActiveAlertsError] = useState('');
-
-  // Purchased flight form state
-  const [purchaseForm, setPurchaseForm] = useState({
-    from_iata: '',
-    to_iata: '',
-    departure_date: '',
-    airline: '',
-    purchase_price: '',
-  });
-  const [purchaseLoading, setPurchaseLoading] = useState(false);
-  const [purchaseError, setPurchaseError] = useState('');
-  const [purchaseSuccess, setPurchaseSuccess] = useState('');
-  const [showPurchaseForm, setShowPurchaseForm] = useState(false);
 
   useEffect(() => {
-    if (user?.email) {
-      setAlertsLoading(true);
-      listAlerts(user.email)
-        .then((data) => setMyAlerts(Array.isArray(data) ? data : data.alerts ?? []))
-        .catch((err) => setAlertsError(err.message || 'Failed to load alerts'))
-        .finally(() => setAlertsLoading(false));
-    }
-  }, [user?.email]);
+    let alive = true;
 
-  const fetchActiveAlerts = async () => {
-    setActiveAlertsLoading(true);
-    setActiveAlertsError('');
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userEmail = session?.user?.email;
-      if (!userEmail) {
-        setActiveAlerts([]);
-        return;
+    const refresh = async () => {
+      try {
+        const payload = await getLiveTelemetry();
+        if (!alive) return;
+        setTelemetry(Array.isArray(payload.aircraft) ? payload.aircraft : []);
+        setUpdatedAt(payload.updated_at || null);
+        setError('');
+      } catch (err) {
+        if (!alive) return;
+        setError(err.message || 'Telemetry uplink unavailable.');
+      } finally {
+        if (alive) setLoading(false);
       }
+    };
 
-      const { data, error: fetchError } = await supabase
-        .from('price_alerts')
-        .select('id, from_iata, to_iata, departure_date, max_price, currency, active')
-        .eq('user_email', userEmail)
-        .eq('active', true)
-        .order('created_at', { ascending: false });
+    refresh();
+    const interval = setInterval(refresh, POLL_INTERVAL_MS);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, []);
 
-      if (fetchError) throw fetchError;
-      const alerts = data || [];
-      const alertsWithLivePrices = [];
-      for (const alert of alerts) {
-        if (!alert.departure_date) {
-          alertsWithLivePrices.push({
-            ...alert,
-            current_live_price: null,
-            current_live_price_currency: alert.currency || 'USD',
-          });
-          continue;
-        }
-
-        try {
-          const livePrice = await getLiveFlightPrice(
-            alert.from_iata,
-            alert.to_iata,
-            alert.departure_date
-          );
-          alertsWithLivePrices.push({
-            ...alert,
-            current_live_price: Number(livePrice.current_price),
-            current_live_price_currency: livePrice.currency || alert.currency || 'USD',
-          });
-        } catch {
-          alertsWithLivePrices.push({
-            ...alert,
-            current_live_price: null,
-            current_live_price_currency: alert.currency || 'USD',
-          });
-        }
-      }
-
-      setActiveAlerts(alertsWithLivePrices);
-    } catch (err) {
-      setActiveAlertsError(err.message || 'Failed to load active alerts.');
-    } finally {
-      setActiveAlertsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchActiveAlerts();
-  }, [user?.email]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => {
-      if (name === 'trip_type' && value !== 'round_trip') {
-        return { ...prev, trip_type: value, return_date: '' };
-      }
-      return { ...prev, [name]: value };
-    });
-  };
-
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setResults([]);
-    setSearched(false);
-
-    if (!form.from_iata || !form.to_iata) {
-      setError('Please select an origin and destination airport.');
-      setLoading(false);
-      return;
-    }
-    if (form.trip_type === 'multi_city') {
-      setError('Multi-city UI coming soon.');
-      setLoading(false);
-      return;
-    }
-    if (form.trip_type === 'round_trip' && !form.return_date) {
-      setError('Please select a return date for round-trip searches.');
-      setLoading(false);
-      return;
+  const stats = useMemo(() => {
+    if (!telemetry.length) {
+      return { tracked: 0, avgEmission: '--', avgWind: '--', eta: '--' };
     }
 
-    try {
-      const payload = {
-        from_iata: form.from_iata.toUpperCase(),
-        to_iata: form.to_iata.toUpperCase(),
-        departure_date: form.departure_date,
-        passengers: Number(form.passengers),
-        cabin_class: form.cabin_class,
-        currency: form.currency,
-        trip_type: form.trip_type,
-      };
-      if (form.trip_type === 'round_trip' && form.return_date) {
-        payload.return_date = form.return_date;
-      }
+    const emission = telemetry.reduce((sum, f) => sum + (f.co2_burn_rate_kg_min || 0), 0) / telemetry.length;
+    const wind = telemetry.reduce((sum, f) => sum + (f.wind_component_kt || 0), 0) / telemetry.length;
+    const eta = telemetry.reduce((sum, f) => sum + (f.logistics_eta_min || 0), 0) / telemetry.length;
 
-      const data = await searchFlights(payload);
-
-      const offers = Array.isArray(data) ? data : (data.offers ?? data.results ?? []);
-      setResults([...offers].sort((a, b) => (a.price ?? 0) - (b.price ?? 0)));
-    } catch (err) {
-      setError(err.message || 'Search failed');
-    } finally {
-      setLoading(false);
-      setSearched(true);
-    }
-  };
-
-  const formatSliceTime = (timeValue) => {
-    if (!timeValue) return '--:--';
-    const isoMatch = String(timeValue).match(/T(\d{2}):(\d{2})/);
-    if (isoMatch) return `${isoMatch[1]}:${isoMatch[2]}`;
-    const parsed = new Date(timeValue);
-    if (Number.isNaN(parsed.getTime())) {
-      const fallback = String(timeValue).split('T')[1];
-      return fallback ? fallback.slice(0, 5) : '--:--';
-    }
-    return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-  };
-
-  const formatIsoDuration = (durationValue) => {
-    if (!durationValue) return '—';
-    
-    // If it's just a number (e.g. RapidAPI sending total minutes like 152)
-    if (!isNaN(durationValue)) {
-      const mins = Number(durationValue);
-      return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-    }
-
-    // If it's Duffel ISO format (e.g. PT11H25M)
-    const match = String(durationValue).match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
-    if (!match) return String(durationValue);
-    
-    const hours = match[1] ? `${match[1]}h ` : "";
-    const minutes = match[2] ? `${match[2]}m` : "";
-    return `${hours}${minutes}`.trim() || '—';
-  };
-
-  const formatStops = (stops) => (stops === 0 ? 'direct' : `${stops ?? 0} stop(s)`);
-
-  const handlePurchaseFormChange = (e) => {
-    const { name, value } = e.target;
-    setPurchaseForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleAddPurchasedFlight = async (e) => {
-    e.preventDefault();
-    setPurchaseLoading(true);
-    setPurchaseError('');
-    setPurchaseSuccess('');
-
-    if (!purchaseForm.from_iata || !purchaseForm.to_iata) {
-      setPurchaseError('Please select an origin and destination airport.');
-      setPurchaseLoading(false);
-      return;
-    }
-    if (!purchaseForm.purchase_price || Number(purchaseForm.purchase_price) <= 0) {
-      setPurchaseError('Please enter the price you paid.');
-      setPurchaseLoading(false);
-      return;
-    }
-
-    try {
-      await createAlert({
-        user_email: user.email,
-        from_iata: purchaseForm.from_iata.toUpperCase(),
-        to_iata: purchaseForm.to_iata.toUpperCase(),
-        departure_date: purchaseForm.departure_date || undefined,
-        airline: purchaseForm.airline || undefined,
-        // max_price is required by the backend; set it to purchase_price so the
-        // worker knows which route to query, even though threshold logic is
-        // overridden for purchased alerts
-        max_price: Number(purchaseForm.purchase_price),
-        is_purchased: true,
-        purchase_price: Number(purchaseForm.purchase_price),
-        notification_channels: ['email'],
-      });
-
-      setPurchaseSuccess(`✅ Tracking added! We'll alert you if the price drops $25 or more.`);
-      setPurchaseForm({ from_iata: '', to_iata: '', departure_date: '', airline: '', purchase_price: '' });
-      setShowPurchaseForm(false);
-
-      // Refresh alerts list
-      if (user?.email) {
-        const data = await listAlerts(user.email);
-        setMyAlerts(Array.isArray(data) ? data : data.alerts ?? []);
-      }
-    } catch (err) {
-      setPurchaseError(err.message || 'Failed to add purchased flight.');
-    } finally {
-      setPurchaseLoading(false);
-    }
-  };
-
-  const purchasedAlerts = myAlerts.filter((a) => a.is_purchased);
-  const lowestLivePrice = activeAlerts
-    .map((a) => Number(a.current_live_price))
-    .filter((price) => Number.isFinite(price) && price > 0)
-    .reduce((min, price) => (min === null || price < min ? price : min), null);
-  const monitoredRoutes = new Set([
-    ...activeAlerts.map((a) => `${a.from_iata}-${a.to_iata}`),
-    ...purchasedAlerts.map((a) => `${a.from_iata}-${a.to_iata}`),
-  ]).size;
+    return {
+      tracked: telemetry.length,
+      avgEmission: `${emission.toFixed(2)} kg/min`,
+      avgWind: `${wind >= 0 ? '+' : ''}${wind.toFixed(1)} kts`,
+      eta: `${Math.max(1, Math.round(eta))} min`,
+    };
+  }, [telemetry]);
 
   return (
     <div style={styles.page}>
-      <div style={styles.content}>
-        {/* Flight Search */}
-        <section style={styles.searchSection}>
-          <h2 style={styles.heading}>Search Flights</h2>
-          <form onSubmit={handleSearch} style={styles.searchForm}>
-            <div style={styles.searchRow}>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>From</label>
-                <AirportAutocomplete
-                  placeholder="LAX – Los Angeles"
-                  value={form.from_iata}
-                  onChange={(iata) => setForm((prev) => ({ ...prev, from_iata: iata }))}
-                />
-              </div>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>To</label>
-                <AirportAutocomplete
-                  placeholder="JFK – New York"
-                  value={form.to_iata}
-                  onChange={(iata) => setForm((prev) => ({ ...prev, to_iata: iata }))}
-                />
-              </div>
-            </div>
-
-            <div style={styles.searchRow}>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>Trip Type</label>
-                <select
-                  name="trip_type"
-                  value={form.trip_type}
-                  onChange={handleChange}
-                  style={styles.searchInput}
-                >
-                  <option value="one_way">One-Way</option>
-                  <option value="round_trip">Round-Trip</option>
-                  <option value="multi_city">Multi-City</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={styles.searchRow}>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>Departure Date</label>
-                <input
-                  type="date"
-                  name="departure_date"
-                  value={form.departure_date}
-                  onChange={handleChange}
-                  required
-                  style={styles.searchInput}
-                />
-              </div>
-              {form.trip_type === 'round_trip' && (
-                <div style={styles.searchField}>
-                  <label style={styles.searchLabel}>Return Date</label>
-                  <input
-                    type="date"
-                    name="return_date"
-                    value={form.return_date}
-                    onChange={handleChange}
-                    style={styles.searchInput}
-                  />
-                </div>
-              )}
-            </div>
-
-            {form.trip_type === 'multi_city' && (
-              <p style={styles.info}>Multi-city UI coming soon.</p>
-            )}
-
-            <div style={styles.searchRow}>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>Passengers</label>
-                <input
-                  type="number"
-                  name="passengers"
-                  value={form.passengers}
-                  onChange={handleChange}
-                  min={1}
-                  max={9}
-                  required
-                  style={styles.searchInput}
-                />
-              </div>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>Cabin Class</label>
-                <select
-                  name="cabin_class"
-                  value={form.cabin_class}
-                  onChange={handleChange}
-                  style={styles.searchInput}
-                >
-                  {CABIN_CLASSES.map((c) => (
-                    <option key={c} value={c}>
-                      {c.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={styles.searchRow}>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>Airline (optional)</label>
-                <AirlineAutocomplete
-                  value={form.airline}
-                  onChange={(iata) => setForm((prev) => ({ ...prev, airline: iata }))}
-                />
-              </div>
-              <div style={styles.searchField}>
-                <label style={styles.searchLabel}>Currency</label>
-                <select
-                  name="currency"
-                  value={form.currency}
-                  onChange={handleChange}
-                  style={styles.searchInput}
-                >
-                  {CURRENCIES.map((currency) => (
-                    <option key={currency} value={currency}>
-                      {currency}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {error && <p style={styles.error}>{error}</p>}
-
-            <button type="submit" disabled={loading} style={styles.searchButton}>
-              {loading ? 'Searching...' : 'Search Flights'}
-            </button>
-          </form>
-
-          {/* Results */}
-          {loading && <p style={styles.empty}>Searching for flights...</p>}
-          {searched && !loading && results.length === 0 && !error && (
-            <p style={styles.empty}>No flights found. Try different dates or airports.</p>
-          )}
-          {results.length > 0 && (
-            <div style={styles.results}>
-              <h3 style={styles.resultsHeading}>{results.length} flights found</h3>
-              {results.map((offer, idx) => {
-                const checkedBags = offer?.slices?.[0]?.segments?.[0]?.checked_bags || 0;
-                const bookingLink = offer.booking_link || offer.booking_url;
-                const hasSlices = Array.isArray(offer.slices) && offer.slices.length > 0;
-                const priceText = offer.price !== undefined && offer.price !== null ? offer.price.toFixed(2) : '--';
-
-                return (
-                  <div key={offer.id ?? idx} style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', marginBottom: '1rem', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-                      
-                      {/* Left: Flight Details */}
-                      <div style={{ flex: '1', paddingRight: '2rem' }}>
-                        {hasSlices ? (
-                          offer.slices.map((slice, sliceIndex) => (
-                            <div key={`${offer.id ?? idx}-slice-${sliceIndex}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', borderBottom: sliceIndex === offer.slices.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
-                              <div style={{ width: '25%', fontWeight: '700', color: '#1e293b' }}>
-                                {slice.segments?.[0]?.airline || offer.airline_name || 'Airline'}
-                              </div>
-                              <div style={{ width: '25%', textAlign: 'center' }}>
-                                <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1.1rem' }}>
-                                  {formatSliceTime(slice.departure_time)} - {formatSliceTime(slice.arrival_time)}
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                                  {slice.origin_iata} - {slice.destination_iata}
-                                </div>
-                              </div>
-                              <div style={{ width: '25%', textAlign: 'right' }}>
-                                <div style={{ fontWeight: '500', color: '#334155' }}>
-                                  {formatIsoDuration(slice.duration)}
-                                </div>
-                                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
-                                  {formatStops(slice.stops)}
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          // Fallback for RapidAPI
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0' }}>
-                            <div style={{ width: '25%', fontWeight: '700', color: '#1e293b' }}>{offer.airline_name || offer.airline || 'Airline'}</div>
-                            <div style={{ width: '25%', textAlign: 'center' }}>
-                              <div style={{ fontWeight: '600', color: '#0f172a', fontSize: '1.1rem' }}>
-                                {formatSliceTime(offer.departure_time || offer.departure)} - {formatSliceTime(offer.arrival_time || offer.arrival)}
-                              </div>
-                              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{offer.from_iata} - {offer.to_iata}</div>
-                            </div>
-                            <div style={{ width: '25%', textAlign: 'right' }}>
-                              <div style={{ fontWeight: '500', color: '#334155' }}>{formatIsoDuration(offer.duration_minutes || offer.duration)}</div>
-                              <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{formatStops(offer.stops)}</div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Right: Price & Action */}
-                      <div style={{ width: '200px', borderLeft: '1px solid #e2e8f0', paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <div style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          👜 {checkedBags} checked bags
-                        </div>
-                        <div style={{ textAlign: 'right', marginTop: 'auto', marginBottom: '1rem' }}>
-                          <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#0f172a', lineHeight: '1' }}>
-                            {offer.currency || form.currency || 'USD'} {priceText}
-                          </div>
-                        </div>
-                        {bookingLink ? (
-                          <button
-                            type="button"
-                            onClick={() => window.open(bookingLink, '_blank', 'noopener,noreferrer')}
-                            style={{ backgroundColor: '#f97316', color: '#fff', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', border: 'none', width: '100%' }}
-                          >
-                            Select
-                          </button>
-                        ) : (
-                          <button disabled style={{ backgroundColor: '#e2e8f0', color: '#94a3b8', padding: '0.75rem', borderRadius: '8px', fontWeight: '700', fontSize: '1rem', cursor: 'not-allowed', border: 'none', width: '100%' }}>
-                            No Link
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Travel Intelligence + My Active Alerts */}
-        <section style={styles.section}>
-          <div style={styles.alertsHeader}>
-            <h2 style={styles.sectionTitle}>Travel Intelligence</h2>
-            <Link to="/alerts" style={styles.manageLink}>Manage all alerts →</Link>
+      <div style={styles.shell}>
+        <div style={styles.titleBlock}>
+          <div style={styles.kicker}>AEROLOGIX COMMAND CENTER</div>
+          <h1 style={styles.title}>Live Charter Efficiency Ops</h1>
+          <div style={styles.metaLine}>
+            Operator: {user?.email || 'unknown'} · Last uplink: {updatedAt ? new Date(updatedAt).toLocaleTimeString() : 'pending'}
           </div>
+        </div>
 
-          <div style={styles.statsGrid}>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>Active Price Alerts</div>
-              <div style={styles.statValue}>{activeAlerts.length}</div>
-              <div style={styles.statHint}>Real-time alerts tracking live fares</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>Monitored Routes</div>
-              <div style={styles.statValue}>{monitoredRoutes}</div>
-              <div style={styles.statHint}>{purchasedAlerts.length} purchased trips in watch mode</div>
-            </div>
-            <div style={styles.statCard}>
-              <div style={styles.statLabel}>Best Live Market Price</div>
-              <div style={styles.statValue}>{lowestLivePrice !== null ? `$${lowestLivePrice.toFixed(2)}` : '—'}</div>
-              <div style={styles.statHint}>Based on currently active route checks</div>
-            </div>
-          </div>
+        <div style={styles.statsGrid}>
+          <div style={styles.statCard}><span style={styles.statLabel}>Tracked Aircraft</span><span style={styles.statValue}>{stats.tracked}</span></div>
+          <div style={styles.statCard}><span style={styles.statLabel}>Avg Emission Rate</span><span style={styles.statValue}>{stats.avgEmission}</span></div>
+          <div style={styles.statCard}><span style={styles.statLabel}>Net Wind Vector</span><span style={styles.statValue}>{stats.avgWind}</span></div>
+          <div style={styles.statCard}><span style={styles.statLabel}>Logistics ETA</span><span style={styles.etaBadge}>{stats.eta}</span></div>
+        </div>
 
-          <h3 style={styles.resultsHeading}>My Active Alerts</h3>
-          {activeAlertsLoading ? (
-            <p style={styles.empty}>Loading active alerts...</p>
-          ) : activeAlertsError ? (
-            <p style={styles.error}>{activeAlertsError}</p>
-          ) : activeAlerts.length === 0 ? (
-            <p style={styles.empty}>No active alerts yet.</p>
-          ) : (
-            <div style={styles.alertList}>
-              {activeAlerts.map((alert) => (
-                <div key={alert.id} style={styles.alertCard}>
-                  <span style={styles.iata}>{alert.from_iata}</span>
-                  <span style={styles.arrow}> → </span>
-                  <span style={styles.iata}>{alert.to_iata}</span>
-                  <span style={styles.alertMeta}>
-                    &nbsp;· Target: {alert.currency || 'USD'} {Number(alert.max_price).toFixed(2)}
-                    {` · Current Live Price: ${
-                      alert.current_live_price != null
-                        ? `${alert.current_live_price_currency || alert.currency || 'USD'} ${Number(alert.current_live_price).toFixed(2)}`
-                        : 'Unavailable'
-                    }`}
-                    {alert.departure_date && ` · Dep: ${alert.departure_date}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* My Upcoming Trips — Post-Booking Travel Credit Engine */}
-        <section style={styles.section}>
-          <div style={styles.alertsHeader}>
-            <h2 style={styles.sectionTitle}>🧳 My Upcoming Trips (Post-Booking)</h2>
-            <button
-              onClick={() => { setShowPurchaseForm((v) => !v); setPurchaseError(''); setPurchaseSuccess(''); }}
-              style={styles.addTripBtn}
-            >
-              {showPurchaseForm ? 'Cancel' : '+ Add Purchased Flight'}
-            </button>
-          </div>
-
-          <p style={styles.tripSubtitle}>
-            Already booked? Add your flight below. We'll alert you if the price drops by $25+ so you can claim a travel credit from the airline.
-          </p>
-
-          {purchaseSuccess && <p style={styles.success}>{purchaseSuccess}</p>}
-
-          {showPurchaseForm && (
-            <form onSubmit={handleAddPurchasedFlight} style={{ ...styles.form, marginBottom: '1.25rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '1rem' }}>
-              <div style={styles.row}>
-                <div style={styles.field}>
-                  <label style={styles.label}>From</label>
-                  <AirportAutocomplete
-                    placeholder="LAX – Los Angeles"
-                    value={purchaseForm.from_iata}
-                    onChange={(iata) => setPurchaseForm((prev) => ({ ...prev, from_iata: iata }))}
-                  />
-                </div>
-                <div style={styles.field}>
-                  <label style={styles.label}>To</label>
-                  <AirportAutocomplete
-                    placeholder="JFK – New York"
-                    value={purchaseForm.to_iata}
-                    onChange={(iata) => setPurchaseForm((prev) => ({ ...prev, to_iata: iata }))}
-                  />
-                </div>
-              </div>
-              <div style={styles.row}>
-                <div style={styles.field}>
-                  <label style={styles.label}>Departure Date</label>
-                  <input
-                    type="date"
-                    name="departure_date"
-                    value={purchaseForm.departure_date}
-                    onChange={handlePurchaseFormChange}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.field}>
-                  <label style={styles.label}>Airline (optional)</label>
-                  <AirlineAutocomplete
-                    value={purchaseForm.airline}
-                    onChange={(iata) => setPurchaseForm((prev) => ({ ...prev, airline: iata }))}
-                  />
-                </div>
-              </div>
-              <div style={styles.row}>
-                <div style={styles.field}>
-                  <label style={styles.label}>What You Paid (USD)</label>
-                  <input
-                    type="number"
-                    name="purchase_price"
-                    value={purchaseForm.purchase_price}
-                    onChange={handlePurchaseFormChange}
-                    placeholder="e.g. 450.00"
-                    min="1"
-                    step="0.01"
-                    required
-                    style={styles.input}
-                  />
-                </div>
-              </div>
-              {purchaseError && <p style={styles.error}>{purchaseError}</p>}
-              <button type="submit" disabled={purchaseLoading} style={styles.button}>
-                {purchaseLoading ? 'Adding...' : 'Track This Flight'}
-              </button>
-            </form>
-          )}
-
-          {alertsLoading ? (
-            <p style={styles.empty}>Loading trips...</p>
-          ) : alertsError ? (
-            <p style={styles.error}>{alertsError}</p>
-          ) : purchasedAlerts.length === 0 ? (
-            <p style={styles.empty}>No purchased flights tracked yet.</p>
-          ) : (
-            <div style={styles.alertList}>
-              {purchasedAlerts.map((alert) => {
-                const purchased = Number(alert.purchase_price || alert.max_price);
-                const live = alert.last_triggered_price ? Number(alert.last_triggered_price) : null;
-                const pct = live !== null && purchased > 0 ? Math.max(0, Math.min(100, (live / purchased) * 100)) : null;
-                const savings = live !== null ? purchased - live : null;
-                return (
-                  <div
-                    key={alert.id}
-                    style={{ ...styles.tripCard, cursor: 'pointer', position: 'relative' }}
-                    onClick={() => navigate(`/hub/${alert.id}`)}
-                    title="Open Destination Hub"
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      <span style={styles.iata}>{alert.from_iata}</span>
-                      <span style={styles.arrow}> → </span>
-                      <span style={styles.iata}>{alert.to_iata}</span>
-                      {alert.airline && <span style={styles.alertMeta}>&nbsp;· {alert.airline}</span>}
-                      {alert.departure_date && <span style={styles.alertMeta}>&nbsp;· {alert.departure_date}</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
-                      <span>🔒 You paid: <strong>${purchased.toFixed(2)}</strong></span>
-                      {live !== null ? (
-                        <span style={{ color: savings >= 25 ? '#16a34a' : '#6b7280' }}>
-                          📊 Market now: <strong>${live.toFixed(2)}</strong>
-                          {savings >= 25 && <span style={{ color: '#16a34a', fontWeight: 700 }}>&nbsp;(Save ${savings.toFixed(2)}!)</span>}
-                        </span>
-                      ) : (
-                        <span style={{ color: '#6b7280' }}>📊 Market: checking...</span>
-                      )}
-                    </div>
-                    {pct !== null && (
-                      <div style={{ marginTop: '0.25rem' }}>
-                        <div style={styles.progressTrack}>
-                          <div
-                            style={{
-                              ...styles.progressBar,
-                              width: `${pct}%`,
-                              background: pct < 90 ? '#16a34a' : '#ca8a04',
-                            }}
-                          />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
-                          <span>$0</span>
-                          <span>Current: ${live.toFixed(2)} ({pct.toFixed(0)}% of purchase)</span>
-                          <span>${purchased.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    )}
-                    <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#1d4ed8', fontWeight: 600 }}>
-                      🌍 Open Destination Hub →
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        <TelemetryPanel telemetry={telemetry} loading={loading} error={error} />
       </div>
     </div>
   );
 }
 
 const styles = {
-  page: { minHeight: '100vh', background: '#f3f4f6' },
-  content: { maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' },
-  heading: { fontSize: '1.75rem', marginBottom: '1.5rem', color: '#1d4ed8' },
-  searchSection: { marginBottom: '2rem' },
-  section: {
-    background: '#fff',
-    borderRadius: '8px',
-    padding: '1.5rem',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    marginBottom: '2rem',
+  page: {
+    minHeight: '100vh',
+    background: 'radial-gradient(circle at top, #101d36 0%, #04080f 62%)',
+    color: '#d9ebff',
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
   },
-  sectionTitle: { fontSize: '1.25rem', fontWeight: '700', color: '#1d4ed8', marginBottom: '1.25rem', marginTop: 0 },
-  alertsHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' },
-  manageLink: { fontSize: '0.9rem', color: '#1d4ed8', textDecoration: 'none', fontWeight: '600' },
-  inlineLink: { color: '#1d4ed8', textDecoration: 'none', fontWeight: '600' },
-  searchForm: { background: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '2rem' },
-  searchRow: { display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' },
-  searchField: { flex: '1', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '0.25rem' },
-  searchLabel: { fontWeight: '600', fontSize: '0.875rem', color: '#374151' },
-  searchInput: { padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
-  searchButton: { marginTop: '0.5rem', padding: '0.75rem 2rem', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer' },
-  form: { display: 'flex', flexDirection: 'column', gap: '0.75rem' },
-  row: { display: 'flex', gap: '1rem', flexWrap: 'wrap' },
-  field: { flex: '1', minWidth: '160px', display: 'flex', flexDirection: 'column', gap: '0.25rem' },
-  label: { fontWeight: '600', fontSize: '0.875rem', color: '#374151' },
-  input: { padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem' },
-  button: {
-    alignSelf: 'flex-start',
-    marginTop: '0.25rem',
-    padding: '0.625rem 1.75rem',
-    background: '#1d4ed8',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    fontWeight: '600',
-    cursor: 'pointer',
+  shell: {
+    maxWidth: 1180,
+    margin: '0 auto',
+    padding: '1.4rem 1rem 2rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1rem',
   },
-  createAlertBtn: {
-    alignSelf: 'flex-start',
-    marginTop: '0.5rem',
-    padding: '0.375rem 0.875rem',
-    background: '#eff6ff',
-    color: '#1d4ed8',
-    border: '1px solid #bfdbfe',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontWeight: '600',
-    fontSize: '0.875rem',
-  },
-  error: { color: '#dc2626', fontSize: '0.875rem', margin: 0 },
-  info: { color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' },
-  empty: { textAlign: 'center', color: '#6b7280', marginTop: '1.5rem' },
-  results: { marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' },
-  resultsHeading: { fontSize: '1rem', fontWeight: '700', color: '#374151', marginBottom: '0.5rem' },
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-    gap: '0.75rem',
-    marginBottom: '1.25rem',
-  },
-  statCard: {
-    border: '1px solid #e2e8f0',
-    borderRadius: '10px',
-    padding: '0.875rem',
-    background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
-  },
-  statLabel: { fontSize: '0.78rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.03em' },
-  statValue: { fontSize: '1.5rem', fontWeight: '800', color: '#0f172a', marginTop: '0.35rem' },
-  statHint: { fontSize: '0.8rem', color: '#64748b', marginTop: '0.35rem' },
-  card: {
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
+  titleBlock: {
+    border: '1px solid #1f3958',
+    borderRadius: 12,
     padding: '1rem',
+    background: 'rgba(6, 11, 24, 0.82)',
+    boxShadow: '0 0 25px rgba(48, 202, 255, 0.1)',
+  },
+  kicker: { color: '#56f0ff', letterSpacing: '0.1em', fontSize: '0.75rem' },
+  title: { margin: '0.45rem 0', color: '#f5fbff', fontSize: '1.55rem' },
+  metaLine: { color: '#82a4cb', fontSize: '0.82rem' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' },
+  statCard: {
+    border: '1px solid #1f3958',
+    borderRadius: 12,
+    background: 'rgba(6, 11, 24, 0.82)',
+    padding: '0.8rem 1rem',
     display: 'flex',
     flexDirection: 'column',
     gap: '0.25rem',
   },
-  route: { fontSize: '1.125rem', fontWeight: '700' },
-  iata: { color: '#1d4ed8', fontWeight: '700' },
-  arrow: { color: '#6b7280' },
-  meta: { fontSize: '0.875rem', color: '#6b7280' },
-  price: { fontSize: '1.25rem', fontWeight: '700', color: '#16a34a' },
-  alertList: { display: 'flex', flexDirection: 'column', gap: '0.5rem' },
-  alertCard: {
-    padding: '0.625rem 0.875rem',
-    border: '1px solid #e5e7eb',
-    borderRadius: '6px',
-    fontSize: '0.9rem',
-    color: '#374151',
+  statLabel: { color: '#7ea5d6', fontSize: '0.72rem', textTransform: 'uppercase' },
+  statValue: { color: '#ecf7ff', fontSize: '1.2rem', fontWeight: 700 },
+  etaBadge: {
+    alignSelf: 'flex-start',
+    padding: '0.25rem 0.7rem',
+    borderRadius: 999,
+    border: '1px solid #2a946f',
+    background: 'rgba(31, 172, 125, 0.14)',
+    color: '#5ff8bf',
+    fontWeight: 700,
   },
-  tripCard: {
-    padding: '0.875rem',
-    border: '1px solid #d1fae5',
-    borderRadius: '8px',
-    background: '#f0fdf4',
-    fontSize: '0.9rem',
-    color: '#374151',
-  },
-  tripSubtitle: { fontSize: '0.875rem', color: '#6b7280', marginTop: 0, marginBottom: '1rem' },
-  addTripBtn: {
-    padding: '0.4rem 0.9rem',
-    background: '#16a34a',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  success: { color: '#16a34a', fontSize: '0.875rem', margin: '0 0 0.75rem 0' },
-  progressTrack: { background: '#e5e7eb', borderRadius: '9999px', height: '8px', overflow: 'hidden' },
-  progressBar: { height: '8px', borderRadius: '9999px', transition: 'width 0.4s ease' },
-  alertMeta: { color: '#6b7280', fontSize: '0.875rem' },
-  aiInsight: {
-    fontSize: '0.875rem',
-    color: '#1d4ed8',
-    background: '#eff6ff',
-    borderRadius: '6px',
-    padding: '0.5rem 0.75rem',
-    fontStyle: 'italic',
-  },
-  aiInsightLocked: {
-    fontSize: '0.8rem',
-    color: '#9ca3af',
-    background: '#f9fafb',
-    borderRadius: '6px',
-    padding: '0.4rem 0.75rem',
-  },
-  aiInsightLabel: { fontWeight: '700', fontStyle: 'normal' },
 };

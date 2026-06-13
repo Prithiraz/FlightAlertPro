@@ -503,6 +503,57 @@ def calculate_wind_component(
     }
 
 
+def calculate_adsb_aerodynamics(
+    altitude_ft: float,
+    ground_speed_kt: float,
+    heading_deg: float,
+) -> Dict:
+    """Estimate TAS, wind component, density altitude, and dynamic CO2 burn from ADS-B telemetry."""
+    try:
+        altitude_ft = float(altitude_ft)
+        ground_speed_kt = float(ground_speed_kt)
+        heading_deg = float(heading_deg)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("altitude_ft, ground_speed_kt, and heading_deg must be numeric") from exc
+
+    altitude_ft = max(0.0, altitude_ft)
+    ground_speed_kt = max(1.0, ground_speed_kt)
+    heading_deg = heading_deg % 360.0
+
+    # Approximate density altitude from pressure altitude with a speed-adjusted thermal term.
+    isa_temp_c = max(-56.5, _ISA_TEMP_C - (1.98 * altitude_ft / 1000.0))
+    thermal_delta_c = min(20.0, (ground_speed_kt / 100.0) * 2.0)
+    oat_estimate_c = isa_temp_c + thermal_delta_c
+    pressure_altitude_ft = altitude_ft
+    density_altitude_ft = pressure_altitude_ft + 120.0 * (oat_estimate_c - isa_temp_c)
+
+    # TAS estimate using a density-altitude based scale factor.
+    tas_scale = 1.0 + min(0.45, max(0.0, density_altitude_ft) / 100000.0)
+    tas_kt = ground_speed_kt * tas_scale
+
+    # Signed wind component (+ tailwind, - headwind) inferred from TAS vs ground speed.
+    wind_component_kt = ground_speed_kt - tas_kt
+    wind_type = "tailwind" if wind_component_kt >= 0 else "headwind"
+
+    # Dynamic emissions model driven by TAS and density altitude.
+    co2_burn_rate_kg_min = 38.0 * (tas_kt / _TAS_KT) ** 2 * (
+        1.0 + max(0.0, density_altitude_ft) / 70000.0
+    )
+
+    logistics_eta_min = max(1, int(round((250.0 / ground_speed_kt) * 60.0)))
+
+    return {
+        "heading_deg": round(heading_deg, 1),
+        "ground_speed_kt": round(ground_speed_kt, 1),
+        "tas_kt": round(tas_kt, 1),
+        "wind_component_kt": round(wind_component_kt, 1),
+        "wind_type": wind_type,
+        "density_altitude_ft": round(density_altitude_ft, 1),
+        "co2_burn_rate_kg_min": round(max(5.0, co2_burn_rate_kg_min), 2),
+        "logistics_eta_min": logistics_eta_min,
+    }
+
+
 def get_aerodynamic_performance(
     from_iata: str,
     to_iata: str,

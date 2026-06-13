@@ -34,6 +34,8 @@ def _parse_state_vector(state: list[Any]) -> dict[str, Any] | None:
         return None
 
     flight_number = (state[1] or "").strip()
+    ground_speed_kt = (state[9] or 0) * MPS_TO_KNOTS
+    heading_deg = state[10] if len(state) > 10 and state[10] is not None else 0.0
 
     return {
         "hex_id": state[0],
@@ -41,7 +43,9 @@ def _parse_state_vector(state: list[Any]) -> dict[str, Any] | None:
         "lon": lon,
         "lat": lat,
         "altitude": altitude_m * METERS_TO_FEET,
-        "speed": (state[9] or 0) * MPS_TO_KNOTS,
+        "ground_speed": ground_speed_kt,
+        "speed": ground_speed_kt,
+        "heading": heading_deg,
     }
 
 
