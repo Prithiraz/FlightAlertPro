@@ -104,7 +104,10 @@ export default function Dashboard() {
 
 const styles = {
   page: {
-    minHeight: '100vh',
+    position: 'fixed',
+    inset: 0,
+    overflowY: 'auto',
+    textAlign: 'left',
     background: 'radial-gradient(circle at top, #101d36 0%, #04080f 62%)',
     color: '#d9ebff',
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
