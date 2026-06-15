@@ -29,7 +29,13 @@ from systemcheck import router as systemcheck_router
 from user_service import router as user_router
 from trip_service import router as trip_router
 from delay_service import router as delay_router
-from weather_service import calculate_adsb_aerodynamics
+from weather_service import (
+    calculate_adsb_aerodynamics,
+    calculate_dispatch_time,
+    DEFAULT_TAXI_TIME_MIN,
+    DEFAULT_DRIVE_TIME_MIN,
+)
+from datetime import timedelta
 
 if config.SENTRY_DSN:
     import sentry_sdk
@@ -99,6 +105,10 @@ class TelemetryAircraft(BaseModel):
     ground_speed: Optional[float] = None
     speed: Optional[float] = None
     heading: Optional[float] = None
+    # Optional ground-transport dispatch parameters (minutes). When omitted the
+    # operator-wide defaults are applied.
+    taxi_time_min: Optional[float] = None
+    drive_time_min: Optional[float] = None
 
 
 class TelemetryIngestRequest(BaseModel):
@@ -260,6 +270,7 @@ async def send_notification(user_email: str, message: str, channels: List[str],
 async def ingest_flight_data(request: TelemetryIngestRequest):
     global LIVE_TELEMETRY_CACHE, LIVE_TELEMETRY_UPDATED_AT
     processed: list[dict] = []
+    now = datetime.utcnow()
 
     for aircraft in request.aircraft:
         ground_speed = aircraft.ground_speed if aircraft.ground_speed is not None else aircraft.speed
@@ -272,12 +283,29 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
             ground_speed_kt=ground_speed,
             heading_deg=heading,
         )
+
+        # Operational milestones: project the planning-horizon ETA forward from
+        # the current ingest time to absolute touchdown / on-block clock times,
+        # then derive when a ground driver must leave to meet the aircraft.
+        taxi_time_min = aircraft.taxi_time_min if aircraft.taxi_time_min is not None else DEFAULT_TAXI_TIME_MIN
+        drive_time_min = aircraft.drive_time_min if aircraft.drive_time_min is not None else DEFAULT_DRIVE_TIME_MIN
+        eta_min = aero["logistics_eta_min"]
+
+        predicted_touchdown = (now + timedelta(minutes=eta_min)).replace(second=0, microsecond=0)
+        predicted_on_block = predicted_touchdown + timedelta(minutes=taxi_time_min)
+        dispatch_time = calculate_dispatch_time(predicted_touchdown, taxi_time_min, drive_time_min)
+
         processed.append({
             "hex_id": aircraft.hex_id,
             "flight_number": aircraft.flight_number,
             "lon": aircraft.lon,
             "lat": aircraft.lat,
             "altitude_ft": aircraft.altitude,
+            "predicted_touchdown_time": predicted_touchdown.isoformat() + "Z",
+            "predicted_on_block_time": predicted_on_block.isoformat() + "Z",
+            "dispatch_time": dispatch_time.isoformat() + "Z",
+            "taxi_time_min": taxi_time_min,
+            "drive_time_min": drive_time_min,
             **aero,
         })
 
