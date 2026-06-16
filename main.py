@@ -4,7 +4,6 @@ from fastapi.responses import JSONResponse
 import logging
 from datetime import datetime
 from typing import Optional, List
-from threading import Lock
 from pydantic import BaseModel
 
 from config import config, validate_env_vars
@@ -29,6 +28,8 @@ from systemcheck import router as systemcheck_router
 from user_service import router as user_router
 from trip_service import router as trip_router
 from delay_service import router as delay_router
+from operational_ledger import router as operational_router
+import telemetry_store
 from weather_service import (
     calculate_adsb_aerodynamics,
     calculate_dispatch_time,
@@ -72,10 +73,7 @@ app.include_router(systemcheck_router)
 app.include_router(user_router)
 app.include_router(trip_router)
 app.include_router(delay_router)
-
-LIVE_TELEMETRY_CACHE: list[dict] = []
-LIVE_TELEMETRY_UPDATED_AT: Optional[str] = None
-LIVE_TELEMETRY_LOCK = Lock()
+app.include_router(operational_router)
 
 class SimpleSearchRequest(BaseModel):
     from_iata: str
@@ -109,6 +107,9 @@ class TelemetryAircraft(BaseModel):
     # operator-wide defaults are applied.
     taxi_time_min: Optional[float] = None
     drive_time_min: Optional[float] = None
+    # Optional ground-handling context surfaced to the mobile driver view.
+    passenger_name: Optional[str] = None
+    fbo: Optional[str] = None
 
 
 class TelemetryIngestRequest(BaseModel):
@@ -268,7 +269,6 @@ async def send_notification(user_email: str, message: str, channels: List[str],
 
 @app.post("/api/ingest_flight_data")
 async def ingest_flight_data(request: TelemetryIngestRequest):
-    global LIVE_TELEMETRY_CACHE, LIVE_TELEMETRY_UPDATED_AT
     processed: list[dict] = []
     now = datetime.utcnow()
 
@@ -306,24 +306,23 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
             "dispatch_time": dispatch_time.isoformat() + "Z",
             "taxi_time_min": taxi_time_min,
             "drive_time_min": drive_time_min,
+            "passenger_name": aircraft.passenger_name,
+            "fbo": aircraft.fbo,
             **aero,
         })
 
-    with LIVE_TELEMETRY_LOCK:
-        LIVE_TELEMETRY_CACHE = processed
-        LIVE_TELEMETRY_UPDATED_AT = datetime.utcnow().isoformat()
+    updated_at = datetime.utcnow().isoformat()
+    telemetry_store.set_snapshot(processed, updated_at)
     return {
         "status": "ok",
         "processed": len(processed),
-        "updated_at": LIVE_TELEMETRY_UPDATED_AT,
+        "updated_at": updated_at,
     }
 
 
 @app.get("/api/telemetry/live")
 async def get_live_telemetry():
-    with LIVE_TELEMETRY_LOCK:
-        aircraft = list(LIVE_TELEMETRY_CACHE)
-        updated_at = LIVE_TELEMETRY_UPDATED_AT
+    aircraft, updated_at = telemetry_store.get_snapshot()
     return {
         "aircraft": aircraft,
         "updated_at": updated_at,

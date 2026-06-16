@@ -130,3 +130,14 @@ export function registerUser(email, referredBy) {
 export function getTripHub(alertId, userEmail) {
   return request('GET', `/api/trips/${encodeURIComponent(alertId)}/hub?user_email=${encodeURIComponent(userEmail)}`);
 }
+
+export function getDriverTrip(flightId) {
+  return request('GET', `/api/operational/driver/${encodeURIComponent(flightId)}`);
+}
+
+export function logDriverEvent(flightId, eventType) {
+  return request('POST', `/api/operational/driver/${encodeURIComponent(flightId)}/event`, {
+    event_type: eventType,
+    event_timestamp: new Date().toISOString(),
+  });
+}
