@@ -2,24 +2,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getDriverTrip, logDriverEvent } from '../lib/api';
 
+// Two milestones only, deliberately split so the ledger can isolate passenger
+// readiness (driver idled) from driver tardiness (passenger waited).
 const STEPS = [
   {
-    event: 'arrived_at_fbo',
-    label: 'I Have Arrived at FBO',
-    done: 'Arrived at FBO',
-    column: 'arrived_at_fbo_at',
+    event: 'driver_arrived',
+    label: 'In Position / Arrived at FBO',
+    done: 'In position at FBO',
+    column: 'driver_geofence_arrival_time',
   },
   {
-    event: 'passenger_exited',
-    label: 'Passenger Has Exited Terminal',
-    done: 'Passenger exited terminal',
-    column: 'passenger_exited_at',
-  },
-  {
-    event: 'passenger_collected',
-    label: 'Passenger Collected / Departed',
-    done: 'Passenger collected',
-    column: 'passenger_collected_at',
+    event: 'passenger_met',
+    label: 'Passenger Met',
+    done: 'Passenger met',
+    column: 'actual_passenger_met_time',
+    mega: true,
   },
 ];
 
@@ -55,8 +52,11 @@ export default function DriverView() {
   }, [load]);
 
   const ledger = trip?.ledger || {};
-  const nextEvent = trip?.next_event ?? 'arrived_at_fbo';
-  const completed = nextEvent === null;
+  // Before the trip loads there is no next_event; default to the first step.
+  // Once loaded, next_event is authoritative — a completed trip reports null,
+  // which must stay null so the completion summary renders.
+  const nextEvent = trip ? trip.next_event : 'driver_arrived';
+  const completed = Boolean(trip) && trip.next_event === null;
 
   const handleClick = async (eventType) => {
     setSubmitting(eventType);
@@ -76,6 +76,7 @@ export default function DriverView() {
   };
 
   const waitMinutes = ledger?.driver_wait_minutes;
+  const lateMinutes = ledger?.late_pickup_minutes;
 
   return (
     <div style={styles.page}>
@@ -125,8 +126,10 @@ export default function DriverView() {
                     disabled={disabled}
                     style={{
                       ...styles.stepBtn,
+                      ...(step.mega ? styles.stepMega : {}),
                       ...(isDone ? styles.stepDone : {}),
                       ...(isActive ? styles.stepActive : {}),
+                      ...(step.mega && isActive ? styles.stepMegaActive : {}),
                       ...(disabled && !isDone ? styles.stepLocked : {}),
                     }}
                   >
@@ -134,7 +137,7 @@ export default function DriverView() {
                       {isDone ? '✓' : idx + 1}
                     </span>
                     <span style={styles.stepText}>
-                      <span style={styles.stepLabel}>
+                      <span style={step.mega ? styles.stepLabelMega : styles.stepLabel}>
                         {isSubmitting ? 'Saving…' : isDone ? step.done : step.label}
                       </span>
                       {isDone && (
@@ -149,20 +152,24 @@ export default function DriverView() {
             {completed && (
               <div style={styles.summary}>
                 <div style={styles.summaryTitle}>Trip complete</div>
-                {waitMinutes != null ? (
+                {waitMinutes != null && (
                   <div style={styles.summaryWait}>
-                    Driver wait vs predicted OBT:{' '}
-                    <strong
-                      style={{
-                        color: waitMinutes > 0 ? '#ffd27a' : '#7df0c0',
-                      }}
-                    >
-                      {waitMinutes > 0 ? '+' : ''}
+                    Driver waited (passenger not ready):{' '}
+                    <strong style={{ color: waitMinutes > 0 ? '#ffd27a' : '#7df0c0' }}>
                       {waitMinutes} min
                     </strong>
                   </div>
-                ) : (
-                  <div style={styles.muted}>Wait time recorded.</div>
+                )}
+                {lateMinutes != null && (
+                  <div style={styles.summaryWait}>
+                    Passenger waited (driver late):{' '}
+                    <strong style={{ color: lateMinutes > 0 ? '#ff8d8d' : '#7df0c0' }}>
+                      {lateMinutes} min
+                    </strong>
+                  </div>
+                )}
+                {waitMinutes == null && lateMinutes == null && (
+                  <div style={styles.muted}>Timestamps recorded.</div>
                 )}
               </div>
             )}
@@ -266,6 +273,19 @@ const styles = {
     cursor: 'default',
   },
   stepLocked: { opacity: 0.45, cursor: 'not-allowed' },
+  stepMega: {
+    minHeight: 150,
+    borderRadius: 22,
+    fontSize: '1.5rem',
+    fontWeight: 900,
+    letterSpacing: '0.02em',
+  },
+  stepMegaActive: {
+    border: '2px solid #5eeaff',
+    background: 'linear-gradient(180deg, rgba(47, 202, 255, 0.32), rgba(47, 202, 255, 0.12))',
+    boxShadow: '0 0 40px rgba(47, 202, 255, 0.35)',
+  },
+  stepLabelMega: { lineHeight: 1.15, fontSize: '1.5rem' },
   stepIndex: {
     flexShrink: 0,
     width: 34,
