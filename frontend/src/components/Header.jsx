@@ -27,6 +27,7 @@ export default function Header() {
         <NavLink to="/search" style={navLinkStyle}>Search</NavLink>
         <NavLink to="/discover" style={navLinkStyle}>Discover</NavLink>
         <NavLink to="/alerts" style={navLinkStyle}>Alerts</NavLink>
+        <NavLink to="/dispatcher" style={navLinkStyle}>Dispatch</NavLink>
         {isAgent && (
           <NavLink to="/agent-dashboard" style={navLinkStyle}>Agent Portal</NavLink>
         )}

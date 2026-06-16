@@ -14,6 +14,8 @@ import Pricing from './pages/Pricing';
 import Discover from './pages/Discover';
 import DestinationHub from './pages/DestinationHub';
 import AgentDashboard from './pages/AgentDashboard';
+import DispatcherView from './pages/DispatcherView';
+import DriverApp from './pages/DriverApp';
 
 const AuthContext = createContext(null);
 
@@ -143,6 +145,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dispatcher"
+            element={
+              <ProtectedRoute>
+                <DispatcherView />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/driver/:id" element={<DriverApp />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
