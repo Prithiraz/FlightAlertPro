@@ -14,6 +14,7 @@ import Pricing from './pages/Pricing';
 import Discover from './pages/Discover';
 import DestinationHub from './pages/DestinationHub';
 import AgentDashboard from './pages/AgentDashboard';
+import DriverView from './pages/DriverView';
 
 const AuthContext = createContext(null);
 
@@ -118,6 +119,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/driver/:flightId" element={<DriverView />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route
             path="/discover"
