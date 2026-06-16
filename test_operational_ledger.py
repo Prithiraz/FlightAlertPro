@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 from operational_ledger import (
     EVENT_SEQUENCE,
     EVENT_TIMESTAMP_COLUMN,
+    OperationalLedger,
     calculate_driver_wait_minutes,
+    _compute_late_pickup,
     _next_event,
 )
 
@@ -71,3 +73,38 @@ def test_next_event_progression():
 
     ledger["passenger_collected_at"] = "2026-06-15T10:10:00Z"
     assert _next_event(ledger) is None
+
+
+def test_late_pickup_true_when_driver_arrives_after_ready():
+    assert _compute_late_pickup("2026-06-15T10:10:00Z", "2026-06-15T10:00:00Z") is True
+
+
+def test_late_pickup_false_when_driver_arrives_before_ready():
+    assert _compute_late_pickup("2026-06-15T09:50:00Z", "2026-06-15T10:00:00Z") is False
+
+
+def test_late_pickup_none_when_timestamp_missing():
+    assert _compute_late_pickup(None, "2026-06-15T10:00:00Z") is None
+    assert _compute_late_pickup("2026-06-15T10:00:00Z", None) is None
+
+
+def test_operational_ledger_model_has_data_moat_fields():
+    record = OperationalLedger(
+        flight_id="A1B2C3",
+        airport_code="KTEB",
+        predicted_ready_time=datetime(2026, 6, 15, 17, 0, tzinfo=timezone.utc),
+        actual_ready_time=datetime(2026, 6, 15, 17, 8, tzinfo=timezone.utc),
+        driver_wait_minutes=8,
+        late_pickup_boolean=False,
+    )
+    assert record.flight_id == "A1B2C3"
+    assert record.airport_code == "KTEB"
+    assert record.driver_wait_minutes == 8
+    assert record.late_pickup_boolean is False
+
+
+def test_operational_ledger_model_minimal():
+    record = OperationalLedger(flight_id="ONLY_ID")
+    assert record.flight_id == "ONLY_ID"
+    assert record.airport_code is None
+    assert record.late_pickup_boolean is None

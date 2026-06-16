@@ -145,6 +145,35 @@ class DriverEventRequest(BaseModel):
     event_timestamp: Optional[str] = None
 
 
+class OperationalLedger(BaseModel):
+    """Ground-truth record for a single VIP pickup — the FBO 'data moat'.
+
+    One row captures the predicted vs. actual passenger-ready times for a trip,
+    plus the realised driver wait and whether the pickup ran late. Accumulated
+    across an FBO, these rows are the training set for FBO-specific micro-models.
+    """
+
+    flight_id: str
+    airport_code: Optional[str] = None
+    predicted_ready_time: Optional[datetime] = None
+    actual_ready_time: Optional[datetime] = None
+    driver_wait_minutes: Optional[float] = None
+    late_pickup_boolean: Optional[bool] = None
+
+
+def _compute_late_pickup(driver_arrival, actual_ready) -> Optional[bool]:
+    """True when the driver reached the FBO after the passenger was already ready.
+
+    A late pickup means the VIP had to wait; ``None`` when either timestamp is
+    unavailable so we never fabricate a ground-truth label.
+    """
+    arrival = _parse_dt(driver_arrival)
+    ready = _parse_dt(actual_ready)
+    if arrival is None or ready is None:
+        return None
+    return arrival > ready
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -204,12 +233,16 @@ async def log_driver_event(flight_id: str, body: DriverEventRequest):
             "flight_number": flight.get("flight_number"),
             "passenger_name": flight.get("passenger_name"),
             "fbo": flight.get("fbo"),
+            "airport_code": flight.get("airport_code"),
             "predicted_obt": predicted_obt,
+            "predicted_ready_time": predicted_obt,
             column: ts_iso,
             "status": "completed" if event_type == EVENT_COLLECTED else "in_progress",
         }
         if event_type == EVENT_COLLECTED:
             row["driver_wait_minutes"] = calculate_driver_wait_minutes(predicted_obt, ts_iso)
+            row["actual_ready_time"] = ts_iso
+            row["late_pickup_boolean"] = _compute_late_pickup(None, ts_iso)
         resp = sb.table(LEDGER_TABLE).insert(row).execute()
         saved = (resp.data or [row])[0]
         logger.info("Opened operational ledger for %s via %s", flight_id, event_type)
@@ -218,8 +251,15 @@ async def log_driver_event(flight_id: str, body: DriverEventRequest):
     update: dict = {column: ts_iso, "updated_at": datetime.now(timezone.utc).isoformat()}
     if event_type == EVENT_COLLECTED:
         wait = calculate_driver_wait_minutes(ledger.get("predicted_obt"), ts_iso)
+        # Ground truth for the data moat: the passenger was "ready" when they
+        # exited the terminal (fall back to collection time if not recorded).
+        actual_ready = ledger.get("passenger_exited_at") or ts_iso
         update["status"] = "completed"
         update["driver_wait_minutes"] = wait
+        update["actual_ready_time"] = actual_ready
+        update["late_pickup_boolean"] = _compute_late_pickup(
+            ledger.get("arrived_at_fbo_at"), actual_ready
+        )
     resp = sb.table(LEDGER_TABLE).update(update).eq("id", ledger["id"]).execute()
     saved = (resp.data or [{**ledger, **update}])[0]
     logger.info("Updated operational ledger %s via %s", ledger.get("id"), event_type)

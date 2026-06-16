@@ -590,6 +590,150 @@ def calculate_dispatch_time(
     return dispatch_time.replace(second=0, microsecond=0)
 
 
+# ---------------------------------------------------------------------------
+# Phase 2: Probabilistic dispatch — financial-risk optimisation
+# ---------------------------------------------------------------------------
+# Operator-wide default unit costs (USD per minute). The driver-wait cost is the
+# loaded cost of a chauffeur idling curbside; the late cost reflects the much
+# larger reputational/charter penalty of keeping a VIP waiting.
+DEFAULT_WAIT_COST_PER_MIN: float = 1.0
+DEFAULT_LATE_COST_PER_MIN: float = 5.0
+
+# Width of the reported ready-time confidence interval (two-sided). 0.80 -> the
+# band spans the 10th to the 90th percentile of the ready-time distribution.
+DEFAULT_READY_TIME_CONFIDENCE: float = 0.80
+
+
+def _inverse_standard_normal_cdf(p: float) -> float:
+    """Quantile (probit) of the standard normal distribution.
+
+    Peter Acklam's rational approximation; absolute error < 1.15e-9 across the
+    open interval. Used instead of pulling in SciPy for a single inverse-CDF.
+    """
+    if p <= 0.0:
+        return float("-inf")
+    if p >= 1.0:
+        return float("inf")
+
+    a = (-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+         1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00)
+    b = (-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+         6.680131188771972e+01, -1.328068155288572e+01)
+    c = (-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+         -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00)
+    d = (7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00,
+         3.754408661907416e+00)
+
+    p_low = 0.02425
+    p_high = 1.0 - p_low
+
+    if p < p_low:
+        q = math.sqrt(-2.0 * math.log(p))
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / \
+               ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0)
+    if p <= p_high:
+        q = p - 0.5
+        r = q * q
+        return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / \
+               (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1.0)
+    q = math.sqrt(-2.0 * math.log(1.0 - p))
+    return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / \
+            ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0)
+
+
+def calculate_optimal_dispatch(
+    expected_ready_time: datetime,
+    uncertainty_minutes: float,
+    wait_cost_per_min: float = DEFAULT_WAIT_COST_PER_MIN,
+    late_cost_per_min: float = DEFAULT_LATE_COST_PER_MIN,
+) -> Dict:
+    """Risk-adjusted dispatch time via a newsvendor (critical-fractile) model.
+
+    The passenger's ready time is treated as a normal random variable centred on
+    ``expected_ready_time`` with standard deviation ``uncertainty_minutes``. The
+    driver should be staged at the pickup at time ``T`` chosen to minimise the
+    expected cost of being early (driver idles) versus late (VIP waits)::
+
+        E[cost](T) = wait_cost * E[(R - T)+] + late_cost * E[(T - R)+]
+
+    Minimising over ``T`` gives the classic critical fractile::
+
+        P(R <= T) = wait_cost / (wait_cost + late_cost)
+        T*        = expected_ready_time + z * uncertainty,   z = Phi^-1(fractile)
+
+    When the late penalty dominates (or uncertainty is large) the fractile falls
+    below 0.5, ``z`` goes negative, and ``T*`` is pulled **earlier** — buying a
+    safety buffer so a late VIP pickup is unlikely. Symmetric wait/late costs
+    give ``fractile = 0.5`` and ``T* = expected_ready_time`` (no buffer).
+
+    Returns a dict with the recommended staging time, the safety buffer (minutes
+    earlier than the median), and the diagnostics behind the decision.
+    """
+    if not isinstance(expected_ready_time, datetime):
+        raise TypeError("expected_ready_time must be a datetime instance")
+
+    sigma = max(0.0, float(uncertainty_minutes))
+    wait_cost = max(0.0, float(wait_cost_per_min))
+    late_cost = max(0.0, float(late_cost_per_min))
+
+    denom = wait_cost + late_cost
+    # Degenerate costs (both zero) -> no preference, aim at the median.
+    critical_fractile = (wait_cost / denom) if denom > 0 else 0.5
+    # Clamp away from the asymptotes so z stays finite.
+    critical_fractile = min(max(critical_fractile, 1e-6), 1.0 - 1e-6)
+
+    z = _inverse_standard_normal_cdf(critical_fractile)
+    offset_minutes = z * sigma  # negative => stage earlier than the median
+
+    recommended = expected_ready_time + timedelta(minutes=offset_minutes)
+    recommended = recommended.replace(second=0, microsecond=0)
+    # Positive buffer == how many minutes EARLIER than the median we stage.
+    buffer_minutes = int(round(-offset_minutes))
+
+    return {
+        "recommended_dispatch_time": recommended,
+        "expected_ready_time": expected_ready_time,
+        "buffer_minutes": buffer_minutes,
+        "critical_fractile": round(critical_fractile, 4),
+        "z_score": round(z, 4),
+        "wait_cost_per_min": wait_cost,
+        "late_cost_per_min": late_cost,
+        "uncertainty_minutes": sigma,
+    }
+
+
+def calculate_ready_time_window(
+    expected_ready_time: datetime,
+    uncertainty_minutes: float,
+    confidence: float = DEFAULT_READY_TIME_CONFIDENCE,
+) -> Dict:
+    """Probabilistic ready-time range instead of a single 'exact' ETA.
+
+    Returns the median ready time and a two-sided confidence interval derived
+    from the normal ready-time distribution. With ``confidence = 0.80`` the
+    interval spans the 10th–90th percentile (``median ± 1.2816 * sigma``).
+    """
+    if not isinstance(expected_ready_time, datetime):
+        raise TypeError("expected_ready_time must be a datetime instance")
+
+    sigma = max(0.0, float(uncertainty_minutes))
+    conf = min(max(float(confidence), 0.0), 0.999999)
+    tail = (1.0 - conf) / 2.0
+    half_width_min = abs(_inverse_standard_normal_cdf(1.0 - tail)) * sigma if sigma > 0 else 0.0
+
+    median = expected_ready_time.replace(second=0, microsecond=0)
+    start = (expected_ready_time - timedelta(minutes=half_width_min)).replace(second=0, microsecond=0)
+    end = (expected_ready_time + timedelta(minutes=half_width_min)).replace(second=0, microsecond=0)
+
+    return {
+        "median_ready_time": median,
+        "confidence_interval_start": start,
+        "confidence_interval_end": end,
+        "confidence": round(conf, 4),
+        "half_width_minutes": int(round(half_width_min)),
+    }
+
+
 def get_operational_performance_advisory(
     density_altitude_ft: float,
     reference_altitude_ft: float = 0.0,

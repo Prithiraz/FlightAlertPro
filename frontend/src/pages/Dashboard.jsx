@@ -12,6 +12,9 @@ export default function Dashboard() {
   const [updatedAt, setUpdatedAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Dispatcher-tunable unit costs that drive the risk-adjusted dispatch time.
+  const [waitCost, setWaitCost] = useState(1);
+  const [lateCost, setLateCost] = useState(5);
 
   useEffect(() => {
     let alive = true;
@@ -84,6 +87,48 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div style={styles.costPanel}>
+          <div style={styles.costHead}>
+            <span style={styles.costTitle}>RISK-ADJUSTED DISPATCH · COST INPUTS</span>
+            <span style={styles.costRatio}>
+              Late : Wait = {waitCost > 0 ? (lateCost / waitCost).toFixed(1) : '∞'} : 1
+            </span>
+          </div>
+          <div style={styles.sliderGrid}>
+            <label style={styles.sliderCell}>
+              <span style={styles.sliderLabel}>Driver Cost / Min</span>
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="0.5"
+                value={waitCost}
+                onChange={(e) => setWaitCost(Number(e.target.value))}
+                style={styles.slider}
+                aria-label="Driver cost per minute"
+              />
+              <span style={styles.sliderValue}>${waitCost.toFixed(2)}/min</span>
+            </label>
+            <label style={styles.sliderCell}>
+              <span style={styles.sliderLabel}>VIP Late Penalty / Min</span>
+              <input
+                type="range"
+                min="0"
+                max="50"
+                step="0.5"
+                value={lateCost}
+                onChange={(e) => setLateCost(Number(e.target.value))}
+                style={styles.slider}
+                aria-label="VIP late penalty per minute"
+              />
+              <span style={styles.sliderValue}>${lateCost.toFixed(2)}/min</span>
+            </label>
+          </div>
+          <div style={styles.costHint}>
+            Higher VIP penalty or uncertainty shifts every dispatch earlier to minimise expected cost.
+          </div>
+        </div>
+
         <SavingsROI flightCount={stats.tracked} />
 
         {loading && <div style={styles.message}>Awaiting uplink…</div>}
@@ -94,7 +139,12 @@ export default function Dashboard() {
 
         <div style={styles.cardGrid}>
           {telemetry.map((flight) => (
-            <FlightOpsCard key={flight.hex_id || flight.flight_number} flight={flight} />
+            <FlightOpsCard
+              key={flight.hex_id || flight.flight_number}
+              flight={flight}
+              waitCost={waitCost}
+              lateCost={lateCost}
+            />
           ))}
         </div>
       </div>
@@ -142,6 +192,24 @@ const styles = {
   },
   statLabel: { color: '#7ea5d6', fontSize: '0.72rem', textTransform: 'uppercase' },
   statValue: { color: '#ecf7ff', fontSize: '1.2rem', fontWeight: 700 },
+  costPanel: {
+    border: '1px solid #1f3958',
+    borderRadius: 12,
+    background: 'rgba(6, 11, 24, 0.82)',
+    padding: '0.9rem 1rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.6rem',
+  },
+  costHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' },
+  costTitle: { color: '#56f0ff', fontSize: '0.72rem', letterSpacing: '0.08em' },
+  costRatio: { color: '#ffd27a', fontSize: '0.8rem', fontWeight: 700 },
+  sliderGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.9rem' },
+  sliderCell: { display: 'flex', flexDirection: 'column', gap: '0.35rem' },
+  sliderLabel: { color: '#9fc2ec', fontSize: '0.74rem' },
+  slider: { width: '100%', accentColor: '#5eeaff' },
+  sliderValue: { color: '#ecf7ff', fontSize: '0.95rem', fontWeight: 700 },
+  costHint: { color: '#7ea5d6', fontSize: '0.72rem', fontStyle: 'italic' },
   cardGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
