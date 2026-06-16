@@ -52,8 +52,11 @@ export default function DriverView() {
   }, [load]);
 
   const ledger = trip?.ledger || {};
-  const nextEvent = trip?.next_event ?? 'driver_arrived';
-  const completed = nextEvent === null;
+  // Before the trip loads there is no next_event; default to the first step.
+  // Once loaded, next_event is authoritative — a completed trip reports null,
+  // which must stay null so the completion summary renders.
+  const nextEvent = trip ? trip.next_event : 'driver_arrived';
+  const completed = Boolean(trip) && trip.next_event === null;
 
   const handleClick = async (eventType) => {
     setSubmitting(eventType);
