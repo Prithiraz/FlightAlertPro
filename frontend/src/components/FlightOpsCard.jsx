@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { riskAdjustedDispatchTime, readyTimeWindow } from '../lib/riskDispatch';
 
 const SEVERITY_COLORS = {
   HIGH: { fg: '#ff8d8d', bg: 'rgba(255, 91, 91, 0.12)', border: '#5c2730' },
@@ -20,7 +21,7 @@ function formatCountdown(ms) {
   return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
 }
 
-function DispatchCountdown({ dispatchTime }) {
+function DispatchCountdown({ dispatchTime, buffer = 0 }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -36,14 +37,17 @@ function DispatchCountdown({ dispatchTime }) {
   const delta = target - now;
   const overdue = delta <= 0;
   const label = overdue ? 'DISPATCH NOW' : `Leave in ${formatCountdown(delta)}`;
+  const bufferNote = buffer > 0
+    ? `incl. ${buffer} min risk buffer`
+    : (buffer < 0 ? `${Math.abs(buffer)} min later (driver-cost weighted)` : 'no risk buffer');
   const sub = overdue
     ? `Driver should already be en route (${formatCountdown(delta)} ago)`
-    : `Depart at ${formatClock(dispatchTime)}`;
+    : `Risk-adjusted depart at ${formatClock(dispatchTime)} · ${bufferNote}`;
 
   return (
     <div style={{ ...styles.dispatch, ...(overdue ? styles.dispatchOverdue : {}) }}>
       <div style={styles.dispatchLabelRow}>
-        <span style={styles.dispatchKicker}>DRIVER DISPATCH RECOMMENDATION</span>
+        <span style={styles.dispatchKicker}>RISK-ADJUSTED DISPATCH TIME</span>
         {overdue && <span style={styles.pulseDot} />}
       </div>
       <div style={styles.dispatchValue}>{label}</div>
@@ -61,7 +65,7 @@ function EngineeringRow({ label, value }) {
   );
 }
 
-export default function FlightOpsCard({ flight }) {
+export default function FlightOpsCard({ flight, waitCost = 1, lateCost = 5 }) {
   const [showEngineering, setShowEngineering] = useState(false);
 
   const advisory = flight.operational_performance_advisory || {};
@@ -71,6 +75,18 @@ export default function FlightOpsCard({ flight }) {
   const confidence = flight.confidence_interval_min;
   const tdt = flight.predicted_touchdown_time;
   const obt = flight.predicted_on_block_time;
+
+  // Phase 2: probabilistic ready-time window + risk-adjusted dispatch. Recomputed
+  // live from the dispatcher's cost sliders so there's no "exact" ETA claim.
+  const window = useMemo(
+    () => readyTimeWindow(obt, confidence, 0.8),
+    [obt, confidence],
+  );
+  const risk = useMemo(
+    () => riskAdjustedDispatchTime(obt, confidence, waitCost, lateCost, flight.drive_time_min),
+    [obt, confidence, waitCost, lateCost, flight.drive_time_min],
+  );
+  const riskDispatchIso = risk.dispatchTime ? risk.dispatchTime.toISOString() : flight.risk_adjusted_dispatch_time;
 
   const engineering = useMemo(() => ([
     { label: 'Ground-ref. energy height', value: flight.energy_height_ft != null ? `${flight.energy_height_ft.toLocaleString()} ft` : '--' },
@@ -104,13 +120,20 @@ export default function FlightOpsCard({ flight }) {
           <span style={styles.milestoneValue}>{formatClock(tdt)}</span>
         </div>
         <div style={styles.milestone}>
-          <span style={styles.milestoneLabel}>Predicted On-Block (OBT)</span>
-          <span style={styles.milestoneValue}>{formatClock(obt)}</span>
+          <span style={styles.milestoneLabel}>Median On-Block (OBT)</span>
+          <span style={styles.milestoneValue}>{formatClock(window.median ? window.median.toISOString() : obt)}</span>
         </div>
         <div style={styles.milestone}>
           <span style={styles.milestoneLabel}>Confidence Range</span>
           <span style={styles.confidenceValue}>{confidence != null ? `± ${confidence} min` : '--'}</span>
         </div>
+      </div>
+
+      <div style={styles.windowBand}>
+        <span style={styles.windowLabel}>READY-TIME WINDOW (80%)</span>
+        <span style={styles.windowValue}>
+          {window.start ? `${formatClock(window.start.toISOString())} – ${formatClock(window.end.toISOString())}` : '--'}
+        </span>
       </div>
 
       {advisory.headline && (
@@ -119,7 +142,7 @@ export default function FlightOpsCard({ flight }) {
         </div>
       )}
 
-      <DispatchCountdown dispatchTime={flight.dispatch_time} />
+      <DispatchCountdown dispatchTime={riskDispatchIso} buffer={risk.bufferMinutes} />
 
       <button
         type="button"
@@ -190,6 +213,18 @@ const styles = {
   milestoneValue: { color: '#ecf7ff', fontSize: '1.18rem', fontWeight: 700 },
   confidenceValue: { color: '#5eeaff', fontSize: '1.18rem', fontWeight: 700 },
   advisoryLine: { fontSize: '0.82rem', fontWeight: 600 },
+  windowBand: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '0.5rem',
+    border: '1px dashed #2a4a6e',
+    borderRadius: 10,
+    padding: '0.45rem 0.7rem',
+    background: 'rgba(10, 19, 38, 0.5)',
+  },
+  windowLabel: { color: '#7ea5d6', fontSize: '0.64rem', letterSpacing: '0.08em' },
+  windowValue: { color: '#bfe6ff', fontSize: '0.95rem', fontWeight: 700 },
   dispatch: {
     border: '1px solid #2a946f',
     borderRadius: 12,

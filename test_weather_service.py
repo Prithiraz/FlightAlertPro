@@ -6,9 +6,12 @@ from unittest.mock import MagicMock, patch
 
 from weather_service import (
     _calculate_true_course,
+    _inverse_standard_normal_cdf,
     calculate_adsb_aerodynamics,
     calculate_confidence_interval,
     calculate_dispatch_time,
+    calculate_optimal_dispatch,
+    calculate_ready_time_window,
     calculate_energy_height,
     calculate_wind_component,
     get_aerodynamic_performance,
@@ -484,6 +487,79 @@ class TestCalculateEnergyHeight(unittest.TestCase):
         self.assertGreater(
             calculate_energy_height(10000, 400),
             calculate_energy_height(10000, 0),
+        )
+
+
+class TestCalculateOptimalDispatch(unittest.TestCase):
+    """Financial-risk (newsvendor) dispatch optimisation."""
+
+    def setUp(self):
+        self.base = datetime(2026, 6, 15, 17, 0)
+
+    def test_symmetric_costs_aim_at_median(self):
+        result = calculate_optimal_dispatch(self.base, 10, 1.0, 1.0)
+        self.assertEqual(result["buffer_minutes"], 0)
+        self.assertEqual(result["recommended_dispatch_time"], self.base)
+        self.assertAlmostEqual(result["critical_fractile"], 0.5, places=3)
+
+    def test_high_late_cost_shifts_earlier(self):
+        result = calculate_optimal_dispatch(self.base, 10, 1.0, 10.0)
+        self.assertGreater(result["buffer_minutes"], 0)
+        self.assertLess(result["recommended_dispatch_time"], self.base)
+        self.assertLess(result["z_score"], 0)
+
+    def test_higher_uncertainty_shifts_even_earlier(self):
+        low = calculate_optimal_dispatch(self.base, 10, 1.0, 10.0)
+        high = calculate_optimal_dispatch(self.base, 30, 1.0, 10.0)
+        self.assertGreater(high["buffer_minutes"], low["buffer_minutes"])
+
+    def test_high_wait_cost_shifts_later(self):
+        result = calculate_optimal_dispatch(self.base, 10, 10.0, 1.0)
+        self.assertGreater(result["recommended_dispatch_time"], self.base)
+        self.assertGreater(result["z_score"], 0)
+
+    def test_zero_uncertainty_has_no_buffer(self):
+        result = calculate_optimal_dispatch(self.base, 0, 1.0, 10.0)
+        self.assertEqual(result["buffer_minutes"], 0)
+        self.assertEqual(result["recommended_dispatch_time"], self.base)
+
+    def test_zero_costs_default_to_median(self):
+        result = calculate_optimal_dispatch(self.base, 10, 0.0, 0.0)
+        self.assertAlmostEqual(result["critical_fractile"], 0.5, places=3)
+        self.assertEqual(result["buffer_minutes"], 0)
+
+
+class TestReadyTimeWindow(unittest.TestCase):
+    """Probabilistic ready-time range instead of an exact ETA."""
+
+    def setUp(self):
+        self.base = datetime(2026, 6, 15, 17, 0)
+
+    def test_median_equals_expected(self):
+        w = calculate_ready_time_window(self.base, 10, 0.80)
+        self.assertEqual(w["median_ready_time"], self.base)
+
+    def test_80pct_band_is_symmetric_1_28_sigma(self):
+        w = calculate_ready_time_window(self.base, 10, 0.80)
+        self.assertEqual(w["half_width_minutes"], 13)  # round(1.2816 * 10)
+        self.assertLess(w["confidence_interval_start"], w["median_ready_time"])
+        self.assertGreater(w["confidence_interval_end"], w["median_ready_time"])
+
+    def test_wider_confidence_widens_band(self):
+        w80 = calculate_ready_time_window(self.base, 10, 0.80)
+        w95 = calculate_ready_time_window(self.base, 10, 0.95)
+        self.assertGreater(w95["half_width_minutes"], w80["half_width_minutes"])
+
+
+class TestInverseNormalCdf(unittest.TestCase):
+    def test_known_quantiles(self):
+        self.assertAlmostEqual(_inverse_standard_normal_cdf(0.5), 0.0, places=4)
+        self.assertAlmostEqual(_inverse_standard_normal_cdf(0.9), 1.2816, places=3)
+        self.assertAlmostEqual(_inverse_standard_normal_cdf(0.975), 1.9600, places=3)
+        self.assertAlmostEqual(
+            _inverse_standard_normal_cdf(0.1),
+            -_inverse_standard_normal_cdf(0.9),
+            places=4,
         )
 
 

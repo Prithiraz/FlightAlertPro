@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -33,8 +33,13 @@ import telemetry_store
 from weather_service import (
     calculate_adsb_aerodynamics,
     calculate_dispatch_time,
+    calculate_optimal_dispatch,
+    calculate_ready_time_window,
     DEFAULT_TAXI_TIME_MIN,
     DEFAULT_DRIVE_TIME_MIN,
+    DEFAULT_WAIT_COST_PER_MIN,
+    DEFAULT_LATE_COST_PER_MIN,
+    DEFAULT_READY_TIME_CONFIDENCE,
 )
 from datetime import timedelta
 
@@ -110,6 +115,7 @@ class TelemetryAircraft(BaseModel):
     # Optional ground-handling context surfaced to the mobile driver view.
     passenger_name: Optional[str] = None
     fbo: Optional[str] = None
+    airport_code: Optional[str] = None
 
 
 class TelemetryIngestRequest(BaseModel):
@@ -295,6 +301,23 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
         predicted_on_block = predicted_touchdown + timedelta(minutes=taxi_time_min)
         dispatch_time = calculate_dispatch_time(predicted_touchdown, taxi_time_min, drive_time_min)
 
+        # Phase 2 — probabilistic dispatch. The passenger "ready" moment is the
+        # predicted on-block time; its uncertainty is the confidence band. We
+        # report a ready-time window instead of an exact ETA, and weigh the cost
+        # of an idling driver against a late VIP to pick a risk-adjusted time.
+        uncertainty_min = aero.get("confidence_interval_min", 0) or 0
+        window = calculate_ready_time_window(predicted_on_block, uncertainty_min)
+        optimal = calculate_optimal_dispatch(
+            predicted_on_block,
+            uncertainty_min,
+            DEFAULT_WAIT_COST_PER_MIN,
+            DEFAULT_LATE_COST_PER_MIN,
+        )
+        # Risk-adjusted leave time = staged presence target minus the drive.
+        risk_adjusted_dispatch = (
+            optimal["recommended_dispatch_time"] - timedelta(minutes=drive_time_min)
+        ).replace(second=0, microsecond=0)
+
         processed.append({
             "hex_id": aircraft.hex_id,
             "flight_number": aircraft.flight_number,
@@ -304,10 +327,20 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
             "predicted_touchdown_time": predicted_touchdown.isoformat() + "Z",
             "predicted_on_block_time": predicted_on_block.isoformat() + "Z",
             "dispatch_time": dispatch_time.isoformat() + "Z",
+            "median_ready_time": window["median_ready_time"].isoformat() + "Z",
+            "confidence_interval_start": window["confidence_interval_start"].isoformat() + "Z",
+            "confidence_interval_end": window["confidence_interval_end"].isoformat() + "Z",
+            "risk_adjusted_dispatch_time": risk_adjusted_dispatch.isoformat() + "Z",
+            "risk_adjusted_presence_time": optimal["recommended_dispatch_time"].isoformat() + "Z",
+            "dispatch_buffer_minutes": optimal["buffer_minutes"],
+            "critical_fractile": optimal["critical_fractile"],
+            "wait_cost_per_min": DEFAULT_WAIT_COST_PER_MIN,
+            "late_cost_per_min": DEFAULT_LATE_COST_PER_MIN,
             "taxi_time_min": taxi_time_min,
             "drive_time_min": drive_time_min,
             "passenger_name": aircraft.passenger_name,
             "fbo": aircraft.fbo,
+            "airport_code": aircraft.airport_code,
             **aero,
         })
 
@@ -328,6 +361,56 @@ async def get_live_telemetry():
         "updated_at": updated_at,
         "count": len(aircraft),
     }
+
+
+class DispatchOptimizeRequest(BaseModel):
+    expected_ready_time: str  # ISO-8601 median ready (on-block) time
+    uncertainty_minutes: float
+    wait_cost_per_min: float = DEFAULT_WAIT_COST_PER_MIN
+    late_cost_per_min: float = DEFAULT_LATE_COST_PER_MIN
+    drive_time_min: Optional[float] = None
+    confidence: float = DEFAULT_READY_TIME_CONFIDENCE
+
+
+def _iso_z(dt: datetime) -> str:
+    """Format a datetime as UTC ISO-8601 with a single trailing 'Z'."""
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.isoformat() + "Z"
+
+
+@app.post("/api/dispatch/optimize")
+async def optimize_dispatch(request: DispatchOptimizeRequest):
+    """Recompute the risk-adjusted dispatch time for dispatcher-supplied costs."""
+    try:
+        expected = datetime.fromisoformat(request.expected_ready_time.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="expected_ready_time must be ISO-8601")
+
+    optimal = calculate_optimal_dispatch(
+        expected,
+        request.uncertainty_minutes,
+        request.wait_cost_per_min,
+        request.late_cost_per_min,
+    )
+    window = calculate_ready_time_window(expected, request.uncertainty_minutes, request.confidence)
+
+    presence = optimal["recommended_dispatch_time"]
+    response = {
+        "median_ready_time": _iso_z(window["median_ready_time"]),
+        "confidence_interval_start": _iso_z(window["confidence_interval_start"]),
+        "confidence_interval_end": _iso_z(window["confidence_interval_end"]),
+        "risk_adjusted_presence_time": _iso_z(presence),
+        "dispatch_buffer_minutes": optimal["buffer_minutes"],
+        "critical_fractile": optimal["critical_fractile"],
+        "z_score": optimal["z_score"],
+        "wait_cost_per_min": optimal["wait_cost_per_min"],
+        "late_cost_per_min": optimal["late_cost_per_min"],
+    }
+    if request.drive_time_min is not None:
+        leave = (presence - timedelta(minutes=request.drive_time_min)).replace(second=0, microsecond=0)
+        response["risk_adjusted_dispatch_time"] = _iso_z(leave)
+    return response
 
 from pydantic import BaseModel
 from stripe_service import stripe_service # Import the correct service
