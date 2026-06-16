@@ -1,13 +1,18 @@
 """Tests for Phase 3 aerodynamic wind-component additions in weather_service.py."""
 import math
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from weather_service import (
     _calculate_true_course,
     calculate_adsb_aerodynamics,
+    calculate_confidence_interval,
+    calculate_dispatch_time,
+    calculate_energy_height,
     calculate_wind_component,
     get_aerodynamic_performance,
+    get_operational_performance_advisory,
     get_winds_aloft,
     iata_to_icao,
     iata_to_airport_info,
@@ -398,6 +403,88 @@ class TestCalculateAdsbAerodynamics(unittest.TestCase):
         result = calculate_adsb_aerodynamics(altitude_ft=5000, ground_speed_kt=220, heading_deg=725)
         self.assertGreaterEqual(result["heading_deg"], 0.0)
         self.assertLess(result["heading_deg"], 360.0)
+
+    def test_includes_operational_milestone_fields(self):
+        result = calculate_adsb_aerodynamics(altitude_ft=32000, ground_speed_kt=430, heading_deg=87)
+        self.assertIn("energy_height_ft", result)
+        self.assertIn("confidence_interval_min", result)
+        self.assertIn("operational_performance_advisory", result)
+        self.assertGreaterEqual(result["confidence_interval_min"], 1)
+        self.assertIn("severity", result["operational_performance_advisory"])
+
+
+class TestCalculateConfidenceInterval(unittest.TestCase):
+    """Unit tests for calculate_confidence_interval()."""
+
+    def test_returns_positive_integer(self):
+        result = calculate_confidence_interval(eta_minutes=40)
+        self.assertIsInstance(result, int)
+        self.assertGreaterEqual(result, 1)
+
+    def test_widens_with_longer_horizon(self):
+        short = calculate_confidence_interval(eta_minutes=10)
+        long = calculate_confidence_interval(eta_minutes=120)
+        self.assertGreater(long, short)
+
+    def test_widens_with_wind_and_staleness(self):
+        calm = calculate_confidence_interval(eta_minutes=40, wind_component_kt=0, data_age_seconds=0)
+        windy = calculate_confidence_interval(eta_minutes=40, wind_component_kt=120, data_age_seconds=300)
+        self.assertGreater(windy, calm)
+
+    def test_floor_is_one_minute(self):
+        self.assertEqual(calculate_confidence_interval(eta_minutes=0), 1)
+
+
+class TestCalculateDispatchTime(unittest.TestCase):
+    """Unit tests for calculate_dispatch_time()."""
+
+    def test_dispatch_is_on_block_minus_drive(self):
+        touchdown = datetime(2026, 6, 15, 15, 0)
+        # on_block = 15:08, dispatch = on_block - 35 = 14:33
+        result = calculate_dispatch_time(touchdown, taxi_time=8, drive_time=35)
+        self.assertEqual(result, datetime(2026, 6, 15, 14, 33))
+
+    def test_seconds_are_truncated(self):
+        touchdown = datetime(2026, 6, 15, 15, 0, 42)
+        result = calculate_dispatch_time(touchdown, taxi_time=10, drive_time=10)
+        self.assertEqual(result.second, 0)
+        self.assertEqual(result.microsecond, 0)
+
+    def test_rejects_non_datetime(self):
+        with self.assertRaises(TypeError):
+            calculate_dispatch_time("15:00", taxi_time=8, drive_time=35)
+
+
+class TestOperationalPerformanceAdvisory(unittest.TestCase):
+    """Unit tests for get_operational_performance_advisory()."""
+
+    def test_high_severity_above_3500(self):
+        advisory = get_operational_performance_advisory(35000, reference_altitude_ft=30000)
+        self.assertEqual(advisory["severity"], "HIGH")
+        self.assertEqual(advisory["status"], "ADVISORY")
+
+    def test_moderate_severity(self):
+        advisory = get_operational_performance_advisory(32500, reference_altitude_ft=30000)
+        self.assertEqual(advisory["severity"], "MODERATE")
+        self.assertEqual(advisory["status"], "ADVISORY")
+
+    def test_nominal_when_within_limits(self):
+        advisory = get_operational_performance_advisory(31000, reference_altitude_ft=30000)
+        self.assertEqual(advisory["severity"], "LOW")
+        self.assertEqual(advisory["status"], "NOMINAL")
+
+
+class TestCalculateEnergyHeight(unittest.TestCase):
+    """Unit tests for calculate_energy_height()."""
+
+    def test_static_aircraft_equals_altitude(self):
+        self.assertEqual(calculate_energy_height(10000, 0), 10000.0)
+
+    def test_speed_increases_energy_height(self):
+        self.assertGreater(
+            calculate_energy_height(10000, 400),
+            calculate_energy_height(10000, 0),
+        )
 
 
 if __name__ == "__main__":

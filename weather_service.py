@@ -1,8 +1,10 @@
-"""Weather service: fetches real-time METAR data, computes density altitude,
-and calculates aerodynamic wind components for cruise flight."""
+"""Weather service: fetches real-time METAR data, derives physics-informed
+operational milestones (Predicted Touchdown / On-Block Time), and translates
+aerospace performance metrics into operational decision support."""
 import logging
 import math
 import os
+from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 
 import requests
@@ -23,6 +25,15 @@ _TAS_KT: float = 450.0          # Standard True Airspeed for commercial jets (kn
 _CRUISE_ALT_FT: int = 30000     # Default cruise altitude: FL300
 _KM_PER_NM: float = 1.852       # Kilometres per nautical mile
 _EARTH_RADIUS_KM: float = 6371.0
+
+# Ground-transport dispatch defaults (minutes). Used when an operator has not
+# supplied a route-specific taxi-in or curb-to-stand drive estimate.
+DEFAULT_TAXI_TIME_MIN: int = 8
+DEFAULT_DRIVE_TIME_MIN: int = 35
+
+# Gravitational acceleration in ft/s^2, used for ground-referenced energy height.
+_GRAVITY_FT_S2: float = 32.174
+_KT_TO_FT_S: float = 1.68781    # knots -> feet per second
 
 # 16-point compass rose mapping to degrees true
 CARDINAL_TO_DEGREES = {
@@ -355,6 +366,9 @@ def get_departure_performance(iata: str) -> Optional[Dict]:
     result["icao"] = icao
     result["temperature_c"] = temp_c
     result["altimeter_in_hg"] = altimeter_in_hg
+    result["operational_performance_advisory"] = get_operational_performance_advisory(
+        result["density_altitude_ft"], reference_altitude_ft=elevation_ft
+    )
     return result
 
 
@@ -503,6 +517,145 @@ def calculate_wind_component(
     }
 
 
+def calculate_confidence_interval(
+    eta_minutes: float,
+    wind_component_kt: float = 0.0,
+    data_age_seconds: float = 0.0,
+) -> int:
+    """Estimate the +/- minute uncertainty band around a predicted milestone.
+
+    The band widens with three sources of operational uncertainty:
+
+    * **Prediction horizon** – longer ETAs compound small ground-speed errors,
+      so the band grows roughly linearly with ``eta_minutes``.
+    * **Wind volatility** – a larger head/tailwind component implies a more
+      dynamic upper-air environment and therefore more forecast spread.
+    * **Telemetry staleness** – the older the underlying position report, the
+      less certain the extrapolation.
+
+    Parameters
+    ----------
+    eta_minutes : float
+        Minutes until the predicted milestone (touchdown / on-block).
+    wind_component_kt : float, optional
+        Signed wind component along track (knots); only the magnitude matters.
+    data_age_seconds : float, optional
+        Age of the underlying telemetry sample in seconds.
+
+    Returns
+    -------
+    int
+        A positive integer number of minutes, interpreted as ``±N``.
+    """
+    horizon = max(0.0, float(eta_minutes))
+    base = 1.0 + 0.08 * horizon                       # ~5 min at a 50-min horizon
+    wind_term = 0.02 * abs(float(wind_component_kt))
+    staleness_term = max(0.0, float(data_age_seconds)) / 120.0
+    interval = base + wind_term + staleness_term
+    return max(1, int(round(interval)))
+
+
+def calculate_dispatch_time(
+    touchdown_time: datetime,
+    taxi_time: float,
+    drive_time: float,
+) -> datetime:
+    """Return the exact clock time a ground driver should depart.
+
+    A driver must be curbside at the **on-block** moment — the predicted
+    touchdown plus the taxi-in time. To arrive exactly then, the driver leaves
+    one drive-time ahead of on-block::
+
+        on_block  = touchdown + taxi
+        dispatch  = on_block  - drive
+
+    Parameters
+    ----------
+    touchdown_time : datetime
+        Predicted touchdown time (TDT).
+    taxi_time : float
+        Taxi-in minutes from touchdown to gate/stand (on-block).
+    drive_time : float
+        Minutes the driver needs to reach the pickup point.
+
+    Returns
+    -------
+    datetime
+        The exact minute the driver should leave.
+    """
+    if not isinstance(touchdown_time, datetime):
+        raise TypeError("touchdown_time must be a datetime instance")
+    on_block_time = touchdown_time + timedelta(minutes=float(taxi_time))
+    dispatch_time = on_block_time - timedelta(minutes=float(drive_time))
+    return dispatch_time.replace(second=0, microsecond=0)
+
+
+def get_operational_performance_advisory(
+    density_altitude_ft: float,
+    reference_altitude_ft: float = 0.0,
+) -> Dict:
+    """Translate a raw density-altitude figure into an operational advisory.
+
+    Rather than surfacing a bare density-altitude gauge, this returns a
+    decision-support payload describing the performance impact when the air is
+    thinner than standard. ``reference_altitude_ft`` is the baseline the
+    density altitude is measured against — field elevation for a departure
+    airport, or pressure (geometric) altitude for an aircraft at cruise.
+
+    Returns
+    -------
+    dict
+        ``status``   – ``"NOMINAL"`` or ``"ADVISORY"``.
+        ``severity`` – ``"LOW"`` / ``"MODERATE"`` / ``"HIGH"``.
+        ``headline`` – short operator-facing summary.
+        ``detail``   – one-line operational implication.
+        ``da_above_reference_ft`` – signed deviation driving the advisory.
+    """
+    da_above = round(float(density_altitude_ft) - float(reference_altitude_ft), 1)
+
+    if da_above >= 3500:
+        return {
+            "status": "ADVISORY",
+            "severity": "HIGH",
+            "headline": "Reduced climb & thrust performance",
+            "detail": "Thin air is degrading lift and engine thrust; expect payload "
+                      "restrictions and possible schedule slippage.",
+            "da_above_reference_ft": da_above,
+        }
+    if da_above >= 2000:
+        return {
+            "status": "ADVISORY",
+            "severity": "MODERATE",
+            "headline": "Reduced performance margins",
+            "detail": "Non-standard air density is trimming performance margins; "
+                      "monitor for fuel-burn and timing impact.",
+            "da_above_reference_ft": da_above,
+        }
+    return {
+        "status": "NOMINAL",
+        "severity": "LOW",
+        "headline": "Standard operating performance",
+        "detail": "Air density is within nominal limits; no performance impact expected.",
+        "da_above_reference_ft": da_above,
+    }
+
+
+def calculate_energy_height(altitude_ft: float, ground_speed_kt: float) -> float:
+    """Ground-referenced specific energy height (feet).
+
+    Total mechanical energy per unit weight expressed as an equivalent
+    altitude, referenced to the ground::
+
+        E_h = h + V^2 / (2g)
+
+    where ``h`` is altitude (ft), ``V`` is ground speed (ft/s) and ``g`` is
+    gravitational acceleration (ft/s^2).
+    """
+    altitude_ft = max(0.0, float(altitude_ft))
+    speed_ft_s = max(0.0, float(ground_speed_kt)) * _KT_TO_FT_S
+    return round(altitude_ft + (speed_ft_s ** 2) / (2.0 * _GRAVITY_FT_S2), 1)
+
+
 def calculate_adsb_aerodynamics(
     altitude_ft: float,
     ground_speed_kt: float,
@@ -545,6 +698,18 @@ def calculate_adsb_aerodynamics(
     # ETA uses a 250 NM rolling logistics leg as the command-center planning horizon.
     logistics_eta_min = max(1, int(round((250.0 / ground_speed_kt) * 60.0)))
 
+    # Decision-support derivatives. Density altitude and energy height are kept
+    # as raw engineering metrics, while the advisory and confidence band are the
+    # operator-facing outputs surfaced on the flight cards.
+    energy_height_ft = calculate_energy_height(altitude_ft, ground_speed_kt)
+    advisory = get_operational_performance_advisory(
+        density_altitude_ft, reference_altitude_ft=pressure_altitude_ft
+    )
+    confidence_interval_min = calculate_confidence_interval(
+        eta_minutes=logistics_eta_min,
+        wind_component_kt=wind_component_kt,
+    )
+
     return {
         "heading_deg": round(heading_deg, 1),
         "ground_speed_kt": round(ground_speed_kt, 1),
@@ -552,8 +717,11 @@ def calculate_adsb_aerodynamics(
         "wind_component_kt": round(wind_component_kt, 1),
         "wind_type": wind_type,
         "density_altitude_ft": round(density_altitude_ft, 1),
+        "energy_height_ft": energy_height_ft,
         "co2_burn_rate_kg_min": round(max(5.0, co2_burn_rate_kg_min), 2),
         "logistics_eta_min": logistics_eta_min,
+        "confidence_interval_min": confidence_interval_min,
+        "operational_performance_advisory": advisory,
     }
 
 

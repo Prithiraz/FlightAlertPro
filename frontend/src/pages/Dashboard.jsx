@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../App';
 import { getLiveTelemetry } from '../lib/api';
-import TelemetryPanel from '../components/TelemetryPanel';
+import FlightOpsCard from '../components/FlightOpsCard';
+import SavingsROI from '../components/SavingsROI';
 
 const POLL_INTERVAL_MS = 8000;
 
@@ -39,19 +40,18 @@ export default function Dashboard() {
   }, []);
 
   const stats = useMemo(() => {
-    if (!telemetry.length) {
-      return { tracked: 0, avgEmission: '--', avgWind: '--', eta: '--' };
+    const tracked = telemetry.length;
+    if (!tracked) {
+      return { tracked: 0, advisories: 0, avgConfidence: '--' };
     }
-
-    const emission = telemetry.reduce((sum, f) => sum + (f.co2_burn_rate_kg_min || 0), 0) / telemetry.length;
-    const wind = telemetry.reduce((sum, f) => sum + (f.wind_component_kt || 0), 0) / telemetry.length;
-    const eta = telemetry.reduce((sum, f) => sum + (f.logistics_eta_min || 0), 0) / telemetry.length;
-
+    const advisories = telemetry.filter(
+      (f) => (f.operational_performance_advisory?.status || 'NOMINAL') === 'ADVISORY',
+    ).length;
+    const avgConfidence = telemetry.reduce((sum, f) => sum + (f.confidence_interval_min || 0), 0) / tracked;
     return {
-      tracked: telemetry.length,
-      avgEmission: `${emission.toFixed(2)} kg/min`,
-      avgWind: `${wind >= 0 ? '+' : ''}${wind.toFixed(1)} kts`,
-      eta: `${Math.max(1, Math.round(eta))} min`,
+      tracked,
+      advisories,
+      avgConfidence: `± ${Math.round(avgConfidence)} min`,
     };
   }, [telemetry]);
 
@@ -59,21 +59,44 @@ export default function Dashboard() {
     <div style={styles.page}>
       <div style={styles.shell}>
         <div style={styles.titleBlock}>
-          <div style={styles.kicker}>AEROLOGIX COMMAND CENTER</div>
-          <h1 style={styles.title}>Live Charter Efficiency Ops</h1>
+          <div style={styles.kicker}>AEROLOGIX · DISPATCH OPERATIONS</div>
+          <h1 style={styles.title}>Arrival & Ground-Transport Dispatch</h1>
           <div style={styles.metaLine}>
-            Operator: {user?.email || 'unknown'} · Last uplink: {updatedAt ? new Date(updatedAt).toLocaleTimeString() : 'pending'}
+            Operator: {user?.email || 'unknown'} · Last uplink:{' '}
+            {updatedAt ? new Date(updatedAt).toLocaleTimeString() : 'pending'}
           </div>
         </div>
 
         <div style={styles.statsGrid}>
-          <div style={styles.statCard}><span style={styles.statLabel}>Tracked Aircraft</span><span style={styles.statValue}>{stats.tracked}</span></div>
-          <div style={styles.statCard}><span style={styles.statLabel}>Avg Emission Rate</span><span style={styles.statValue}>{stats.avgEmission}</span></div>
-          <div style={styles.statCard}><span style={styles.statLabel}>Net Wind Vector</span><span style={styles.statValue}>{stats.avgWind}</span></div>
-          <div style={styles.statCard}><span style={styles.statLabel}>Logistics ETA</span><span style={styles.etaBadge}>{stats.eta}</span></div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>Active Flights</span>
+            <span style={styles.statValue}>{stats.tracked}</span>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>Performance Advisories</span>
+            <span style={{ ...styles.statValue, color: stats.advisories ? '#ffd27a' : '#5ff8bf' }}>
+              {stats.advisories}
+            </span>
+          </div>
+          <div style={styles.statCard}>
+            <span style={styles.statLabel}>Avg Confidence Band</span>
+            <span style={styles.statValue}>{stats.avgConfidence}</span>
+          </div>
         </div>
 
-        <TelemetryPanel telemetry={telemetry} loading={loading} error={error} />
+        <SavingsROI flightCount={stats.tracked} />
+
+        {loading && <div style={styles.message}>Awaiting uplink…</div>}
+        {!loading && error && <div style={{ ...styles.message, color: '#ff8d8d' }}>{error}</div>}
+        {!loading && !error && !telemetry.length && (
+          <div style={styles.message}>No active flights currently tracked.</div>
+        )}
+
+        <div style={styles.cardGrid}>
+          {telemetry.map((flight) => (
+            <FlightOpsCard key={flight.hex_id || flight.flight_number} flight={flight} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -81,7 +104,10 @@ export default function Dashboard() {
 
 const styles = {
   page: {
-    minHeight: '100vh',
+    position: 'fixed',
+    inset: 0,
+    overflowY: 'auto',
+    textAlign: 'left',
     background: 'radial-gradient(circle at top, #101d36 0%, #04080f 62%)',
     color: '#d9ebff',
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
@@ -116,13 +142,16 @@ const styles = {
   },
   statLabel: { color: '#7ea5d6', fontSize: '0.72rem', textTransform: 'uppercase' },
   statValue: { color: '#ecf7ff', fontSize: '1.2rem', fontWeight: 700 },
-  etaBadge: {
-    alignSelf: 'flex-start',
-    padding: '0.25rem 0.7rem',
-    borderRadius: 999,
-    border: '1px solid #2a946f',
-    background: 'rgba(31, 172, 125, 0.14)',
-    color: '#5ff8bf',
-    fontWeight: 700,
+  cardGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))',
+    gap: '0.85rem',
+  },
+  message: {
+    border: '1px solid #1f3958',
+    borderRadius: 12,
+    background: 'rgba(7, 13, 27, 0.85)',
+    color: '#9bb6d6',
+    padding: '1rem',
   },
 };
