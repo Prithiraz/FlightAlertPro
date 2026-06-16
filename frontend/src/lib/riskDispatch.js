@@ -80,6 +80,81 @@ export function riskAdjustedDispatchTime(expectedReadyTime, uncertaintyMinutes, 
   return { dispatchTime, presenceTime: recommendedPresence, bufferMinutes, criticalFractile };
 }
 
+function normPdf(x) {
+  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+}
+
+function normCdf(x) {
+  // Abramowitz & Stegun 7.1.26 erf approximation.
+  const t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2);
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-(x * x) / 2);
+  const erf = x >= 0 ? y : -y;
+  return 0.5 * (1 + erf);
+}
+
+// Expected per-trip cost of staging the driver `t` minutes from the median ready
+// time, with ready time R ~ N(0, sigma): wait*(G - t) + late*G where
+// G = E[(t - R)+] = t*Phi(t/sigma) + sigma*phi(t/sigma).
+function expectedCost(t, sigma, wait, late) {
+  if (sigma <= 0) return late * Math.max(0, t) + wait * Math.max(0, -t);
+  const z = t / sigma;
+  const g = t * normCdf(z) + sigma * normPdf(z);
+  return wait * (g - t) + late * g;
+}
+
+function expectedDriverWait(t, sigma) {
+  if (sigma <= 0) return Math.max(0, -t);
+  const z = t / sigma;
+  const g = t * normCdf(z) + sigma * normPdf(z);
+  return g - t;
+}
+
+function confidenceLabel(sigma) {
+  if (sigma <= 6) return 'High';
+  if (sigma <= 14) return 'Moderate';
+  return 'Low';
+}
+
+// Acceptable dispatch *window* (not a single minute): every leave-by time whose
+// expected cost is within `costTolerance` of the minimum. Mirrors the backend
+// physics_engine.calculate_dispatch_window.
+export function calculateDispatchWindow(expectedReadyTime, uncertaintyMinutes, waitCostPerMin, lateCostPerMin, driveTimeMin, costTolerance = 0.10) {
+  const expected = expectedReadyTime instanceof Date ? expectedReadyTime : new Date(expectedReadyTime);
+  if (Number.isNaN(expected.getTime())) {
+    return { start: null, end: null, recommended: null, expectedDriverWaitMinutes: 0, confidence: 'Low' };
+  }
+  const sigma = Math.max(0, Number(uncertaintyMinutes) || 0);
+  const wait = Math.max(0, Number(waitCostPerMin) || 0);
+  const late = Math.max(0, Number(lateCostPerMin) || 0);
+  const drive = Math.max(0, Number(driveTimeMin) || 0);
+
+  const span = Math.max(8, 4 * sigma);
+  const step = 0.25;
+  const offsets = [];
+  for (let o = -span; o <= span + 1e-9; o += step) offsets.push(o);
+  const costs = offsets.map((o) => [o, expectedCost(o, sigma, wait, late)]);
+  let best = costs[0];
+  for (const oc of costs) if (oc[1] < best[1]) best = oc;
+  const budget = best[1] * (1 + costTolerance);
+  const accepted = costs.filter(([, c]) => c <= budget).map(([o]) => o);
+  const lowOffset = accepted.length ? Math.min(...accepted) : best[0];
+  const highOffset = accepted.length ? Math.max(...accepted) : best[0];
+
+  const dispatchAt = (offset) => {
+    const d = new Date(expected.getTime() + (offset - drive) * 60000);
+    d.setSeconds(0, 0);
+    return d;
+  };
+
+  return {
+    start: dispatchAt(lowOffset),
+    end: dispatchAt(highOffset),
+    recommended: dispatchAt(best[0]),
+    expectedDriverWaitMinutes: Math.max(0, Math.round(expectedDriverWait(best[0], sigma))),
+    confidence: confidenceLabel(sigma),
+  };
+}
+
 // Two-sided ready-time window (median ± z(conf) * sigma).
 export function readyTimeWindow(expectedReadyTime, uncertaintyMinutes, confidence = 0.8) {
   const expected = expectedReadyTime instanceof Date ? expectedReadyTime : new Date(expectedReadyTime);

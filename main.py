@@ -41,6 +41,12 @@ from weather_service import (
     DEFAULT_LATE_COST_PER_MIN,
     DEFAULT_READY_TIME_CONFIDENCE,
 )
+from physics_engine import (
+    predict_touchdown,
+    predict_on_block,
+    predict_passenger_ready,
+    calculate_dispatch_window,
+)
 from datetime import timedelta
 
 if config.SENTRY_DSN:
@@ -116,6 +122,8 @@ class TelemetryAircraft(BaseModel):
     passenger_name: Optional[str] = None
     fbo: Optional[str] = None
     airport_code: Optional[str] = None
+    # Drives the passenger-ready model (deplane time scales with cabin size).
+    aircraft_category: Optional[str] = None
 
 
 class TelemetryIngestRequest(BaseModel):
@@ -290,28 +298,44 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
             heading_deg=heading,
         )
 
-        # Operational milestones: project the planning-horizon ETA forward from
-        # the current ingest time to absolute touchdown / on-block clock times,
-        # then derive when a ground driver must leave to meet the aircraft.
+        # Operational milestones via the modular probabilistic chain:
+        #   telemetry -> touchdown -> on-block -> passenger-ready -> dispatch window
+        # Each stage compounds uncertainty; the final stage returns an acceptable
+        # dispatch *window* (not an exact minute) by minimising expected cost.
         taxi_time_min = aircraft.taxi_time_min if aircraft.taxi_time_min is not None else DEFAULT_TAXI_TIME_MIN
         drive_time_min = aircraft.drive_time_min if aircraft.drive_time_min is not None else DEFAULT_DRIVE_TIME_MIN
-        eta_min = aero["logistics_eta_min"]
+        uncertainty_min = aero.get("confidence_interval_min", 0) or 0
 
-        predicted_touchdown = (now + timedelta(minutes=eta_min)).replace(second=0, microsecond=0)
-        predicted_on_block = predicted_touchdown + timedelta(minutes=taxi_time_min)
+        touchdown = predict_touchdown({
+            "now": now,
+            "logistics_eta_min": aero["logistics_eta_min"],
+            "confidence_interval_min": uncertainty_min,
+        })
+        on_block = predict_on_block(touchdown, {"taxi_time_min": taxi_time_min})
+        ready = predict_passenger_ready(on_block, aircraft.aircraft_category)
+
+        predicted_touchdown = touchdown["touchdown_time"]
+        predicted_on_block = on_block["on_block_time"]
+        predicted_ready = ready["ready_time"]
+        ready_uncertainty = ready["uncertainty_minutes"]
+
         dispatch_time = calculate_dispatch_time(predicted_touchdown, taxi_time_min, drive_time_min)
 
-        # Phase 2 — probabilistic dispatch. The passenger "ready" moment is the
-        # predicted on-block time; its uncertainty is the confidence band. We
-        # report a ready-time window instead of an exact ETA, and weigh the cost
-        # of an idling driver against a late VIP to pick a risk-adjusted time.
-        uncertainty_min = aero.get("confidence_interval_min", 0) or 0
-        window = calculate_ready_time_window(predicted_on_block, uncertainty_min)
+        # Probabilistic dispatch. The passenger-ready distribution feeds both the
+        # ready-time window and the expected-cost dispatch window.
+        window = calculate_ready_time_window(predicted_ready, ready_uncertainty)
         optimal = calculate_optimal_dispatch(
-            predicted_on_block,
-            uncertainty_min,
+            predicted_ready,
+            ready_uncertainty,
             DEFAULT_WAIT_COST_PER_MIN,
             DEFAULT_LATE_COST_PER_MIN,
+        )
+        dispatch_window = calculate_dispatch_window(
+            predicted_ready,
+            ready_uncertainty,
+            DEFAULT_WAIT_COST_PER_MIN,
+            DEFAULT_LATE_COST_PER_MIN,
+            drive_time_min,
         )
         # Risk-adjusted leave time = staged presence target minus the drive.
         risk_adjusted_dispatch = (
@@ -326,10 +350,16 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
             "altitude_ft": aircraft.altitude,
             "predicted_touchdown_time": predicted_touchdown.isoformat() + "Z",
             "predicted_on_block_time": predicted_on_block.isoformat() + "Z",
+            "predicted_passenger_ready_time": predicted_ready.isoformat() + "Z",
+            "ready_uncertainty_minutes": int(round(ready_uncertainty)),
             "dispatch_time": dispatch_time.isoformat() + "Z",
             "median_ready_time": window["median_ready_time"].isoformat() + "Z",
             "confidence_interval_start": window["confidence_interval_start"].isoformat() + "Z",
             "confidence_interval_end": window["confidence_interval_end"].isoformat() + "Z",
+            "dispatch_window_start": dispatch_window["window_start"].isoformat() + "Z",
+            "dispatch_window_end": dispatch_window["window_end"].isoformat() + "Z",
+            "expected_driver_wait_minutes": dispatch_window["expected_driver_wait_minutes"],
+            "recommendation_confidence": dispatch_window["recommendation_confidence"],
             "risk_adjusted_dispatch_time": risk_adjusted_dispatch.isoformat() + "Z",
             "risk_adjusted_presence_time": optimal["recommended_dispatch_time"].isoformat() + "Z",
             "dispatch_buffer_minutes": optimal["buffer_minutes"],
@@ -341,6 +371,7 @@ async def ingest_flight_data(request: TelemetryIngestRequest):
             "passenger_name": aircraft.passenger_name,
             "fbo": aircraft.fbo,
             "airport_code": aircraft.airport_code,
+            "aircraft_category": aircraft.aircraft_category,
             **aero,
         })
 
@@ -387,6 +418,7 @@ async def optimize_dispatch(request: DispatchOptimizeRequest):
     except ValueError:
         raise HTTPException(status_code=400, detail="expected_ready_time must be ISO-8601")
 
+    drive = request.drive_time_min if request.drive_time_min is not None else DEFAULT_DRIVE_TIME_MIN
     optimal = calculate_optimal_dispatch(
         expected,
         request.uncertainty_minutes,
@@ -394,12 +426,23 @@ async def optimize_dispatch(request: DispatchOptimizeRequest):
         request.late_cost_per_min,
     )
     window = calculate_ready_time_window(expected, request.uncertainty_minutes, request.confidence)
+    dispatch_window = calculate_dispatch_window(
+        expected,
+        request.uncertainty_minutes,
+        request.wait_cost_per_min,
+        request.late_cost_per_min,
+        drive,
+    )
 
     presence = optimal["recommended_dispatch_time"]
     response = {
         "median_ready_time": _iso_z(window["median_ready_time"]),
         "confidence_interval_start": _iso_z(window["confidence_interval_start"]),
         "confidence_interval_end": _iso_z(window["confidence_interval_end"]),
+        "dispatch_window_start": _iso_z(dispatch_window["window_start"]),
+        "dispatch_window_end": _iso_z(dispatch_window["window_end"]),
+        "expected_driver_wait_minutes": dispatch_window["expected_driver_wait_minutes"],
+        "recommendation_confidence": dispatch_window["recommendation_confidence"],
         "risk_adjusted_presence_time": _iso_z(presence),
         "dispatch_buffer_minutes": optimal["buffer_minutes"],
         "critical_fractile": optimal["critical_fractile"],

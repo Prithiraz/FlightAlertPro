@@ -1,11 +1,23 @@
 """OperationalLedger: ground-truth capture for the driver-dispatch feedback loop.
 
-The mobile driver view records three milestones per trip — arrival at the FBO,
-the passenger exiting the terminal, and the passenger being collected. Each event
-is timestamped and stored alongside the flight's *original* Predicted On-Block
-Time (OBT). Once the passenger is collected we compute ``Driver_Wait_Minutes`` —
-the delta between the actual collection time and the predicted OBT — building an
-FBO-level dataset that will eventually power FBO-specific micro-models.
+The mobile driver view records two milestones per trip, deliberately split so we
+can isolate *passenger readiness* from *driver tardiness*:
+
+* ``driver_arrived``  — the driver reaches the FBO (a simulated geofence
+  arrival), stored as ``driver_geofence_arrival_time``.
+* ``passenger_met``   — the driver physically meets the passenger (manual),
+  stored as ``actual_passenger_met_time``.
+
+Each event is timestamped and stored alongside the flight's predicted touchdown
+and passenger-ready times. On completion we derive two metrics:
+
+* ``driver_wait_minutes``  = met − arrival  (the driver idled; the passenger was
+  not yet ready).
+* ``late_pickup_minutes``  = arrival − predicted_ready  (the driver arrived after
+  the passenger was ready, so the VIP waited).
+
+Accumulated across an FBO, these rows are the ground-truth 'data moat' for
+FBO-specific micro-models.
 """
 from __future__ import annotations
 
@@ -29,16 +41,14 @@ LEDGER_TABLE = "operational_ledger"
 # ---------------------------------------------------------------------------
 # Driver state machine
 # ---------------------------------------------------------------------------
-EVENT_ARRIVED = "arrived_at_fbo"
-EVENT_EXITED = "passenger_exited"
-EVENT_COLLECTED = "passenger_collected"
+EVENT_DRIVER_ARRIVED = "driver_arrived"
+EVENT_PASSENGER_MET = "passenger_met"
 
-EVENT_SEQUENCE = [EVENT_ARRIVED, EVENT_EXITED, EVENT_COLLECTED]
+EVENT_SEQUENCE = [EVENT_DRIVER_ARRIVED, EVENT_PASSENGER_MET]
 
 EVENT_TIMESTAMP_COLUMN = {
-    EVENT_ARRIVED: "arrived_at_fbo_at",
-    EVENT_EXITED: "passenger_exited_at",
-    EVENT_COLLECTED: "passenger_collected_at",
+    EVENT_DRIVER_ARRIVED: "driver_geofence_arrival_time",
+    EVENT_PASSENGER_MET: "actual_passenger_met_time",
 }
 
 
@@ -82,23 +92,39 @@ def _parse_dt(value) -> Optional[datetime]:
 # Feedback loop
 # ---------------------------------------------------------------------------
 def calculate_driver_wait_minutes(
-    predicted_on_block_time, passenger_collected_time
+    driver_geofence_arrival_time, actual_passenger_met_time
 ) -> Optional[int]:
-    """Delta, in whole minutes, between actual collection and the predicted OBT.
+    """Whole minutes the driver idled at the FBO waiting for the passenger.
 
-    ``Driver_Wait_Minutes = Actual_Passenger_Collected_Time - Predicted_OBT``
+    ``driver_wait_minutes = max(0, passenger_met - driver_arrival)``
 
-    * Positive — the passenger was collected *after* the predicted on-block time;
-      a driver staged for OBT waited this many minutes.
-    * Negative — the passenger was collected *ahead* of the predicted on-block
-      time (the aircraft/passenger beat the prediction).
-    * ``None`` — either timestamp is missing or unparseable.
+    The driver was in position before the passenger was ready, so this isolates
+    *passenger readiness* delay. Clamped at zero (a driver who arrives after the
+    passenger did not 'wait'). ``None`` when either timestamp is missing.
     """
-    obt = _parse_dt(predicted_on_block_time)
-    collected = _parse_dt(passenger_collected_time)
-    if obt is None or collected is None:
+    arrival = _parse_dt(driver_geofence_arrival_time)
+    met = _parse_dt(actual_passenger_met_time)
+    if arrival is None or met is None:
         return None
-    return int(round((collected - obt).total_seconds() / 60.0))
+    return max(0, int(round((met - arrival).total_seconds() / 60.0)))
+
+
+def calculate_late_pickup_minutes(
+    driver_geofence_arrival_time, predicted_ready_time
+) -> Optional[int]:
+    """Whole minutes the passenger waited because the driver arrived late.
+
+    ``late_pickup_minutes = max(0, driver_arrival - predicted_ready)``
+
+    This isolates *driver tardiness*: if the driver reached the FBO after the
+    passenger was predicted ready, the VIP was kept waiting. Clamped at zero;
+    ``None`` when either timestamp is missing.
+    """
+    arrival = _parse_dt(driver_geofence_arrival_time)
+    ready = _parse_dt(predicted_ready_time)
+    if arrival is None or ready is None:
+        return None
+    return max(0, int(round((arrival - ready).total_seconds() / 60.0)))
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +155,7 @@ def _fetch_active_ledger(flight_id: str) -> Optional[dict]:
 def _next_event(ledger: Optional[dict]) -> Optional[str]:
     """The next milestone the driver should record, or None when the trip is done."""
     if ledger is None:
-        return EVENT_ARRIVED
+        return EVENT_DRIVER_ARRIVED
     for event_type in EVENT_SEQUENCE:
         if not ledger.get(EVENT_TIMESTAMP_COLUMN[event_type]):
             return event_type
@@ -155,23 +181,35 @@ class OperationalLedger(BaseModel):
 
     flight_id: str
     airport_code: Optional[str] = None
+    target_fbo: Optional[str] = None
+    aircraft_category: Optional[str] = None
+    predicted_touchdown_time: Optional[datetime] = None
+    actual_touchdown_time: Optional[datetime] = None
     predicted_ready_time: Optional[datetime] = None
     actual_ready_time: Optional[datetime] = None
+    driver_geofence_arrival_time: Optional[datetime] = None
+    actual_passenger_met_time: Optional[datetime] = None
     driver_wait_minutes: Optional[float] = None
+    late_pickup_minutes: Optional[float] = None
     late_pickup_boolean: Optional[bool] = None
 
 
-def _compute_late_pickup(driver_arrival, actual_ready) -> Optional[bool]:
-    """True when the driver reached the FBO after the passenger was already ready.
+def _apply_completion(target: dict, event_type: str, ledger: dict) -> None:
+    """On the ``passenger_met`` event, derive the two ground-truth metrics.
 
-    A late pickup means the VIP had to wait; ``None`` when either timestamp is
-    unavailable so we never fabricate a ground-truth label.
+    Mutates ``target`` (the row being inserted/updated) in place.
     """
-    arrival = _parse_dt(driver_arrival)
-    ready = _parse_dt(actual_ready)
-    if arrival is None or ready is None:
-        return None
-    return arrival > ready
+    if event_type != EVENT_PASSENGER_MET:
+        return
+    arrival = ledger.get("driver_geofence_arrival_time")
+    met = ledger.get("actual_passenger_met_time")
+    predicted_ready = ledger.get("predicted_ready_time")
+    late = calculate_late_pickup_minutes(arrival, predicted_ready)
+    target["status"] = "completed"
+    target["driver_wait_minutes"] = calculate_driver_wait_minutes(arrival, met)
+    target["late_pickup_minutes"] = late
+    target["actual_ready_time"] = met
+    target["late_pickup_boolean"] = (late > 0) if late is not None else None
 
 
 # ---------------------------------------------------------------------------
@@ -193,15 +231,20 @@ async def get_driver_trip(flight_id: str):
         raise HTTPException(status_code=404, detail="Flight not found in live telemetry")
 
     flight = flight or {}
-    predicted_obt = (ledger or {}).get("predicted_obt") or flight.get("predicted_on_block_time")
+    led = ledger or {}
+    predicted_obt = led.get("predicted_obt") or flight.get("predicted_on_block_time")
 
     return {
         "flight_id": flight_id,
-        "flight_number": flight.get("flight_number") or (ledger or {}).get("flight_number"),
-        "passenger_name": flight.get("passenger_name") or (ledger or {}).get("passenger_name"),
-        "fbo": flight.get("fbo") or (ledger or {}).get("fbo"),
+        "flight_number": flight.get("flight_number") or led.get("flight_number"),
+        "passenger_name": flight.get("passenger_name") or led.get("passenger_name"),
+        "fbo": flight.get("fbo") or led.get("target_fbo") or led.get("fbo"),
+        "aircraft_category": flight.get("aircraft_category") or led.get("aircraft_category"),
         "predicted_on_block_time": predicted_obt,
-        "predicted_touchdown_time": flight.get("predicted_touchdown_time"),
+        "predicted_touchdown_time": flight.get("predicted_touchdown_time") or led.get("predicted_touchdown_time"),
+        "predicted_passenger_ready_time": (
+            flight.get("predicted_passenger_ready_time") or led.get("predicted_ready_time")
+        ),
         "ledger": ledger,
         "next_event": _next_event(ledger),
     }
@@ -226,40 +269,35 @@ async def log_driver_event(flight_id: str, body: DriverEventRequest):
     flight = get_flight(flight_id) or {}
 
     if ledger is None:
-        # Open a new trip, snapshotting the flight's ORIGINAL predicted OBT.
+        # Open a new trip, snapshotting the flight's predictions as ground-truth
+        # baselines. actual_touchdown_time is auto-captured (simulated here from
+        # the predicted touchdown — a real deployment reads the ADS-B landing).
         predicted_obt = flight.get("predicted_on_block_time")
+        predicted_td = flight.get("predicted_touchdown_time")
+        predicted_ready = flight.get("predicted_passenger_ready_time") or predicted_obt
         row: dict = {
             "flight_id": flight_id,
             "flight_number": flight.get("flight_number"),
             "passenger_name": flight.get("passenger_name"),
             "fbo": flight.get("fbo"),
+            "target_fbo": flight.get("fbo"),
             "airport_code": flight.get("airport_code"),
+            "aircraft_category": flight.get("aircraft_category"),
             "predicted_obt": predicted_obt,
-            "predicted_ready_time": predicted_obt,
+            "predicted_touchdown_time": predicted_td,
+            "actual_touchdown_time": predicted_td,
+            "predicted_ready_time": predicted_ready,
             column: ts_iso,
-            "status": "completed" if event_type == EVENT_COLLECTED else "in_progress",
+            "status": "in_progress",
         }
-        if event_type == EVENT_COLLECTED:
-            row["driver_wait_minutes"] = calculate_driver_wait_minutes(predicted_obt, ts_iso)
-            row["actual_ready_time"] = ts_iso
-            row["late_pickup_boolean"] = _compute_late_pickup(None, ts_iso)
+        _apply_completion(row, event_type, ledger=row)
         resp = sb.table(LEDGER_TABLE).insert(row).execute()
         saved = (resp.data or [row])[0]
         logger.info("Opened operational ledger for %s via %s", flight_id, event_type)
         return {"status": "ok", "ledger": saved, "next_event": _next_event(saved)}
 
     update: dict = {column: ts_iso, "updated_at": datetime.now(timezone.utc).isoformat()}
-    if event_type == EVENT_COLLECTED:
-        wait = calculate_driver_wait_minutes(ledger.get("predicted_obt"), ts_iso)
-        # Ground truth for the data moat: the passenger was "ready" when they
-        # exited the terminal (fall back to collection time if not recorded).
-        actual_ready = ledger.get("passenger_exited_at") or ts_iso
-        update["status"] = "completed"
-        update["driver_wait_minutes"] = wait
-        update["actual_ready_time"] = actual_ready
-        update["late_pickup_boolean"] = _compute_late_pickup(
-            ledger.get("arrived_at_fbo_at"), actual_ready
-        )
+    _apply_completion(update, event_type, ledger={**ledger, column: ts_iso})
     resp = sb.table(LEDGER_TABLE).update(update).eq("id", ledger["id"]).execute()
     saved = (resp.data or [{**ledger, **update}])[0]
     logger.info("Updated operational ledger %s via %s", ledger.get("id"), event_type)
@@ -274,17 +312,20 @@ async def list_ledger(limit: int = 50, fbo: Optional[str] = None):
         sb.table(LEDGER_TABLE)
         .select("*")
         .eq("status", "completed")
-        .order("passenger_collected_at", desc=True)
+        .order("actual_passenger_met_time", desc=True)
         .limit(max(1, min(limit, 500)))
     )
     if fbo:
-        query = query.eq("fbo", fbo)
+        query = query.eq("target_fbo", fbo)
     resp = query.execute()
     rows = resp.data or []
     waits = [r["driver_wait_minutes"] for r in rows if r.get("driver_wait_minutes") is not None]
     avg_wait = round(sum(waits) / len(waits), 1) if waits else None
+    late = [r["late_pickup_minutes"] for r in rows if r.get("late_pickup_minutes") is not None]
+    avg_late = round(sum(late) / len(late), 1) if late else None
     return {
         "count": len(rows),
         "average_driver_wait_minutes": avg_wait,
+        "average_late_pickup_minutes": avg_late,
         "trips": rows,
     }

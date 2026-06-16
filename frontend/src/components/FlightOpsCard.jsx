@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
-import { riskAdjustedDispatchTime, readyTimeWindow } from '../lib/riskDispatch';
+import { calculateDispatchWindow, readyTimeWindow } from '../lib/riskDispatch';
 
 const SEVERITY_COLORS = {
   HIGH: { fg: '#ff8d8d', bg: 'rgba(255, 91, 91, 0.12)', border: '#5c2730' },
   MODERATE: { fg: '#ffd27a', bg: 'rgba(255, 184, 77, 0.12)', border: '#5c4a27' },
   LOW: { fg: '#7df0c0', bg: 'rgba(31, 172, 125, 0.12)', border: '#27513f' },
+};
+
+// Surface uncertainty band derived from the (compounded) arrival uncertainty.
+// We deliberately speak in terms of *arrival uncertainty*, not aerodynamic
+// stability — the dispatcher cares about how wide the pickup window is.
+function uncertaintyBand(uncertaintyMin) {
+  const u = Number(uncertaintyMin) || 0;
+  if (u > 14) return { status: 'ELEVATED', severity: 'HIGH', headline: 'Arrival Uncertainty Increased' };
+  if (u > 6) return { status: 'WATCH', severity: 'MODERATE', headline: 'Arrival Uncertainty Moderate' };
+  return { status: 'STABLE', severity: 'LOW', headline: 'Arrival Window Tight' };
+}
+
+const CONFIDENCE_COLORS = {
+  High: '#7df0c0',
+  Moderate: '#ffd27a',
+  Low: '#ff8d8d',
 };
 
 function formatClock(iso) {
@@ -21,7 +37,7 @@ function formatCountdown(ms) {
   return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
 }
 
-function DispatchCountdown({ dispatchTime, buffer = 0 }) {
+function DispatchWindow({ windowStart, windowEnd, expectedWait, confidence }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -29,29 +45,37 @@ function DispatchCountdown({ dispatchTime, buffer = 0 }) {
     return () => clearInterval(id);
   }, []);
 
-  const target = dispatchTime ? new Date(dispatchTime).getTime() : null;
-  if (!target || Number.isNaN(target)) {
-    return <div style={styles.dispatchPending}>Dispatch time unavailable</div>;
+  const startMs = windowStart ? new Date(windowStart).getTime() : null;
+  const endMs = windowEnd ? new Date(windowEnd).getTime() : null;
+  if (!startMs || Number.isNaN(startMs)) {
+    return <div style={styles.dispatchPending}>Dispatch window unavailable</div>;
   }
 
-  const delta = target - now;
-  const overdue = delta <= 0;
-  const label = overdue ? 'DISPATCH NOW' : `Leave in ${formatCountdown(delta)}`;
-  const bufferNote = buffer > 0
-    ? `incl. ${buffer} min risk buffer`
-    : (buffer < 0 ? `${Math.abs(buffer)} min later (driver-cost weighted)` : 'no risk buffer');
-  const sub = overdue
-    ? `Driver should already be en route (${formatCountdown(delta)} ago)`
-    : `Risk-adjusted depart at ${formatClock(dispatchTime)} · ${bufferNote}`;
+  const beforeWindow = now < startMs;
+  const inWindow = endMs != null && now >= startMs && now <= endMs;
+  const overdue = endMs != null && now > endMs;
+
+  let countdown;
+  if (beforeWindow) countdown = `Window opens in ${formatCountdown(startMs - now)}`;
+  else if (inWindow) countdown = `DISPATCH WINDOW OPEN · closes in ${formatCountdown(endMs - now)}`;
+  else countdown = `Window closed ${formatCountdown(now - endMs)} ago`;
+
+  const confColor = CONFIDENCE_COLORS[confidence] || '#cfe3ff';
 
   return (
-    <div style={{ ...styles.dispatch, ...(overdue ? styles.dispatchOverdue : {}) }}>
+    <div style={{ ...styles.dispatch, ...(overdue ? styles.dispatchOverdue : (inWindow ? styles.dispatchActive : {})) }}>
       <div style={styles.dispatchLabelRow}>
-        <span style={styles.dispatchKicker}>RISK-ADJUSTED DISPATCH TIME</span>
-        {overdue && <span style={styles.pulseDot} />}
+        <span style={styles.dispatchKicker}>ACCEPTABLE DISPATCH WINDOW</span>
+        {(inWindow || overdue) && <span style={styles.pulseDot} />}
       </div>
-      <div style={styles.dispatchValue}>{label}</div>
-      <div style={styles.dispatchSub}>{sub}</div>
+      <div style={styles.dispatchValue}>
+        {formatClock(windowStart)} – {formatClock(windowEnd)}
+      </div>
+      <div style={styles.dispatchSub}>{countdown}</div>
+      <div style={styles.metricRow}>
+        <span style={styles.metricChip}>Expected Driver Wait: <strong>{expectedWait} mins</strong></span>
+        <span style={{ ...styles.metricChip, color: confColor }}>Recommendation Confidence: <strong>{confidence}</strong></span>
+      </div>
     </div>
   );
 }
@@ -68,38 +92,48 @@ function EngineeringRow({ label, value }) {
 export default function FlightOpsCard({ flight, waitCost = 1, lateCost = 5 }) {
   const [showEngineering, setShowEngineering] = useState(false);
 
-  const advisory = flight.operational_performance_advisory || {};
-  const severity = advisory.severity || 'LOW';
-  const palette = SEVERITY_COLORS[severity] || SEVERITY_COLORS.LOW;
-
-  const confidence = flight.confidence_interval_min;
   const tdt = flight.predicted_touchdown_time;
   const obt = flight.predicted_on_block_time;
+  // The passenger-ready distribution (compounded down the modular chain) drives
+  // both the surface uncertainty band and the dispatch window.
+  const readyIso = flight.predicted_passenger_ready_time || obt;
+  const uncertainty = flight.ready_uncertainty_minutes != null
+    ? flight.ready_uncertainty_minutes
+    : flight.confidence_interval_min;
 
-  // Phase 2: probabilistic ready-time window + risk-adjusted dispatch. Recomputed
+  const band = uncertaintyBand(uncertainty);
+  const palette = SEVERITY_COLORS[band.severity] || SEVERITY_COLORS.LOW;
+
+  // Probabilistic ready-time window + acceptable dispatch window. Recomputed
   // live from the dispatcher's cost sliders so there's no "exact" ETA claim.
   const window = useMemo(
-    () => readyTimeWindow(obt, confidence, 0.8),
-    [obt, confidence],
+    () => readyTimeWindow(readyIso, uncertainty, 0.8),
+    [readyIso, uncertainty],
   );
-  const risk = useMemo(
-    () => riskAdjustedDispatchTime(obt, confidence, waitCost, lateCost, flight.drive_time_min),
-    [obt, confidence, waitCost, lateCost, flight.drive_time_min],
+  const dispatchWindow = useMemo(
+    () => calculateDispatchWindow(readyIso, uncertainty, waitCost, lateCost, flight.drive_time_min),
+    [readyIso, uncertainty, waitCost, lateCost, flight.drive_time_min],
   );
-  const riskDispatchIso = risk.dispatchTime ? risk.dispatchTime.toISOString() : flight.risk_adjusted_dispatch_time;
+  const windowStartIso = dispatchWindow.start ? dispatchWindow.start.toISOString() : flight.dispatch_window_start;
+  const windowEndIso = dispatchWindow.end ? dispatchWindow.end.toISOString() : flight.dispatch_window_end;
 
-  const engineering = useMemo(() => ([
+  const engineering = useMemo(() => {
+    const adv = flight.operational_performance_advisory || {};
+    return [
+    { label: 'Operational performance advisory', value: adv.headline ? `${adv.headline} (${adv.severity || 'LOW'})` : '--' },
+    { label: 'Stability / approach margin', value: adv.detail || 'Nominal' },
+    { label: 'Density altitude', value: flight.density_altitude_ft != null ? `${flight.density_altitude_ft.toLocaleString()} ft` : '--' },
     { label: 'Ground-ref. energy height', value: flight.energy_height_ft != null ? `${flight.energy_height_ft.toLocaleString()} ft` : '--' },
     { label: 'Estimated wind influence', value: flight.wind_component_kt != null ? `${flight.wind_component_kt >= 0 ? '+' : ''}${flight.wind_component_kt.toFixed(1)} kt ${flight.wind_type || ''}`.trim() : '--' },
     { label: 'True airspeed (est.)', value: flight.tas_kt != null ? `${flight.tas_kt.toFixed(1)} kt` : '--' },
     { label: 'Ground speed', value: flight.ground_speed_kt != null ? `${flight.ground_speed_kt.toFixed(1)} kt` : '--' },
     { label: 'Heading', value: flight.heading_deg != null ? `${flight.heading_deg.toFixed(0)}°` : '--' },
-    { label: 'Density altitude', value: flight.density_altitude_ft != null ? `${flight.density_altitude_ft.toLocaleString()} ft` : '--' },
     { label: 'Pressure altitude', value: flight.altitude_ft != null ? `${Number(flight.altitude_ft).toLocaleString()} ft` : '--' },
     { label: 'Fuel burn rate', value: flight.co2_burn_rate_kg_min != null ? `${flight.co2_burn_rate_kg_min.toFixed(2)} kg/min` : '--' },
     { label: 'Planning-horizon ETA', value: flight.logistics_eta_min != null ? `${flight.logistics_eta_min} min` : '--' },
     { label: 'Position', value: (flight.lat != null && flight.lon != null) ? `${flight.lat.toFixed(3)}, ${flight.lon.toFixed(3)}` : '--' },
-  ]), [flight]);
+    ];
+  }, [flight]);
 
   return (
     <div style={styles.card}>
@@ -109,8 +143,8 @@ export default function FlightOpsCard({ flight, waitCost = 1, lateCost = 5 }) {
           <div style={styles.flightId}>ICAO24 {flight.hex_id || '--'}</div>
         </div>
         <div style={{ ...styles.advisoryBadge, color: palette.fg, background: palette.bg, borderColor: palette.border }}>
-          <span style={styles.advisoryStatus}>{advisory.status || 'NOMINAL'}</span>
-          <span style={styles.advisorySeverity}>{severity}</span>
+          <span style={styles.advisoryStatus}>{band.status}</span>
+          <span style={styles.advisorySeverity}>{band.severity}</span>
         </div>
       </div>
 
@@ -121,28 +155,33 @@ export default function FlightOpsCard({ flight, waitCost = 1, lateCost = 5 }) {
         </div>
         <div style={styles.milestone}>
           <span style={styles.milestoneLabel}>Median On-Block (OBT)</span>
-          <span style={styles.milestoneValue}>{formatClock(window.median ? window.median.toISOString() : obt)}</span>
+          <span style={styles.milestoneValue}>{formatClock(obt)}</span>
         </div>
         <div style={styles.milestone}>
           <span style={styles.milestoneLabel}>Confidence Range</span>
-          <span style={styles.confidenceValue}>{confidence != null ? `± ${confidence} min` : '--'}</span>
+          <span style={styles.confidenceValue}>{uncertainty != null ? `± ${uncertainty} min` : '--'}</span>
         </div>
       </div>
 
       <div style={styles.windowBand}>
-        <span style={styles.windowLabel}>READY-TIME WINDOW (80%)</span>
+        <span style={styles.windowLabel}>PASSENGER-READY WINDOW (80%)</span>
         <span style={styles.windowValue}>
           {window.start ? `${formatClock(window.start.toISOString())} – ${formatClock(window.end.toISOString())}` : '--'}
         </span>
       </div>
 
-      {advisory.headline && (
+      {band.severity !== 'LOW' && (
         <div style={{ ...styles.advisoryLine, color: palette.fg }}>
-          {advisory.headline}
+          ⚠ {band.headline}
         </div>
       )}
 
-      <DispatchCountdown dispatchTime={riskDispatchIso} buffer={risk.bufferMinutes} />
+      <DispatchWindow
+        windowStart={windowStartIso}
+        windowEnd={windowEndIso}
+        expectedWait={dispatchWindow.expectedDriverWaitMinutes}
+        confidence={dispatchWindow.confidence}
+      />
 
       <button
         type="button"
@@ -238,11 +277,24 @@ const styles = {
     border: '1px solid #b8434f',
     background: 'rgba(255, 91, 91, 0.14)',
   },
+  dispatchActive: {
+    border: '1px solid #30caff',
+    background: 'rgba(48, 202, 255, 0.14)',
+  },
   dispatchLabelRow: { display: 'flex', alignItems: 'center', gap: '0.4rem' },
   dispatchKicker: { color: '#9fd9c4', fontSize: '0.64rem', letterSpacing: '0.1em' },
   dispatchValue: { color: '#f3fff9', fontSize: '1.3rem', fontWeight: 800 },
   dispatchSub: { color: '#9bb6d6', fontSize: '0.74rem' },
   dispatchPending: { color: '#9bb6d6', fontSize: '0.8rem', fontStyle: 'italic' },
+  metricRow: { display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.45rem' },
+  metricChip: {
+    color: '#cfe3ff',
+    fontSize: '0.72rem',
+    border: '1px solid #1f3958',
+    borderRadius: 8,
+    padding: '0.25rem 0.5rem',
+    background: 'rgba(10, 19, 38, 0.6)',
+  },
   pulseDot: {
     width: 9,
     height: 9,
