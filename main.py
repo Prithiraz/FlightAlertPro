@@ -29,6 +29,7 @@ from systemcheck import router as systemcheck_router
 from user_service import router as user_router
 from trip_service import router as trip_router
 from delay_service import router as delay_router
+from dispatch import router as dispatch_router
 from weather_service import calculate_adsb_aerodynamics
 
 if config.SENTRY_DSN:
@@ -66,6 +67,7 @@ app.include_router(systemcheck_router)
 app.include_router(user_router)
 app.include_router(trip_router)
 app.include_router(delay_router)
+app.include_router(dispatch_router)
 
 LIVE_TELEMETRY_CACHE: list[dict] = []
 LIVE_TELEMETRY_UPDATED_AT: Optional[str] = None
