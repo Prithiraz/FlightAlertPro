@@ -3,16 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import ProtectedRoute from './components/ProtectedRoute';
-import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import ResetPassword from './pages/ResetPassword';
-import Dashboard from './pages/Dashboard';
-import Search from './pages/Search';
-import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
-import Pricing from './pages/Pricing';
-import Discover from './pages/Discover';
-import DestinationHub from './pages/DestinationHub';
 import AgentDashboard from './pages/AgentDashboard';
 import DriverView from './pages/DriverView';
 
@@ -80,37 +73,25 @@ function App() {
       <BrowserRouter>
         {user && <Header />}
         <Routes>
+          {/* Unauthenticated users go straight to the login screen */}
           <Route
             path="/"
-            element={user ? <Navigate to="/dashboard" replace /> : <Landing />}
+            element={user ? <Navigate to="/dashboard" replace /> : <Auth />}
           />
           <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
           <Route path="/login" element={<Navigate to="/auth" replace />} />
           <Route path="/reset" element={<ResetPassword />} />
+          
+          {/* The main dashboard now points directly to Devin's AeroLogix Command Center */}
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <AgentDashboard />
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/search"
-            element={
-              <ProtectedRoute>
-                <Search />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/alerts"
-            element={
-              <ProtectedRoute>
-                <Alerts />
-              </ProtectedRoute>
-            }
-          />
+          
           <Route
             path="/settings"
             element={
@@ -119,32 +100,11 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
+          {/* Driver field view is left unprotected so drivers can access it via a simple link */}
           <Route path="/driver/:flightId" element={<DriverView />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route
-            path="/discover"
-            element={
-              <ProtectedRoute>
-                <Discover />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/hub/:alert_id"
-            element={
-              <ProtectedRoute>
-                <DestinationHub />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/agent-dashboard"
-            element={
-              <ProtectedRoute>
-                <AgentDashboard />
-              </ProtectedRoute>
-            }
-          />
+          
+          {/* Catch-all redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
