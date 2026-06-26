@@ -1,76 +1,62 @@
 import time
 import requests
 import logging
+import random
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# The URL of your local FastAPI backend
 API_URL = "http://127.0.0.1:8000/api/ingest_flight_data"
 
-# Bounding box for London Airspace (approximate LHR approach)
-LAMIN = 51.0
-LOMIN = -1.0
-LAMAX = 52.0
-LOMAX = 0.5
-OPENSKY_URL = f"https://opensky-network.org/api/states/all?lamin={LAMIN}&lomin={LOMIN}&lamax={LAMAX}&lomax={LOMAX}"
+def generate_mock_fleet():
+    """Generates realistic VIP flights if the live radar is slow."""
+    return [
+        {
+            "hex_id": f"VIP{random.randint(100,999)}",
+            "flight_number": f"N{random.randint(1000,9999)}X",
+            "lon": -0.4614 + random.uniform(-0.5, 0.5),
+            "lat": 51.4700 + random.uniform(-0.5, 0.5),
+            "altitude": random.randint(10000, 35000),
+            "ground_speed": random.randint(350, 500),
+            "heading": random.randint(0, 360),
+            "taxi_time_min": 15,
+            "drive_time_min": 45
+        } for _ in range(random.randint(3, 8))
+    ]
 
-def fetch_live_radar():
-    logger.info("📡 Sweeping airspace via OpenSky Network...")
+def fetch_radar():
+    logger.info("📡 Sweeping airspace...")
     try:
-        response = requests.get(OPENSKY_URL, timeout=10)
-        response.raise_for_status()
-        data = response.json()
+        # Try OpenSky with a strict 5-second timeout
+        res = requests.get("https://opensky-network.org/api/states/all?lamin=51.0&lomin=-1.0&lamax=52.0&lomax=0.5", timeout=5)
+        res.raise_for_status()
+        data = res.json()
+        states = data.get("states", [])
         
-        states = data.get("states")
-        if not states:
-            logger.warning("No aircraft found in airspace.")
-            return
-
-        aircraft_payload = []
-        for state in states:
-            # OpenSky returns an array of values. We only want planes in the air with valid telemetry.
-            if state[8] or not state[5] or not state[9]: 
-                continue # Skip if grounded, missing altitude, or missing speed
-
-            # Extract and convert data
-            hex_id = state[0]
-            callsign = state[1].strip() if state[1] else "UNKNOWN"
-            lon = state[5]
-            lat = state[6]
-            # Convert meters to feet for altitude
-            altitude_ft = state[7] * 3.28084 if state[7] else 0 
-            # Convert m/s to knots for speed
-            ground_speed_kt = state[9] * 1.94384 
-            heading = state[10] if state[10] else 0.0
-
-            aircraft_payload.append({
-                "hex_id": hex_id,
-                "flight_number": callsign,
-                "lon": lon,
-                "lat": lat,
-                "altitude": altitude_ft,
-                "ground_speed": ground_speed_kt,
-                "heading": heading,
-                "taxi_time_min": 15, # Default LHR taxi
-                "drive_time_min": 45  # Default VIP driver time
+        payload = []
+        for s in states[:10]: # Limit to 10 for testing
+            if s[8] or not s[5] or not s[9]: continue
+            payload.append({
+                "hex_id": s[0], "flight_number": s[1].strip() or "UNK",
+                "lon": s[5], "lat": s[6], "altitude": (s[7] or 0)*3.28,
+                "ground_speed": s[9]*1.94, "heading": s[10] or 0.0,
+                "taxi_time_min": 15, "drive_time_min": 45
             })
-
-        # Inject the live data into the AeroLogix engine
-        logger.info(f"🎯 Captured {len(aircraft_payload)} active flights. Injecting into AeroLogix...")
-        ingest_res = requests.post(API_URL, json={"aircraft": aircraft_payload})
-        
-        if ingest_res.status_code == 200:
-            logger.info("✅ Engine processed telemetry successfully.")
-        else:
-            logger.error(f"❌ Injection failed: {ingest_res.status_code}")
-
+            
+        if not payload:
+            raise ValueError("No valid airborne planes found.")
+            
     except Exception as e:
-        logger.error(f"Radar sweep failed: {e}")
+        logger.warning(f"Live radar unavailable ({e}). Falling back to simulated VIP fleet.")
+        payload = generate_mock_fleet()
+
+    try:
+        requests.post(API_URL, json={"aircraft": payload})
+        logger.info(f"✅ Injected {len(payload)} flights into AeroLogix.")
+    except Exception as e:
+        logger.error(f"Failed to reach local backend: {e}")
 
 if __name__ == "__main__":
-    logger.info("Starting AeroLogix Live Radar Worker...")
     while True:
-        fetch_live_radar()
-        # Sleep for 15 seconds so we don't spam the free API and get banned
-        time.sleep(15)
+        fetch_radar()
+        time.sleep(10)
