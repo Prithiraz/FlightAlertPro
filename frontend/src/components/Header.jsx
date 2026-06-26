@@ -1,11 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
-import { canUseAgentDashboard } from '../utils/tierLimits';
 
 export default function Header() {
   const navigate = useNavigate();
-  const { user, subscriptionTier } = useAuth();
+  const { user } = useAuth();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -13,71 +12,47 @@ export default function Header() {
   };
 
   const navLinkStyle = ({ isActive }) => ({
-    ...styles.link,
-    ...(isActive ? styles.activeLink : {}),
+    color: isActive ? '#5eeaff' : '#9bb6d6',
+    textDecoration: 'none',
+    fontWeight: isActive ? '700' : '500',
+    transition: 'color 0.2s',
   });
 
-  const isAgent = canUseAgentDashboard(subscriptionTier);
-
   return (
-    <header style={styles.header}>
-      <div style={styles.logo}>✈️ FlightAlertPro</div>
-      <nav style={styles.nav}>
-        <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
-        <NavLink to="/search" style={navLinkStyle}>Search</NavLink>
-        <NavLink to="/discover" style={navLinkStyle}>Discover</NavLink>
-        <NavLink to="/alerts" style={navLinkStyle}>Alerts</NavLink>
-        {isAgent && (
-          <NavLink to="/agent-dashboard" style={navLinkStyle}>Agent Portal</NavLink>
-        )}
+    <header style={{ 
+      background: '#0a1122', 
+      padding: '1rem 2rem', 
+      borderBottom: '1px solid #1f3958', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+    }}>
+      <div style={{ color: '#5eeaff', fontSize: '1.4rem', fontWeight: '800', letterSpacing: '1px' }}>
+        AeroLogix <span style={{ color: '#7ea5d6', fontSize: '1rem', fontWeight: '500' }}>Dispatch</span>
+      </div>
+      
+      <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <NavLink to="/dashboard" style={navLinkStyle}>Command Center</NavLink>
         <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
-        <NavLink to="/pricing" style={navLinkStyle}>Upgrade</NavLink>
-        {user?.email && <span style={styles.userEmail}>{user.email}</span>}
-        <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+        
+        {user?.email && <span style={{ color: '#82a4cb', fontSize: '0.875rem' }}>{user.email}</span>}
+        
+        <button 
+          onClick={handleLogout} 
+          style={{ 
+            background: 'rgba(47, 202, 255, 0.1)', 
+            border: '1px solid #2fcaff', 
+            color: '#2fcaff', 
+            padding: '0.4rem 1rem', 
+            borderRadius: '6px', 
+            cursor: 'pointer', 
+            fontWeight: 'bold',
+          }}
+        >
+          Logout
+        </button>
       </nav>
     </header>
   );
 }
-
-const styles = {
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '1rem 2rem',
-    background: '#1d4ed8',
-    color: '#fff',
-  },
-  logo: {
-    fontWeight: 'bold',
-    fontSize: '1.25rem',
-  },
-  nav: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1.5rem',
-  },
-  link: {
-    color: '#fff',
-    textDecoration: 'none',
-    fontWeight: '500',
-  },
-  activeLink: {
-    textDecoration: 'underline',
-    opacity: 1,
-    fontWeight: '700',
-  },
-  userEmail: {
-    fontSize: '0.875rem',
-    opacity: 0.85,
-  },
-  logoutBtn: {
-    background: 'transparent',
-    border: '1px solid #fff',
-    color: '#fff',
-    padding: '0.375rem 0.75rem',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: '500',
-  },
-};
