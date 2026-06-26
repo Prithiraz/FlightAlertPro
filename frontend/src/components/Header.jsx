@@ -40,15 +40,7 @@ export default function Header() {
         
         <button 
           onClick={handleLogout} 
-          style={{ 
-            background: 'rgba(47, 202, 255, 0.1)', 
-            border: '1px solid #2fcaff', 
-            color: '#2fcaff', 
-            padding: '0.4rem 1rem', 
-            borderRadius: '6px', 
-            cursor: 'pointer', 
-            fontWeight: 'bold',
-          }}
+          style={{ background: 'rgba(47, 202, 255, 0.1)', border: '1px solid #2fcaff', color: '#2fcaff', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
         >
           Logout
         </button>

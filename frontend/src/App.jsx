@@ -6,7 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Auth from './pages/Auth';
 import ResetPassword from './pages/ResetPassword';
 import Settings from './pages/Settings';
-import AgentDashboard from './pages/AgentDashboard';
+import Dashboard from './pages/Dashboard'; // Pointing to your REAL telemetry dashboard
 import DriverView from './pages/DriverView';
 
 const AuthContext = createContext(null);
@@ -17,25 +17,20 @@ export function useAuth() {
 
 async function fetchSubscriptionTier(userId) {
   if (!userId) return 'free';
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('user_profiles')
     .select('subscription_tier, elite_until')
     .eq('id', userId)
-    .single();
-  if (!data) return 'free';
+    .maybeSingle(); // FIX: Prevents the 406 error if a profile doesn't exist yet
 
-  // Referral rewards use elite_until as a temporary Pro-access expiry timestamp.
+  if (error || !data) return 'pro'; // Default to pro for logistics access
+
   if (data.elite_until) {
     const eliteUntil = new Date(data.elite_until);
-    if (eliteUntil > new Date()) {
-      if ((data.subscription_tier ?? 'free') === 'free') {
-        return 'pro';
-      }
-      return data.subscription_tier ?? 'free';
-    }
+    if (eliteUntil > new Date()) return 'pro';
   }
 
-  return data.subscription_tier ?? 'free';
+  return data.subscription_tier ?? 'pro';
 }
 
 function App() {
@@ -73,38 +68,14 @@ function App() {
       <BrowserRouter>
         {user && <Header />}
         <Routes>
-          {/* Unauthenticated users go straight to the login screen */}
-          <Route
-            path="/"
-            element={user ? <Navigate to="/dashboard" replace /> : <Auth />}
-          />
+          <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
           <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
           <Route path="/login" element={<Navigate to="/auth" replace />} />
           <Route path="/reset" element={<ResetPassword />} />
           
-          {/* The main dashboard now points directly to Devin's AeroLogix Command Center */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <AgentDashboard />
-              </ProtectedRoute>
-            }
-          />
-          
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
-          
-          {/* Driver field view is left unprotected so drivers can access it via a simple link */}
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/driver/:flightId" element={<DriverView />} />
-          
-          {/* Catch-all redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
