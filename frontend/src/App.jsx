@@ -75,7 +75,7 @@ function App() {
           
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/driver/:flightId" element={<DriverView />} />
+          <Route path="/driver/session/:token" element={<DriverView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
