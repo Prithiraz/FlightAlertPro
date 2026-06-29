@@ -1,143 +1,25 @@
-// Default to the same host but on port 8000 (Codespaces-friendly fallback)
-const _defaultBase = (() => {
-  const url = new URL(window.location.href);
-  url.port = '8000';
-  return url.origin;
-})();
+/**
+ * AeroLogix B2B Internal API Client
+ * Uses Vite reverse-proxy to bypass Codespace CORS restrictions.
+ */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || _defaultBase;
-
-export async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
-
-async function request(method, path, body) {
-  const options = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  };
-  if (body !== undefined) {
-    options.body = JSON.stringify(body);
-  }
-  const res = await fetch(`${API_BASE_URL}${path}`, options);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Request failed: ${res.status}`);
-  }
-  return res.json();
-}
-
-export function searchFlights(params) {
-  // If already segments-based, POST as-is; otherwise convert flat params to segments contract
-  if (params.segments) {
-    return request('POST', '/api/search', params);
-  }
-  const segmentsBody = {
-    segments: [{
-      from_iata: params.from_iata,
-      to_iata: params.to_iata,
-      departure_date: params.departure_date,
-    }],
-    passengers: { adults: params.passengers || 1 },
-    cabin_class: params.cabin_class || 'economy',
-    currency: params.currency || 'USD',
-  };
-  if (params.return_date) {
-    segmentsBody.segments.push({
-      from_iata: params.to_iata,
-      to_iata: params.from_iata,
-      departure_date: params.return_date,
+export const getLiveTelemetry = async () => {
+  try {
+    // Notice we just use '/api' now. The proxy handles the routing securely.
+    const response = await fetch('/api/telemetry/live', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      }
     });
+    
+    if (!response.ok) {
+      throw new Error(`Engine uplink failed: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Telemetry Fetch Error:", error);
+    throw error;
   }
-  return request('POST', '/api/search', segmentsBody);
-}
-
-export function createAlert(params) {
-  // Always map legacy channels -> notification_channels when channels is provided
-  const payload = { ...params };
-  if (payload.channels !== undefined) {
-    payload.notification_channels = payload.channels;
-    delete payload.channels;
-  }
-  return request('POST', '/api/alerts/create', payload);
-}
-
-export function listAlerts(userEmail) {
-  return request('GET', `/api/alerts/list?user_email=${encodeURIComponent(userEmail)}`);
-}
-
-export function deleteAlert(alertId, userEmail) {
-  return request('DELETE', `/api/alerts/${alertId}?user_email=${encodeURIComponent(userEmail)}`);
-}
-
-export async function searchAirports(q) {
-  if (!q || q.length < 2) return [];
-  return apiFetch(`/api/airports/search?q=${encodeURIComponent(q)}`);
-}
-
-export async function searchAirlines(q) {
-  if (!q || q.length < 2) return [];
-  return apiFetch(`/api/airlines/search?q=${encodeURIComponent(q)}`);
-}
-
-export function getPriceHistory(routeGroup) {
-  return request('GET', `/api/history/${encodeURIComponent(routeGroup)}`);
-}
-
-export function getPreferences(userEmail) {
-  return request('GET', `/api/users/me/preferences?user_email=${encodeURIComponent(userEmail)}`);
-}
-
-export function updatePreferences(userEmail, userId, prefs) {
-  const payload = { ...prefs, user_id: userId, user_email: userEmail };
-  return request('PUT', '/api/users/me/preferences', payload);
-}
-
-export function exploreFlights(origin) {
-  return request('GET', `/api/flights/explore?origin=${encodeURIComponent(origin)}`);
-}
-
-export function getLiveFlightPrice(from_iata, to_iata, departure_date) {
-  const params = new URLSearchParams({
-    from_iata,
-    to_iata,
-    departure_date,
-  });
-  return request('GET', `/api/flights/live-price?${params.toString()}`);
-}
-
-export function getLiveTelemetry() {
-  return request('GET', '/api/telemetry/live');
-}
-
-export function registerUser(email, referredBy) {
-  const body = { email };
-  if (referredBy) body.referred_by = referredBy;
-  return request('POST', '/api/users/register', body);
-}
-
-export function getTripHub(alertId, userEmail) {
-  return request('GET', `/api/trips/${encodeURIComponent(alertId)}/hub?user_email=${encodeURIComponent(userEmail)}`);
-}
-
-export function getDriverTrip(flightId) {
-  return request('GET', `/api/operational/driver/${encodeURIComponent(flightId)}`);
-}
-
-export function logDriverEvent(flightId, eventType) {
-  return request('POST', `/api/operational/driver/${encodeURIComponent(flightId)}/event`, {
-    event_type: eventType,
-    event_timestamp: new Date().toISOString(),
-  });
-}
+};
