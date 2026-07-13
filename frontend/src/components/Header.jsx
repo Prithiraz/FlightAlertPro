@@ -1,50 +1,40 @@
-import { NavLink, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import { useAuth } from '../App';
+import { supabase } from '../lib/supabase';
+import { Link, useLocation } from 'react-router-dom';
 
 export default function Header() {
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/');
   };
 
-  const navLinkStyle = ({ isActive }) => ({
-    color: isActive ? '#5eeaff' : '#9bb6d6',
+  const navLinkStyle = (path) => ({
+    color: location.pathname === path ? '#2fcaff' : '#82a4cb',
     textDecoration: 'none',
-    fontWeight: isActive ? '700' : '500',
-    transition: 'color 0.2s',
+    fontWeight: location.pathname === path ? 'bold' : 'normal',
+    fontSize: '0.9rem',
+    marginRight: '1.5rem'
   });
 
   return (
-    <header style={{ 
-      background: '#0a1122', 
-      padding: '1rem 2rem', 
-      borderBottom: '1px solid #1f3958', 
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center',
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-    }}>
-      <div style={{ color: '#5eeaff', fontSize: '1.4rem', fontWeight: '800', letterSpacing: '1px' }}>
-        AeroLogix <span style={{ color: '#7ea5d6', fontSize: '1rem', fontWeight: '500' }}>Dispatch</span>
+    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 2rem', background: '#0a1122', borderBottom: '1px solid #1f3958', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+        <h1 style={{ color: '#5eeaff', fontSize: '1.2rem', margin: 0 }}>AeroLogix <span style={{ color: '#7ea5d6', fontWeight: 'normal' }}>Dispatch</span></h1>
+        <nav>
+          <Link to="/" style={navLinkStyle('/')}>Command Center</Link>
+          <Link to="/analytics" style={navLinkStyle('/analytics')}>Analytics & ROI</Link>
+          <Link to="/settings" style={navLinkStyle('/settings')}>Settings</Link>
+        </nav>
       </div>
       
-      <nav style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-        <NavLink to="/dashboard" style={navLinkStyle}>Command Center</NavLink>
-        <NavLink to="/settings" style={navLinkStyle}>Settings</NavLink>
-        
-        {user?.email && <span style={{ color: '#82a4cb', fontSize: '0.875rem' }}>{user.email}</span>}
-        
-        <button 
-          onClick={handleLogout} 
-          style={{ background: 'rgba(47, 202, 255, 0.1)', border: '1px solid #2fcaff', color: '#2fcaff', padding: '0.4rem 1rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-        >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        {user?.email && <span style={{ color: '#82a4cb', fontSize: '0.85rem' }}>{user.email}</span>}
+        <button onClick={handleLogout} style={{ background: 'rgba(47, 202, 255, 0.1)', border: '1px solid #2fcaff', color: '#2fcaff', padding: '0.4rem 1rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
           Logout
         </button>
-      </nav>
+      </div>
     </header>
   );
 }

@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Auth from './pages/Auth';
 import ResetPassword from './pages/ResetPassword';
 import Settings from './pages/Settings';
+import Analytics from './pages/Analytics';
 import Dashboard from './pages/Dashboard'; // Pointing to your REAL telemetry dashboard
 import DriverView from './pages/DriverView';
 
@@ -75,6 +76,7 @@ function App() {
           
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
           <Route path="/driver/session/:token" element={<DriverView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
